@@ -1,0 +1,25 @@
+flowchart TD
+  Samples["samples/\nXML, PDF, images, parts data"] --> Ingestion["Ingestion service\nXML/PDF/image parsing\nICN metadata extraction"]
+  Ingestion --> Canonical["Canonical publication model\nDM, PM, parts, tasks,\nwarnings, refs, versions"]
+
+  Canonical --> Validation["Validation pipeline\nBREX/SNS checks\nreference checks\napplicability checks"]
+  Canonical --> Indexing["Indexing pipeline\ngraph-context chunks\nsparse+dense+ColBERT indexes"]
+
+  Validation --> DependencyGraph["Dependency graph\nmodule refs, media refs,\npart refs, version diffs"]
+  Validation --> Findings["Validation findings\nrule id, severity,\nsource path, fix hint"]
+
+  DependencyGraph --> RDF["RDF/OWL knowledge graph\nnamed graphs, SPARQL,\ntemporal versions"]
+  Indexing --> Search["Search infrastructure\nBM25/SPLADE\nQdrant HNSW\nFAISS IVF/PQ lab\nColBERT store"]
+
+  RDF --> Orchestrator["Adaptive RAG orchestrator\nHyDE, fusion, rerank,\ncontext budget, citations"]
+  Search --> Orchestrator
+  Findings --> Orchestrator
+
+  Orchestrator --> Agents["Multi-agent reasoning\nReAct, ToT, GoT, MCTS\nstandards agent, graph agent,\ncritic, judge"]
+  Agents --> Inference["Inference service\nvLLM/TGI adapter\nstreaming, prefix cache,\nspeculative decoding lab"]
+  Inference --> API["FastAPI + UI\nanswers, traces,\naudit records, reports"]
+
+  API --> Evaluation["Evaluation dashboard\nRecall@k, MRR, nDCG,\ngroundedness, compliance"]
+  Evaluation -.feedback.-> Indexing
+  Evaluation -.feedback.-> Agents
+  Evaluation -.feedback.-> Inference

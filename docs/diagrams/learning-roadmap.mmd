@@ -1,0 +1,16 @@
+flowchart TD
+  P0["P0 基础工程\nrepo skeleton, CLI,\nfixtures, tests"] --> P1["P1 标准建模\nS1000D-like XML\nDMC/ICN/PM/BREX/SNS"]
+  P1 --> P2["P2 数据管线\ncanonical JSON\nvalidation findings\nRDF triples"]
+  P2 --> P3["P3 基础检索\nBM25 baseline\nretrieval eval"]
+  P3 --> P4["P4 向量检索\ndense embeddings\nQdrant HNSW\nFAISS baseline"]
+  P4 --> P5["P5 高级RAG\nSPLADE, ColBERT,\nRRF, rerank, HyDE,\nadaptive context"]
+  P2 --> P6["P6 知识图谱\nOWL/RDF ontology\nSPARQL\nversioned named graphs"]
+  P5 --> P7["P7 多智能体\nReAct tools\nToT/GoT/MCTS labs\ncritic + judge"]
+  P6 --> P7
+  P7 --> P8["P8 推理与运维\nvLLM/TGI serving\nstreaming, cache,\nload test, traces"]
+  P8 --> P9["P9 作品集收尾\nbenchmark tables\narchitecture diagrams\nJD coverage matrix"]
+
+  P3 -.quality gate.-> G1["Gate: Recall@k baseline stable"]
+  P5 -.quality gate.-> G2["Gate: hybrid beats baseline"]
+  P7 -.quality gate.-> G3["Gate: critic catches unsupported claims"]
+  P8 -.quality gate.-> G4["Gate: latency and audit trace recorded"]

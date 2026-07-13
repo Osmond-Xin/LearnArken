@@ -1,0 +1,70 @@
+flowchart LR
+  subgraph D0["业务与标准域"]
+    S1000D["S1000D\nDMC, PM, ICN, BREX, SNS"]
+    Adjacent["ATA iSpec 2200\nASD S2000M\nMIL-STD-40051\nDITA"]
+    Compliance["ISO/AS9100\n21 CFR Part 11\nGDPR/HIPAA\nITAR/EAR"]
+  end
+
+  subgraph D1["数据工程域"]
+    Parse["XML/PDF/image parsing\nnamespaces, XPath, XSD"]
+    Model["Canonical model\nPydantic schemas\nversioned packages"]
+    Validate["Rule engine\nvalidation findings\ndependency graph"]
+  end
+
+  subgraph D2["数据库与索引域"]
+    Pg["PostgreSQL\nmetadata, versions,\naudit log"]
+    Obj["Object storage\nsource files,\ncontent hashes"]
+    KG["RDF/OWL store\nSPARQL, named graphs"]
+    Lexical["Lexical index\nBM25, SPLADE"]
+    Vector["Vector DB\nQdrant HNSW"]
+    Faiss["FAISS lab\nFlat, HNSW, IVF, PQ, GPU"]
+  end
+
+  subgraph D3["检索与RAG算法域"]
+    Chunk["Graph-context chunking"]
+    Dense["Dense embeddings\nE5/BGE/SBERT"]
+    ColBERT["ColBERT\nlate interaction"]
+    Fusion["RRF fusion\nhybrid retrieval"]
+    Rerank["Cross-encoder rerank\nmonoT5-style rerank"]
+    HyDE["HyDE\nquery expansion"]
+    Context["Adaptive context\ncitation assembly"]
+  end
+
+  subgraph D4["底层模型与推理域"]
+    HF["HuggingFace\nTransformers, tokenizers"]
+    Torch["PyTorch\nbatching, inference,\noptional DDP/FSDP notes"]
+    VLLM["vLLM/TGI\nPagedAttention,\ncontinuous batching"]
+    TRT["TensorRT-LLM\noptional NVIDIA lab"]
+    ONNX["ONNX\nsmall model export"]
+  end
+
+  subgraph D5["多智能体与推理搜索域"]
+    ReAct["ReAct\ntool use + reasoning"]
+    ToT["ToT\nbranching plans"]
+    GoT["GoT\ndependency reasoning graph"]
+    MCTS["MCTS/LATS\nsearch over actions"]
+    Critic["Adversarial critic\njudge, evidence gap checks"]
+  end
+
+  subgraph D6["工程选型与运维域"]
+    API["FastAPI\nasync API, streaming"]
+    Frameworks["LangGraph\nLlamaIndex/Haystack\nDSPy"]
+    Obs["OpenTelemetry\nstructured logs\nanswer traces"]
+    Deploy["Docker/K8s sketch\nblue-green deploy\nload test"]
+    Rust["Optional Rust/PyO3\nlatency hot path"]
+    Formal["Optional Lean/Rocq\nsmall invariant proof"]
+  end
+
+  D0 --> D1
+  D1 --> D2
+  D2 --> D3
+  D4 --> D3
+  D3 --> D5
+  D2 --> D5
+  D1 --> D5
+  D4 --> D5
+  D5 --> D6
+  D3 --> D6
+  D6 -.observes.-> D1
+  D6 -.observes.-> D3
+  D6 -.observes.-> D5

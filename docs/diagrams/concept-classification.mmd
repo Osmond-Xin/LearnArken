@@ -1,0 +1,20 @@
+flowchart TB
+  Root["LearnArken 技术概念"]
+
+  Root --> Standards["领域标准\n学会读懂和建模规则"]
+  Standards --> StandardsItems["S1000D, DMC, BREX, SNS,\nICN, PM assembly,\nATA/iSpec, S2000M, MIL, DITA"]
+
+  Root --> DataStores["数据库与索引\n系统依赖的持久化能力"]
+  DataStores --> StoreItems["PostgreSQL: metadata/audit\nObject store: raw artifacts\nRDF store: triples/SPARQL\nOpenSearch/Tantivy: BM25\nQdrant: HNSW vectors\nFAISS: IVF/PQ/GPU experiments"]
+
+  Root --> LLMCore["底层模型能力\n模型调用、表示和推理加速"]
+  LLMCore --> LLMItems["HuggingFace, embeddings,\nrerankers, ColBERT,\nvLLM/TGI, PagedAttention,\nONNX, TensorRT-LLM"]
+
+  Root --> Tuning["需要调优的操作\n用评估指标驱动参数选择"]
+  Tuning --> TuningItems["chunk size/overlap\nBM25 analyzer/field boost\nHNSW M/efSearch\nIVF nlist/nprobe, PQ bytes\nRRF k, rerank topN\nHyDE prompt/context budget\nvLLM batching/cache settings"]
+
+  Root --> FrameworkChoice["开发过程中的选型\n框架只服务于可验证目标"]
+  FrameworkChoice --> FrameworkItems["FastAPI: API\nPydantic: schemas\nLangGraph: agents\nLlamaIndex/Haystack: RAG comparison\nDSPy: prompt/retrieval optimization\nRust/PyO3: optional hot path"]
+
+  Root --> Evaluation["评估与证明\n决定能不能写进简历"]
+  Evaluation --> EvalItems["Recall@k, MRR, nDCG\ncitation coverage\ngroundedness\ncompliance precision/recall\nlatency/throughput\naudit traces"]

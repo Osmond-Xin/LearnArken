@@ -1,0 +1,30 @@
+# --- personal job-search documents: never commit ---
+docs/job-search-review-2026-07.md
+docs/resume-fixes-2026-07.md
+docs/github-plan.md
+
+# --- kibook/s1kd-tools-doc samples: repo has NO license => keep local only, do not redistribute ---
+samples/s1000d/DMC-S1KDTOOLS-*.xml
+samples/s1000d/PMC-S1KDTOOLS-*.xml
+samples/s1000d/DML-S1KDTOOLS-*.xml
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# --- secrets & local config ---
+.env
+.env.*
+!.env.example
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
