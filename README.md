@@ -73,7 +73,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 
 | Day | Node | Tag | Status |
 | --- | --- | --- | --- |
-| 1 | Skeleton, sample packages, project constitution | `v0.1.0` | 🔨 In progress (2026-07-12) |
+| 1 | Skeleton, sample packages, project constitution | `v0.1.0` | ✅ 2026-07-13 |
 | 2 | Canonical model & validators | `v0.2.0` | ⬜ |
 | 3 | BM25 baseline & retrieval evaluation | `v0.3.0` | ⬜ |
 | 4 | Hybrid retrieval & ablation table ⚑ heavy red team | `v0.4.0` | ⬜ |
@@ -91,7 +91,8 @@ this README (invariant INV-5).
 
 ## Roadmap (Honest Layering)
 
-- **Implemented**: (updated as nodes complete)
+- **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML
+  parsing); synthetic sample packages a/b with enumerated violation manifest
 - **Toy-scale**: synthetic sample-package size; single-machine simulation of
   distributed behavior
 - **Planned**: SPLADE, ColBERT, RDF/SPARQL knowledge graph, local vLLM serving,
@@ -118,5 +119,8 @@ benchmark reports — are in English.
 
 ## Quickstart
 
-> After Day 1 ships, this section will be at most 3 commands. Project
-> initialization in progress.
+```bash
+uv sync                                        # Python 3.12 + deps (needs uv)
+make test                                      # ruff + pytest (15 tests)
+uv run learnarken inspect samples/package-a    # summarize a sample package
+```
