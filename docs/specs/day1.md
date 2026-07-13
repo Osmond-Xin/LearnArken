@@ -49,12 +49,12 @@ Decisions made today:
 6. Constitution rules in force today: INV-1 (synthetic samples only), INV-3
    (enumerated violations), INV-7 (honest layering), INV-8 (slippage rule).
 
-The 3 tutorial concepts to verify during implementation: *(to be filled by
-Yi Xin after the tutorial-reading step)*
+The 3 tutorial concepts to verify during implementation *(from Yi Xin's
+tutorial notes in docs/tutorials/learn-record.md, transcribed verbatim)*:
 
-1. TBD
-2. TBD
-3. TBD
+1. 多线程、GIL、multiprocess
+2. 从文档抽取出来的中间模型如何评估设计好坏
+3. 是否能够从结构上解决多线程的问题;是否多线程是必要的
 
 ## Interfaces — [AI-DRAFTED, pending review]
 
