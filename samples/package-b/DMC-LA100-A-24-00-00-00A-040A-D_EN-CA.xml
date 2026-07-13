@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     ✓ CLEAN: this module carries NO injected violation. It exists to prove the
+     validator does not over-flag compliant content in an invalid package. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="0" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="04" day="28"/>
+        <dmTitle>
+          <techName>Electrical power system</techName>
+          <infoName>Description</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="tabtop"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- learnarkenExtension is NOT part of S1000D. Project extension carrying
+           the expired-document scenario (docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-05-15</effectiveDate>
+        <expiryDate>2028-05-15</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <description>
+      <levelledPara>
+        <title>System overview</title>
+        <para>The LA100 electrical power system is a 28 V DC two-generator system with
+        a single main battery and an external power receptacle. Distribution is
+        through left and right main buses with an emergency bus tie.</para>
+      </levelledPara>
+    </description>
+  </content>
+</dmodule>

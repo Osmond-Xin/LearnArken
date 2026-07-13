@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     Fictional aircraft "LA100". Not real technical data — do not use for maintenance. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="32"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="04" day="18"/>
+        <dmTitle>
+          <techName>Main landing gear</techName>
+          <infoName>Fault isolation — gear does not retract</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="tabtop"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- Non-standard project extension (see docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-05-01</effectiveDate>
+        <expiryDate>2028-05-01</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <faultIsolation>
+      <faultDescription>
+        <para>After takeoff, landing gear does not retract when the gear lever is
+        selected UP. Gear position indicators stay green.</para>
+      </faultDescription>
+      <isolationProcedure>
+        <isolationStep>
+          <para>Check that the ground safety pins were removed before flight
+          (post-flight finding). If installed, remove and test on jacks.</para>
+        </isolationStep>
+        <isolationStep>
+          <para>Check hydraulic system pressure. If below 2400 psi, do the hydraulic
+          low-pressure fault isolation first. Refer to
+          <dmRef><dmRefIdent>
+            <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent></dmRef>.</para>
+        </isolationStep>
+        <isolationStep>
+          <para>Inspect the retraction actuator and weight-on-wheels switch. Refer to
+          <dmRef><dmRefIdent>
+            <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="32"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="310" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent></dmRef>.</para>
+        </isolationStep>
+      </isolationProcedure>
+    </faultIsolation>
+  </content>
+</dmodule>

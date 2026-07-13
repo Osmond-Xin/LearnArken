@@ -62,6 +62,13 @@ not an enterprise S1000D suite. Every simplification must be honestly labeled
   project this is controlled by a business/engineering second-confirmation
   loop on document scope, standard coverage, and volume — deliberately
   dropped in this demo.
+- **Non-malicious input assumption**: input documents are assumed to be
+  erroneous at worst (misplaced, malformed, outdated) — **not deliberately
+  poisoned by an adversary**. Dedicated anti-poisoning validation is out of
+  scope (insufficient experience to enumerate the defenses today); the code
+  keeps an explicit placeholder marking where such checks would live. Parser
+  hardening against accidental/format-level hazards (entity expansion, etc.)
+  IS in scope. (Decided during Day 1 red-team adjudication, 2026-07-13.)
 - **No production engineering targets**: the on-site scenario is assumed
   without concurrency modeling, a defined retrieval-latency SLO, a target
   hardware profile (e.g. 2-core/4 GB vs 4-core/8 GB), a budget scenario, or

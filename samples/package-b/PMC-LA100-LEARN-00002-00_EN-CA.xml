@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like publication module authored for LearnArken (INV-1).
+     References only the structurally normal modules; each injected violation
+     lives in exactly one place (see README.md manifest). -->
+<pm>
+  <identAndStatusSection>
+    <pmAddress>
+      <pmIdent>
+        <pmCode modelIdentCode="LA100" pmIssuer="LEARN" pmNumber="00002" pmVolume="00"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </pmIdent>
+      <pmAddressItems>
+        <issueDate year="2026" month="05" day="25"/>
+        <pmTitle>LA100 Maintenance Manual — Invalid Sample Slice</pmTitle>
+      </pmAddressItems>
+    </pmAddress>
+    <pmStatus issueType="new">
+      <security securityClassification="01"/>
+    </pmStatus>
+  </identAndStatusSection>
+  <content>
+    <pmEntry>
+      <pmEntryTitle>Hydraulic power system (29)</pmEntryTitle>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+      </dmRefIdent></dmRef>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                subSystemCode="3" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+      </dmRefIdent></dmRef>
+    </pmEntry>
+    <pmEntry>
+      <pmEntryTitle>Electrical power system (24)</pmEntryTitle>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="0" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+      </dmRefIdent></dmRef>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+      </dmRefIdent></dmRef>
+    </pmEntry>
+    <pmEntry>
+      <pmEntryTitle>Landing gear system (32)</pmEntryTitle>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="32"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="941" infoCodeVariant="A" itemLocationCode="D"/>
+      </dmRefIdent></dmRef>
+    </pmEntry>
+  </content>
+</pm>

@@ -100,3 +100,21 @@
   3. *Ship-maintenance documents* — a legally coded out-of-domain DM matched
      no existing violation class. **Ruling: add VIO-6**; VIO-1–5 confirmed
      unchanged, list status moved from DRAFT to CONFIRMED.
+
+## D7. Threat model surfaced by the Day 1 red-team review
+
+- **Context**: the Codex red team flagged the unhardened XML parser (finding
+  #3). Adjudicating it, Yi Xin noticed something larger: the entire project
+  implicitly assumes inputs are **non-malicious** — errors are misplaced,
+  malformed, or outdated documents, never deliberate poisoning.
+- **Options**: (a) build anti-poisoning validation now; (b) ignore the topic;
+  (c) state the assumption explicitly, harden only against accidental/format
+  hazards (defusedxml), and leave a placeholder method marking where
+  poisoning defenses would live.
+- **Decision**: (c) — by Yi Xin, during adjudication.
+- **Rationale**: a learning system reasonably assumes non-adversarial input,
+  and we currently lack the experience to enumerate poisoning defenses; but
+  the assumption must be *written down* (constitution §2), not implicit —
+  and the placeholder proves the direction was considered rather than missed.
+  This is the first design-level insight produced by the red-team mechanism
+  itself.

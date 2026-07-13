@@ -22,7 +22,8 @@ both. The source material is the company's training manuals, delivered as
 S1000D-style data packages, in which superseded document versions accumulate
 and must be filtered out.
 
-The system provides:
+The planned system (built incrementally over the 10 days below — see the
+Progress table for what exists today) will provide:
 
 1. **Fail-closed ingestion gate** — every document is validated against S1000D
    structure and basic BREX (Schematron) rules before entering the knowledge

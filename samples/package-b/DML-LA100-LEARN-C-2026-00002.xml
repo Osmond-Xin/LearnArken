@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module list authored for LearnArken (INV-1).
+     ⚠ VIO-5 carrier: the DC generation DM (24-10) is registered here at
+     issueNumber="001", while the DM itself claims issueNumber="003". -->
+<dml>
+  <identAndStatusSection>
+    <dmlAddress>
+      <dmlIdent>
+        <dmlCode modelIdentCode="LA100" senderIdent="LEARN" dmlType="c"
+                 yearOfDataIssue="2026" seqNumber="00002"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmlIdent>
+      <dmlAddressItems>
+        <issueDate year="2026" month="05" day="25"/>
+      </dmlAddressItems>
+    </dmlAddress>
+  </identAndStatusSection>
+  <dmlContent>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="32"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="941" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                subSystemCode="3" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="2X"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="SS200" systemDiffCode="A" systemCode="58"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="0" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+  </dmlContent>
+</dml>

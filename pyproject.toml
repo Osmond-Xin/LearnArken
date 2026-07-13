@@ -1,0 +1,40 @@
+[project]
+name = "learnarken"
+version = "0.1.0"
+description = "Standards-aware technical-publication intelligence platform for aviation (S1000D), built AI-first"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Yi Xin" }]
+dependencies = [
+    "defusedxml>=0.7",
+]
+
+[project.scripts]
+learnarken = "learnarken.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "pre-commit>=3.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/learnarken"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

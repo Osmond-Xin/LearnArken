@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     ⚠ VIO-3 INJECTED: step 2 discharges a pressurized nitrogen accumulator —
+     a hazardous action — but no warning/caution precedes it (BREX violation). -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                subSystemCode="3" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="03" day="22"/>
+        <dmTitle>
+          <techName>Hydraulic accumulator</techName>
+          <infoName>Remove procedures</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="onobject"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- learnarkenExtension is NOT part of S1000D. Project extension carrying
+           the expired-document scenario (docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-04-01</effectiveDate>
+        <expiryDate>2028-04-01</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <procedure>
+      <preliminaryRqmts>
+        <reqCondGroup>
+          <reqCond>Aircraft electrical power is OFF.</reqCond>
+        </reqCondGroup>
+        <reqSupportEquips>
+          <supportEquipDescr>Nitrogen service cart</supportEquipDescr>
+        </reqSupportEquips>
+        <reqSafety>
+          <safetyRqmts>
+            <noSafety/>
+          </safetyRqmts>
+        </reqSafety>
+      </preliminaryRqmts>
+      <mainProcedure>
+        <proceduralStep>
+          <para>Get access to the accumulator through the aft equipment bay door.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Open the accumulator charging valve and discharge the nitrogen
+          precharge completely.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Disconnect the hydraulic line and remove the accumulator from its
+          mounting bracket.</para>
+        </proceduralStep>
+      </mainProcedure>
+      <closeRqmts>
+        <reqCondGroup>
+          <reqCond>Open hydraulic ports are capped.</reqCond>
+        </reqCondGroup>
+      </closeRqmts>
+    </procedure>
+  </content>
+</dmodule>

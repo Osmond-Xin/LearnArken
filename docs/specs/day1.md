@@ -3,7 +3,10 @@
 > **Authorship note (INV-6)**: the decision layer below was authored by
 > Yi Xin in the 2026-07-12 working session (dictated in Chinese); AI
 > transcribed and translated it with content unchanged. The Interfaces
-> section is AI-drafted. **Status: pending Yi Xin's final approval.**
+> section is AI-drafted.
+> **Status: APPROVED by Yi Xin** — verbally in the working session ("开工吧",
+> including the 8+7 sample sizing), recorded here 2026-07-13 after red-team
+> finding #1 flagged the missing record (docs/reviews/day1.md).
 > Discussion record: [docs/discussions/day1.md](../discussions/day1.md).
 
 ## Goal (one sentence) — [HUMAN]

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     ⚠ VIO-2 INJECTED: the graphic below references ICN-LA100-32-999-01,
+     which does not exist anywhere in this package (no icn/ directory). -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="32"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="941" infoCodeVariant="A" itemLocationCode="D"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="04" day="08"/>
+        <dmTitle>
+          <techName>Main landing gear shock strut</techName>
+          <infoName>Illustrated parts data</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="tabtop"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- learnarkenExtension is NOT part of S1000D. Project extension carrying
+           the expired-document scenario (docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-05-01</effectiveDate>
+        <expiryDate>2028-05-01</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <illustratedPartsCatalog>
+      <figure>
+        <title>Shock strut assembly</title>
+        <graphic infoEntityIdent="ICN-LA100-32-999-01"/>
+      </figure>
+      <catalogSeqNumber catalogSeqNumberValue="32-10-00-01">
+        <itemSeqNumber itemSeqNumberValue="010">
+          <quantityPerNextHigherAssy>1</quantityPerNextHigherAssy>
+          <partRef manufacturerCodeValue="LRN01" partNumberValue="LA-32-1200-3"/>
+          <partSegment>
+            <itemIdentData>
+              <descrForPart>STRUT, SHOCK, MAIN GEAR</descrForPart>
+            </itemIdentData>
+          </partSegment>
+        </itemSeqNumber>
+      </catalogSeqNumber>
+    </illustratedPartsCatalog>
+  </content>
+</dmodule>

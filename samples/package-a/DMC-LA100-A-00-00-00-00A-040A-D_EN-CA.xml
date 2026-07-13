@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     Fictional aircraft "LA100". Not real technical data — do not use for maintenance. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="00"
+                subSystemCode="0" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="002" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="05" day="20"/>
+        <dmTitle>
+          <techName>LA100 aircraft</techName>
+          <infoName>Description</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="changed">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="tabtop"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- learnarkenExtension is NOT part of S1000D. Project extension carrying the
+           expired-document scenario (docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-06-01</effectiveDate>
+        <expiryDate>2028-06-01</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <description>
+      <levelledPara>
+        <title>General</title>
+        <para>The LA100 is a fictional twin-engine light utility aircraft used as the
+        training airframe for this sample library. Its maintenance documentation set
+        covers the hydraulic power system (SNS 29), the landing gear system (SNS 32),
+        and the electrical power system (SNS 24).</para>
+      </levelledPara>
+      <levelledPara>
+        <title>Documentation structure</title>
+        <para>Descriptive modules give system overviews. Procedural modules give removal,
+        installation, and inspection tasks. Fault isolation modules give troubleshooting
+        logic. Illustrated parts data modules give part numbers and figures.</para>
+      </levelledPara>
+    </description>
+  </content>
+</dmodule>

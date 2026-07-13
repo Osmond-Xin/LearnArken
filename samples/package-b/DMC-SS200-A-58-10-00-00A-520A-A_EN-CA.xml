@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     ⚠ VIO-6 INJECTED: this is a SHIP maintenance module (fictional vessel "SS200",
+     ballast system). Its coding is legal S1000D-like, but it does not belong in an
+     aircraft (LA100) technical library — out-of-domain content. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="SS200" systemDiffCode="A" systemCode="58"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="01" day="30"/>
+        <dmTitle>
+          <techName>Ballast transfer pump</techName>
+          <infoName>Remove procedures</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="onobject"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>SS200 class vessels, all hulls</simplePara></displayText>
+      </applic>
+      <!-- learnarkenExtension is NOT part of S1000D. Project extension carrying
+           the expired-document scenario (docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-02-15</effectiveDate>
+        <expiryDate>2028-02-15</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <procedure>
+      <preliminaryRqmts>
+        <reqCondGroup>
+          <reqCond>Ballast tank 3 is empty and the sea suction valve is closed and
+          tagged out.</reqCond>
+        </reqCondGroup>
+        <reqSupportEquips>
+          <supportEquipDescr>Chain hoist, 500 kg</supportEquipDescr>
+        </reqSupportEquips>
+        <reqSafety>
+          <safetyRqmts>
+            <warning>
+              <warningAndCautionPara>Confirm the tag-out of the sea suction valve
+              before you open the pump casing. Uncontrolled flooding hazard.</warningAndCautionPara>
+            </warning>
+          </safetyRqmts>
+        </reqSafety>
+      </preliminaryRqmts>
+      <mainProcedure>
+        <proceduralStep>
+          <para>Drain the pump casing into the bilge holding tank.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Disconnect the suction and discharge flanges and the motor coupling.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Rig the chain hoist and lift the pump out of the ballast pump room.</para>
+        </proceduralStep>
+      </mainProcedure>
+      <closeRqmts>
+        <reqCondGroup>
+          <reqCond>Open flanges are blanked.</reqCond>
+        </reqCondGroup>
+      </closeRqmts>
+    </procedure>
+  </content>
+</dmodule>

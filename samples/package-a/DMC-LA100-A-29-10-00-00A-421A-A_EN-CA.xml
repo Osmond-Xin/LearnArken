@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     Fictional aircraft "LA100". Not real technical data — do not use for maintenance. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="421" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="04" day="12"/>
+        <dmTitle>
+          <techName>Hydraulic power system</techName>
+          <infoName>Fault isolation — low system pressure</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="tabtop"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- Non-standard project extension (see docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-05-01</effectiveDate>
+        <expiryDate>2028-05-01</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <faultIsolation>
+      <faultDescription>
+        <para>Hydraulic system pressure indication below 2400 psi with engine at or
+        above 60% N2. Flap and gear operation slow or incomplete.</para>
+      </faultDescription>
+      <isolationProcedure>
+        <isolationStep>
+          <para>Check the reservoir fluid level. If below MIN, service the reservoir
+          and repeat the pressure check.</para>
+        </isolationStep>
+        <isolationStep>
+          <para>Check the pressure filter differential indicator. If extended, replace
+          the filter element and repeat the pressure check.</para>
+        </isolationStep>
+        <isolationStep>
+          <para>If pressure remains low, replace the engine-driven pump. Refer to
+          <dmRef><dmRefIdent>
+            <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent></dmRef>
+          and
+          <dmRef><dmRefIdent>
+            <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="29"
+                    subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                    disassyCode="00" disassyCodeVariant="A"
+                    infoCode="720" infoCodeVariant="A" itemLocationCode="A"/>
+          </dmRefIdent></dmRef>.</para>
+        </isolationStep>
+      </isolationProcedure>
+    </faultIsolation>
+  </content>
+</dmodule>

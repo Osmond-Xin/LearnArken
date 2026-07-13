@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     Fictional aircraft "LA100". Not real technical data — do not use for maintenance. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="32"
+                subSystemCode="1" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="310" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="04" day="02"/>
+        <dmTitle>
+          <techName>Main landing gear</techName>
+          <infoName>Inspection procedures</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="onobject"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, all serial numbers</simplePara></displayText>
+      </applic>
+      <!-- Non-standard project extension (see docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-05-01</effectiveDate>
+        <expiryDate>2028-05-01</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <procedure>
+      <preliminaryRqmts>
+        <reqCondGroup>
+          <reqCond>Aircraft is on jacks with the landing gear extended.</reqCond>
+          <reqCond>Landing gear ground safety pins are installed.</reqCond>
+        </reqCondGroup>
+        <reqSupportEquips>
+          <supportEquipDescr>Inspection lamp</supportEquipDescr>
+          <supportEquipDescr>10x magnifier</supportEquipDescr>
+        </reqSupportEquips>
+        <reqSafety>
+          <safetyRqmts>
+            <warning>
+              <warningAndCautionPara>Make sure the ground safety pins are installed
+              before you work near the landing gear. Unintended gear retraction can
+              cause death or serious injury.</warningAndCautionPara>
+            </warning>
+          </safetyRqmts>
+        </reqSafety>
+      </preliminaryRqmts>
+      <mainProcedure>
+        <proceduralStep>
+          <para>Examine the main gear shock strut for fluid leakage and correct
+          extension (visible chrome 55-65 mm).</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Examine the drag brace and side brace attachment bolts for security
+          and corrosion.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Examine the retraction actuator hydraulic lines for chafing and
+          leakage.</para>
+        </proceduralStep>
+      </mainProcedure>
+      <closeRqmts>
+        <reqCondGroup>
+          <reqCond>All findings recorded in the aircraft maintenance log.</reqCond>
+        </reqCondGroup>
+      </closeRqmts>
+    </procedure>
+  </content>
+</dmodule>
