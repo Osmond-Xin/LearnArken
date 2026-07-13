@@ -115,6 +115,7 @@ flowchart LR
 | 为什么多 agent？ | 立场分离/上下文隔离/可测试/成本路由+消融数据 | "延迟涨了多少？"（诚实报数+说明何时值得） |
 | ToT/MCTS 用在哪？ | 修复规划，确定性校验器当评估函数 | "为什么不全用 MCTS？"（成本，主路径 ReAct） |
 | 提示注入怎么防？ | 威胁建模+工具白名单最小权限+critic+测试集 | "prompt 里写'别听文档的'行吗？"（不行，权限设计＞prompt 防御） |
+| 什么是 adversarial validation？ | 先辨双义（ML=分布偏移检测；governed-AI=对抗角色攻击产出），再报项目三层实践：critic 攻答案 / Day 8 攻评估 / 红队攻代码，证据链在 repo（09 §4 术语卡） | "和普通 evaluation 差别？"（evaluation 是中立打分，adversarial 是有立场的攻击者+收敛条件：无新 P0/P1 才停） |
 
 ### 工程与合规
 
