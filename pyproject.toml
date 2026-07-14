@@ -1,6 +1,6 @@
 [project]
 name = "learnarken"
-version = "0.1.0"
+version = "0.2.0"
 description = "Standards-aware technical-publication intelligence platform for aviation (S1000D), built AI-first"
 readme = "README.md"
 requires-python = ">=3.12"

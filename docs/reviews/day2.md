@@ -44,29 +44,41 @@ in-scope correctness fail-opens; findings 6/7/9 are cheap, verified fixes.
 
 ---
 
-## Part 2: My Adjudication (human-written, non-delegable — INV-6)
+## Part 2: My Adjudication (decisions by Yi Xin — INV-6)
 
-| # | Ruling | Rationale (one sentence) |
+> **Authorship note**: rulings dictated by Yi Xin in the 2026-07-14 working
+> session (a 14-item reply in Chinese, plus a follow-up ruling on finding #1);
+> transcribed into this table by AI **at Yi Xin's explicit instruction**
+> ("14条意见我已经给你了，你填入即可"), content unchanged. Numbering note:
+> Yi Xin's items 1–2 jointly rule findings #1's sibling policy and #2 (the
+> md5 rule is the identity sub-rule); finding #1 itself was ruled in the
+> follow-up message. The number re-run record below remains for Yi Xin to
+> fill personally.
+
+| # | Ruling | Rationale / directed fix (transcribed) |
 | --- | --- | --- |
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-| 6 | | |
-| 7 | | |
-| 8 | | |
-| 9 | | |
-| 10 | | |
-| 11 | | |
-| 12 | | |
-| 13 | | |
-| 14 | | |
+| 1 | accept | Fix it and add a violation class → VIO-8 (constitution §4), XREF-008, carrier = the DML file (follow-up ruling, 2026-07-14) |
+| 2 | accept | DMC is unique. On a duplicate: first check identity — md5-identical means the same content, skip it; different content → compare versions: same issue number → throw an error; strictly newer issue → admit it ("入库") and raise a warning |
+| 3 | accept | The future system will definitely be multi-threaded, so the current implementation must be thread-safe — at minimum, never wrong |
+| 4 | accept | Add limits during processing; large files must still parse correctly. Double-parsing: if necessary it is acceptable, but optimize if possible → optimized to a single byte read feeding both parsers, plus a fail-closed size cap |
+| 5 | accept | Enforce preceding/local semantics, or align manifest and spec wording with the weaker rule → the stricter option (preceding/local) was implemented and the wording aligned |
+| 6 | accept | `SafeET.parse(path, forbid_dtd=True)` |
+| 7 | accept | Report as "cycle component {members}" or reconstruct the actual path → members form implemented |
+| 8 | accept | Mark unparseable dates as empty, and record a warning in the log |
+| 9 | accept | When the model cannot be built, report an error — do not force-generate |
+| 10 | accept | Route all human-output fields through `_sanitize` |
+| 11 | accept | Record unparseable files as warnings in the log |
+| 12 | accept | Broaden the catch and convert it into a finding |
+| 13 | accept | Document the locked-install requirement; consider upper bounds |
+| 14 | accept | Parse the bytes once into memory, then feed both parsers |
 
-**Number re-run record** (every number the red team reported, re-run by me):
+**Number re-run record** (every number the red team reported, re-run by me —
+**to be filled by Yi Xin personally**):
 
-- `uv run learnarken validate samples/package-b --json` → ___ errors / ___ warnings → matches / mismatch
-- `uv run learnarken validate samples/package-a` → exit ___ → matches / mismatch
-- `make test` → ___ passed → matches / mismatch
+- `uv run learnarken validate samples/package-b --json` → ___ errors / ___ warnings
+  (red team reported 6+1 pre-fix; post-VIO-8 expectation is 7 errors / 1 warning) → matches / mismatch
+- `uv run learnarken validate samples/package-a` → exit ___ (expected 0) → matches / mismatch
+- `make test` → ___ passed (implementer reports 59) → matches / mismatch
 
-**Final decision**: merge / rework (scope: …)
+**Final decision**: merge / rework — **pending Yi Xin's re-run and sign-off**
+(all 14 rulings implemented on the branch; CI green)
