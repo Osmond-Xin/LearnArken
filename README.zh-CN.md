@@ -55,7 +55,7 @@ AI agent)沿证据链核查。
 | Day | 节点 | Tag | 状态 |
 | --- | --- | --- | --- |
 | 1 | 骨架、样本包、项目宪法 | `v0.1.0` | ✅ 2026-07-13 |
-| 2 | 规范模型与校验器 | `v0.2.0` | ⬜ |
+| 2 | 规范模型与校验器 | `v0.2.0` | ✅ 2026-07-14 |
 | 3 | BM25 基线与检索评估 | `v0.3.0` | ⬜ |
 | 4 | 混合检索与消融表 ⚑重型红队 | `v0.4.0` | ⬜ |
 | 5 | 带引用的 RAG 问答 ⚑重型红队 | `v0.5.0` | ⬜ |
@@ -71,7 +71,9 @@ AI agent)沿证据链核查。
 ## Roadmap(诚实分层)
 
 - **Implemented**:`inspect` CLI(包摘要、JSON 输出、加固的 XML 解析);
-  合成样本包 a/b 及可枚举违规清单
+  合成样本包 a/b/c 及可枚举违规清单(VIO-1..8);规范 Pydantic 模型
+  (含结构化 applicability);四层校验器(语法 → 项目 mini-XSD → BREX →
+  跨文件引用图),`validate` 与单模块查询 `dm` 命令
 - **Toy-scale**:合成样本包规模、单机模拟分布式
 - **Planned**:SPLADE、ColBERT、RDF/SPARQL 知识图谱、vLLM 本地 serving、
   Rust 扩展、GNN、形式化验证(见 [docs/project-design.md](docs/project-design.md))

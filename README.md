@@ -74,7 +74,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | Day | Node | Tag | Status |
 | --- | --- | --- | --- |
 | 1 | Skeleton, sample packages, project constitution | `v0.1.0` | ✅ 2026-07-13 |
-| 2 | Canonical model & validators | `v0.2.0` | ⬜ |
+| 2 | Canonical model & validators | `v0.2.0` | ✅ 2026-07-14 |
 | 3 | BM25 baseline & retrieval evaluation | `v0.3.0` | ⬜ |
 | 4 | Hybrid retrieval & ablation table ⚑ heavy red team | `v0.4.0` | ⬜ |
 | 5 | RAG with citations ⚑ heavy red team | `v0.5.0` | ⬜ |
@@ -92,7 +92,10 @@ this README (invariant INV-5).
 ## Roadmap (Honest Layering)
 
 - **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML
-  parsing); synthetic sample packages a/b with enumerated violation manifest
+  parsing); synthetic sample packages a/b/c with enumerated violation manifest
+  (VIO-1..8); canonical Pydantic model with structured applicability;
+  four-layer validator (well-formedness → project mini-XSD → BREX rules →
+  cross-file reference graph) via `validate`; per-DMC query via `dm`
 - **Toy-scale**: synthetic sample-package size; single-machine simulation of
   distributed behavior
 - **Planned**: SPLADE, ColBERT, RDF/SPARQL knowledge graph, local vLLM serving,
