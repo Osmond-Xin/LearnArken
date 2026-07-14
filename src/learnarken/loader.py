@@ -88,7 +88,8 @@ def _iso_date(text: str | None) -> date | None:
 
 
 def _text(elem: etree._Element | None) -> str:
-    return "".join(elem.itertext()).strip() if elem is not None else ""
+    """Element text content with XML-indentation whitespace normalized."""
+    return " ".join("".join(elem.itertext()).split()) if elem is not None else ""
 
 
 def _dm_refs(scope: etree._Element) -> list[DmRef]:

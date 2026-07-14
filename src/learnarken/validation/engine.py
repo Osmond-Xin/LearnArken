@@ -42,6 +42,14 @@ def validate_package(
     package_dir: str | Path,
     accepted_models: tuple[str, ...] = DEFAULT_ACCEPTED_MODELS,
 ) -> ValidationReport:
+    return analyze_package(package_dir, accepted_models)[0]
+
+
+def analyze_package(
+    package_dir: str | Path,
+    accepted_models: tuple[str, ...] = DEFAULT_ACCEPTED_MODELS,
+) -> tuple[ValidationReport, PackageModel]:
+    """Validate and also return the loaded canonical model (used by `dm`)."""
     directory = Path(package_dir)
     if not directory.is_dir():
         raise NotAPackageError(f"not a directory: {directory}")
@@ -149,7 +157,7 @@ def validate_package(
 
     # --- L3: cross-file integrity (reference graph) -----------------------
     report.findings.extend(_crossfile_findings(package, dm_files, accepted_models))
-    return report
+    return report, package
 
 
 def _crossfile_findings(
