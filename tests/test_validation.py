@@ -56,6 +56,7 @@ class TestPackageBManifest:
         ("XREF-003", "DMC-LA100-A-24-10-00-00A-040A-D_EN-CA.xml"),  # VIO-5
         ("XREF-004", "DMC-SS200-A-58-10-00-00A-520A-A_EN-CA.xml"),  # VIO-6
         ("XREF-005", "DMC-LA100-A-24-30-00-00A-040A-D_EN-CA.xml"),  # VIO-7
+        ("XREF-008", "DML-LA100-LEARN-C-2026-00002.xml"),  # VIO-8
     }
 
     @pytest.fixture
@@ -67,7 +68,7 @@ class TestPackageBManifest:
         assert len(report.findings) == len(self.EXPECTED)  # no double-counting
 
     def test_severities(self, report):
-        assert report.error_count == 6
+        assert report.error_count == 7
         assert report.warning_count == 1  # VIO-7 cycle is warning severity (Q2)
 
     def test_clean_control_module_yields_nothing(self, report):
@@ -228,4 +229,5 @@ class TestCanonicalModel:
     def test_dml_entries_registered(self):
         _, package = analyze_package(SAMPLES / "package-b")
         (dml,) = package.dmls
-        assert len(dml.entries) == 9  # registers all nine DMs, incl. VIO-7 pair
+        # nine real DMs (incl. the VIO-7 pair) + the dangling VIO-8 entry
+        assert len(dml.entries) == 10

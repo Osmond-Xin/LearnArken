@@ -104,6 +104,7 @@ rows AI-drafted, decisions Yi Xin's):
 | MODEL-001 | L1 | error | canonical model cannot be built — report, never force-generate (#9/#12) | — (test fixture) |
 | XREF-006 | L3 | error | duplicate DMC with distinct content at the same issue (#2; byte-identical inputs are deduplicated by md5 first, #1) | — (test fixture) |
 | XREF-007 | L3 | warning | duplicate DMC where a strictly newer issue exists — newest indexed ("入库"), superseded copies warned (#2) | — (test fixture) |
+| XREF-008 | L3 | error | every DML registration resolves to a data module in the package (#1, ruled 2026-07-14: fix with a new VIO class) | VIO-8 (carrier: the DML file) |
 
 Constraints from the package-b manifest: findings must map **1:1** to
 VIO-1 – VIO-7 (each attached to its carrier DM; DML registry entries are not

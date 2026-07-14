@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic S1000D-like data module list authored for LearnArken (INV-1).
      ⚠ VIO-5 carrier: the DC generation DM (24-10) is registered here at
-     issueNumber="001", while the DM itself claims issueNumber="003". -->
+     issueNumber="001", while the DM itself claims issueNumber="003".
+     ⚠ VIO-8 carrier: the last dmlEntry registers DMC-LA100-A-49-00-... which
+     does not exist in this package (dangling registration). -->
 <dml>
   <identAndStatusSection>
     <dmlAddress>
@@ -93,6 +95,16 @@
       <dmRef><dmRefIdent>
         <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
                 subSystemCode="4" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <!-- VIO-8 INJECTED: no such data module exists in this package. -->
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="49"
+                subSystemCode="0" subSubSystemCode="0" assyCode="00"
                 disassyCode="00" disassyCodeVariant="A"
                 infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
         <issueInfo issueNumber="001" inWork="00"/>

@@ -164,4 +164,4 @@ def test_thread_safety_concurrent_validations():
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(counts, ["package-a", "package-b"] * 8))
-    assert results == [(0, 0), (6, 1)] * 8
+    assert results == [(0, 0), (7, 1)] * 8

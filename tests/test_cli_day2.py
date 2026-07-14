@@ -16,7 +16,7 @@ class TestValidateCli:
     def test_package_b_json_exit_1(self, capsys):
         assert main(["validate", str(SAMPLES / "package-b"), "--json"]) == 1
         payload = json.loads(capsys.readouterr().out)
-        assert payload["counts"] == {"error": 6, "warning": 1}
+        assert payload["counts"] == {"error": 7, "warning": 1}
         assert payload["brex_rules_evaluated"] == 5
         assert {f["rule_id"] for f in payload["findings"]} == {
             "BREX-001",
@@ -26,6 +26,7 @@ class TestValidateCli:
             "XREF-003",
             "XREF-004",
             "XREF-005",
+            "XREF-008",
         }
 
     def test_human_output_groups_by_layer(self, capsys):

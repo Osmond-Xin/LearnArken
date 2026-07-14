@@ -309,6 +309,24 @@ def _crossfile_findings(
                     )
                 )
 
+    # XREF-008 — every DML registration must resolve to a data module in the
+    # package (VIO-8; red-team adjudication 2026-07-14, finding #1). Attached
+    # to the DML file — the carrier of this defect.
+    for dml in package.dmls:
+        for entry in dml.entries:
+            if entry.dm_code.as_str() not in dm_index:
+                findings.append(
+                    finding(
+                        "XREF-008",
+                        Severity.ERROR,
+                        dml.file,
+                        f"DML registers {entry.dm_code.as_str()}, absent from "
+                        "the package — dangling registration",
+                        "remove the stale entry or add the missing data module",
+                        line=entry.line,
+                    )
+                )
+
     # XREF-003 — DM issueInfo must match its DML registration (attached to the
     # carrier DM, per the package-b manifest convention).
     for dml in package.dmls:
