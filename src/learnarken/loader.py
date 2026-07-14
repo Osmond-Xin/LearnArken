@@ -8,6 +8,8 @@ hardened (no entity resolution, no DTD, no network).
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from datetime import date
 from pathlib import Path
 
@@ -30,6 +32,13 @@ from learnarken.models import (
     PackageModel,
     PublicationModule,
 )
+
+logger = logging.getLogger("learnarken")
+
+# Fail-closed size cap (red-team adjudication 2026-07-14, finding #4): oversized
+# files are refused with a finding instead of exhausting memory. True streaming
+# validation is Roadmap material.
+MAX_FILE_BYTES = 50 * 1024 * 1024
 
 _LXML_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False)
 
@@ -55,10 +64,18 @@ _CONTENT_TYPES = {
 }
 
 
-def parse_file(path: Path) -> etree._ElementTree:
-    """L0 gate (defusedxml) + hardened lxml parse. Raises on malformed/unsafe XML."""
-    SafeET.parse(path)  # rejects DTD/entity tricks and malformed XML
-    return etree.parse(str(path), _LXML_PARSER)
+def parse_file(path: Path) -> tuple[etree._ElementTree, str]:
+    """L0 gate (defusedxml) + hardened lxml parse. Raises on malformed/unsafe XML.
+
+    Reads the bytes once and feeds both parsers from memory (closes the
+    gate/re-parse TOCTOU — adjudication #14). Any DTD is refused, not just
+    entity tricks (adjudication #6). Returns (tree, md5-of-bytes); the digest
+    drives duplicate-input detection (adjudication #1).
+    """
+    data = path.read_bytes()
+    SafeET.fromstring(data, forbid_dtd=True)
+    root = etree.fromstring(data, _LXML_PARSER)
+    return root.getroottree(), hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
 def _dm_code(elem: etree._Element) -> DmCode:
@@ -71,19 +88,28 @@ def _issue_info(elem: etree._Element | None) -> IssueInfo | None:
     return IssueInfo(issue_number=elem.get("issueNumber", "?"), in_work=elem.get("inWork", "?"))
 
 
-def _issue_date(elem: etree._Element | None) -> date | None:
+def _issue_date(elem: etree._Element | None, context: str = "") -> date | None:
     if elem is None:
         return None
     try:
         return date(int(elem.get("year")), int(elem.get("month")), int(elem.get("day")))
     except (TypeError, ValueError):
+        # Adjudication #8: unparseable dates stay None, but never silently.
+        logger.warning(
+            "%s: unparseable issueDate (year=%r month=%r day=%r) left empty",
+            context,
+            elem.get("year"),
+            elem.get("month"),
+            elem.get("day"),
+        )
         return None
 
 
-def _iso_date(text: str | None) -> date | None:
+def _iso_date(text: str | None, context: str = "") -> date | None:
     try:
         return date.fromisoformat(text.strip()) if text else None
     except ValueError:
+        logger.warning("%s: unparseable date %r left empty", context, text)
         return None
 
 
@@ -153,8 +179,8 @@ def load_data_module(path: Path, root: etree._Element) -> DataModule:
         ext_el = status.find("learnarkenExtension")
         if ext_el is not None:
             extension = ExtensionDates(
-                effective_date=_iso_date(ext_el.findtext("effectiveDate")),
-                expiry_date=_iso_date(ext_el.findtext("expiryDate")),
+                effective_date=_iso_date(ext_el.findtext("effectiveDate"), path.name),
+                expiry_date=_iso_date(ext_el.findtext("expiryDate"), path.name),
             )
 
     content_type = ContentType.UNKNOWN
@@ -181,7 +207,7 @@ def load_data_module(path: Path, root: etree._Element) -> DataModule:
         dm_code=_dm_code(code_el),
         language=language,
         issue_info=_issue_info(ident.find("issueInfo") if ident is not None else None),
-        issue_date=_issue_date(items.find("issueDate") if items is not None else None),
+        issue_date=_issue_date(items.find("issueDate") if items is not None else None, path.name),
         issue_type=issue_type,
         tech_name=_text(items.find("dmTitle/techName") if items is not None else None),
         info_name=_text(items.find("dmTitle/infoName") if items is not None else None),
@@ -211,7 +237,7 @@ def load_publication_module(path: Path, root: etree._Element) -> PublicationModu
         pm_volume=code.get("pmVolume", "") if code is not None else "",
         title=_text(items.find("pmTitle") if items is not None else None),
         issue_info=_issue_info(ident.find("issueInfo") if ident is not None else None),
-        issue_date=_issue_date(items.find("issueDate") if items is not None else None),
+        issue_date=_issue_date(items.find("issueDate") if items is not None else None, path.name),
         dm_refs=_dm_refs(content) if content is not None else [],
     )
 
@@ -237,7 +263,7 @@ def load_dml(path: Path, root: etree._Element) -> DataModuleList:
         year_of_data_issue=code.get("yearOfDataIssue", "") if code is not None else "",
         seq_number=code.get("seqNumber", "") if code is not None else "",
         issue_info=_issue_info(ident.find("issueInfo") if ident is not None else None),
-        issue_date=_issue_date(items.find("issueDate") if items is not None else None),
+        issue_date=_issue_date(items.find("issueDate") if items is not None else None, path.name),
         entries=entries,
     )
 
@@ -250,16 +276,19 @@ def icn_idents(package_dir: Path) -> list[str]:
 
 
 def load_package(package_dir: Path) -> PackageModel:
-    """Convenience loader for already-valid packages (skips broken files silently).
+    """Convenience loader for already-valid packages (skips broken files loudly).
 
     The validator does NOT use this: it orchestrates parsing itself so that
-    parse failures become L0 findings instead of being skipped.
+    parse failures become L0 findings instead of being skipped. Skips are
+    logged as warnings (adjudication #11) so downstream consumers (Day 3
+    chunker) cannot silently index an incomplete package.
     """
     package = PackageModel(path=str(package_dir), icn_idents=icn_idents(package_dir))
     for path in sorted(package_dir.glob("*.xml")):
         try:
-            root = parse_file(path).getroot()
-        except Exception:  # noqa: BLE001 — inspect-grade tolerance, see docstring
+            root = parse_file(path)[0].getroot()
+        except Exception as exc:  # noqa: BLE001 — inspect-grade tolerance, see docstring
+            logger.warning("load_package: skipping unparseable %s (%s)", path.name, exc)
             continue
         name = path.name.upper()
         if name.startswith("DMC-"):

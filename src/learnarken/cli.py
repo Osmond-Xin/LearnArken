@@ -15,7 +15,7 @@ from learnarken.validation.rules import BREX_RULES
 def _render_human(summary) -> str:
     counts = summary.counts
     lines = [
-        f"Package: {summary.path}",
+        f"Package: {_sanitize(summary.path)}",
         f"  Data modules (DM):        {counts['data_modules']}",
         f"  Publication modules (PM): {counts['publication_modules']}",
         f"  Data module lists (DML):  {counts['data_module_lists']}",
@@ -42,7 +42,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     try:
         summary = scan_package(args.package)
     except NotAPackageError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
         return 2
     if args.json:
         print(json.dumps(summary.to_dict(), indent=2, ensure_ascii=False))
@@ -56,7 +56,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
 
 def _render_validation_human(report: ValidationReport) -> str:
     lines = [
-        f"Package: {report.package}",
+        f"Package: {_sanitize(report.package)}",
         f"  Files checked: {report.files_checked}   "
         f"BREX rules evaluated: {report.brex_rules_evaluated}",
         f"  Findings: {report.error_count} error(s), {report.warning_count} warning(s)",
@@ -89,7 +89,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     try:
         report, _ = analyze_package(args.package, accepted_models=accepted)
     except NotAPackageError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
         return 2
     if args.json:
         print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False, default=str))
@@ -182,16 +182,19 @@ def _cmd_dm(args: argparse.Namespace) -> int:
     try:
         report, package = analyze_package(args.package)
     except NotAPackageError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
         return 2
     wanted = args.dmc.upper()
     if not wanted.startswith("DMC-"):
         wanted = "DMC-" + wanted
     dm = next((d for d in package.data_modules if d.dmc.upper() == wanted), None)
     if dm is None:
-        print(f"error: {_sanitize(wanted)} not found in {args.package}", file=sys.stderr)
         print(
-            "available: " + ", ".join(sorted(d.dmc for d in package.data_modules)),
+            f"error: {_sanitize(wanted)} not found in {_sanitize(args.package)}",
+            file=sys.stderr,
+        )
+        print(
+            "available: " + ", ".join(sorted(_sanitize(d.dmc) for d in package.data_modules)),
             file=sys.stderr,
         )
         return 2

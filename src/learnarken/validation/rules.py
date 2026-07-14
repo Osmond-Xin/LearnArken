@@ -68,17 +68,25 @@ def _check_hazard_warning(root: etree._Element, dm: DataModule, path: Path) -> I
     procedure = root.find("content/procedure")
     if procedure is None:
         return
-    # Any warning/caution anywhere in the procedure (reqSafety or inline) counts.
-    if procedure.find(".//warning") is not None or procedure.find(".//caution") is not None:
-        return
+    # Preceding/local semantics (red-team adjudication 2026-07-14, #5): a hazard
+    # is covered only by reqSafety warnings/cautions or by an inline warning in
+    # the same or an EARLIER step — a warning in a later step does not count.
+    covered = (
+        procedure.find("preliminaryRqmts/reqSafety/safetyRqmts/warning") is not None
+        or procedure.find("preliminaryRqmts/reqSafety/safetyRqmts/caution") is not None
+    )
     for step in procedure.iter("proceduralStep"):
+        if step.find("warning") is not None or step.find("caution") is not None:
+            covered = True
+        if covered:
+            continue
         text = _step_text(step)
         hits = [kw for kw in _HAZARD_KEYWORDS if kw in text]
         if hits:
             yield (
                 step,
-                f"step text matches hazard keyword(s) {hits} but the procedure "
-                "declares no warning or caution anywhere",
+                f"step text matches hazard keyword(s) {hits} with no preceding "
+                "warning or caution (neither reqSafety nor this/an earlier step)",
             )
 
 
@@ -126,8 +134,8 @@ BREX_RULES: tuple[BrexRule, ...] = (
     BrexRule(
         "BREX-001",
         Severity.ERROR,
-        "hazardous procedural step requires a warning/caution",
-        "add a warning or caution to reqSafety or to the hazardous step",
+        "hazardous procedural step requires a preceding warning/caution",
+        "add a warning or caution to reqSafety, or to the hazardous step itself or an earlier step",
         _check_hazard_warning,
     ),
     BrexRule(

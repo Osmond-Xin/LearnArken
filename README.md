@@ -120,7 +120,11 @@ benchmark reports — are in English.
 ## Quickstart
 
 ```bash
-uv sync                                        # Python 3.12 + deps (needs uv)
-make test                                      # ruff + pytest (15 tests)
+uv sync --locked                               # Python 3.12 + deps (needs uv)
+make test                                      # ruff + pytest
 uv run learnarken inspect samples/package-a    # summarize a sample package
+uv run learnarken validate samples/package-b   # four-layer validation findings
 ```
+
+Validation results are only claimed for locked installs (`uv.lock`); CI runs
+`uv sync --locked` so parser behavior cannot drift with dependency versions.

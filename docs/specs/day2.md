@@ -95,16 +95,27 @@ src/learnarken/
 | XREF-004 | L3 | error | `modelIdentCode` in accepted set (default `{LA100}`) | VIO-6 |
 | XREF-005 | L3 | warning | no circular `dmRef` chains (KG hygiene) | VIO-7 (new, Q2) |
 
+Added by the red-team adjudication of 2026-07-14 (docs/reviews/day2.md;
+rows AI-drafted, decisions Yi Xin's):
+
+| Rule | Layer | Severity | Checks | package-b carrier |
+| --- | --- | --- | --- | --- |
+| PARSE-002 | L0 | error | file exceeds the size cap — refused, fail closed (adjudication #4) | — (test fixture) |
+| MODEL-001 | L1 | error | canonical model cannot be built — report, never force-generate (#9/#12) | — (test fixture) |
+| XREF-006 | L3 | error | duplicate DMC with distinct content at the same issue (#2; byte-identical inputs are deduplicated by md5 first, #1) | — (test fixture) |
+| XREF-007 | L3 | warning | duplicate DMC where a strictly newer issue exists — newest indexed ("入库"), superseded copies warned (#2) | — (test fixture) |
+
 Constraints from the package-b manifest: findings must map **1:1** to
 VIO-1 – VIO-7 (each attached to its carrier DM; DML registry entries are not
 double-counted); the clean DM (24-00) must yield zero findings. package-a
 must yield zero findings at every layer.
 
 BREX-001 is honestly a **toy heuristic**: a procedural DM whose step text
-matches a hazard lexicon (pressure, nitrogen, discharge, voltage, …) while
-the whole procedure carries no warning/caution anywhere (reqSafety declares
-`noSafety`/nothing, no inline warning). Real BREX rules are
-business-authored; this stands in for one (INV-7 labeling).
+matches a hazard lexicon (pressure, nitrogen, discharge, voltage, …) with no
+**preceding** warning/caution — covered means a warning/caution in reqSafety
+or in the same or an *earlier* step; later-step warnings do not count
+(adjudication #5 chose the strict preceding/local semantics). Real BREX
+rules are business-authored; this stands in for one (INV-7 labeling).
 
 ### New samples (Q2/Q3 adjudication)
 

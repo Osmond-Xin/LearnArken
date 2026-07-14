@@ -79,11 +79,14 @@ class TestPackageBManifest:
         assert "29-20" in vio1.message
         assert all(f.fix_hint for f in report.findings)
 
-    def test_cycle_message_names_the_chain(self, report):
+    def test_cycle_message_names_the_component_members(self, report):
+        # Members, not a reconstructed chain — a sorted join can fabricate
+        # edges (red-team adjudication 2026-07-14, #7).
         vio7 = next(f for f in report.findings if f.rule_id == "XREF-005")
-        assert "DMC-LA100-A-24-30-00-00A-040A-D -> DMC-LA100-A-24-40-00-00A-040A-D" in (
-            vio7.message
-        )
+        assert "component" in vio7.message
+        assert "DMC-LA100-A-24-30-00-00A-040A-D" in vio7.message
+        assert "DMC-LA100-A-24-40-00-00A-040A-D" in vio7.message
+        assert "->" not in vio7.message
 
 
 # --- per-rule fixture pairs (violating side for rules with no VIO carrier) --

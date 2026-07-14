@@ -22,14 +22,6 @@ from learnarken.validation.rules import BREX_RULES
 DEFAULT_ACCEPTED_MODELS = ("LA100",)
 
 _SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "learnarken.xsd"
-_schema: etree.XMLSchema | None = None
-
-
-def _get_schema() -> etree.XMLSchema:
-    global _schema
-    if _schema is None:
-        _schema = etree.XMLSchema(etree.parse(str(_SCHEMA_PATH)))
-    return _schema
 
 
 def _elem_location(elem: etree._Element | None) -> tuple[int | None, str | None]:
@@ -69,12 +61,32 @@ def analyze_package(
         brex_rules_evaluated=len(BREX_RULES),
     )
     package = PackageModel(path=str(directory), icn_idents=loader.icn_idents(directory))
-    dm_files: dict[str, str] = {}  # dmc -> file name, for L3 finding attachment
+    # Per-call schema instance: lxml XMLSchema validate()/error_log is not
+    # thread-safe on a shared object (red-team adjudication 2026-07-14, #3).
+    schema = etree.XMLSchema(etree.parse(str(_SCHEMA_PATH)))
+    dm_entries: list[tuple[DataModule, str]] = []  # (model, content digest)
+    seen_digests: dict[str, str] = {}  # digest -> first file name
 
     for path in xml_files:
         # --- L0: well-formedness -----------------------------------------
         try:
-            tree = loader.parse_file(path)
+            size = path.stat().st_size
+            if size > loader.MAX_FILE_BYTES:
+                # Fail closed instead of exhausting memory (adjudication #4).
+                report.findings.append(
+                    Finding(
+                        rule_id="PARSE-002",
+                        layer=Layer.L0_WELLFORMED,
+                        severity=Severity.ERROR,
+                        file=path.name,
+                        message=f"file is {size} bytes, over the "
+                        f"{loader.MAX_FILE_BYTES}-byte cap; refused (fail closed)",
+                        fix_hint="split the module or raise MAX_FILE_BYTES; "
+                        "streaming validation is Roadmap material",
+                    )
+                )
+                continue
+            tree, digest = loader.parse_file(path)
         except Exception as exc:  # defusedxml + lxml raise disparate types
             report.findings.append(
                 Finding(
@@ -89,8 +101,16 @@ def analyze_package(
             )
             continue
 
+        # Byte-identical duplicate input: same content, not re-processed
+        # (adjudication #1: md5-identical means the same document).
+        if digest in seen_digests:
+            loader.logger.info(
+                "%s is byte-identical to %s; skipped", path.name, seen_digests[digest]
+            )
+            continue
+        seen_digests[digest] = path.name
+
         # --- L1: structural conformance to the project mini-XSD ----------
-        schema = _get_schema()
         schema_ok = schema.validate(tree)
         if not schema_ok:
             for err in schema.error_log:
@@ -116,25 +136,27 @@ def analyze_package(
             if name.startswith("DMC-"):
                 model_obj = loader.load_data_module(path, root)
                 package.data_modules.append(model_obj)
-                dm_files[model_obj.dmc] = path.name
+                dm_entries.append((model_obj, digest))
             elif name.startswith("PMC-"):
                 model_obj = loader.load_publication_module(path, root)
                 package.publication_modules.append(model_obj)
             elif name.startswith("DML-"):
                 model_obj = loader.load_dml(path, root)
                 package.dmls.append(model_obj)
-        except ValueError as exc:
-            if schema_ok:  # structurally valid yet unloadable would be a bug
-                report.findings.append(
-                    Finding(
-                        rule_id="SCHEMA-001",
-                        layer=Layer.L1_SCHEMA,
-                        severity=Severity.ERROR,
-                        file=path.name,
-                        message=f"cannot build canonical model: {exc}",
-                        fix_hint="align the structure with schemas/learnarken.xsd",
-                    )
+        except Exception as exc:  # noqa: BLE001 — any build failure becomes a finding
+            # Adjudication #9/#12: when the model cannot be built, report an
+            # error and do not force-generate a stand-in node.
+            report.findings.append(
+                Finding(
+                    rule_id="MODEL-001",
+                    layer=Layer.L1_SCHEMA,
+                    severity=Severity.ERROR,
+                    file=path.name,
+                    message=f"cannot build canonical model: {exc}",
+                    fix_hint="align the structure with schemas/learnarken.xsd; "
+                    "references to this file will report XREF-001 until it loads",
                 )
+            )
             continue
 
         # --- L2: single-file BREX (skipped when L1 failed — fail closed) --
@@ -156,17 +178,84 @@ def analyze_package(
                     )
 
     # --- L3: cross-file integrity (reference graph) -----------------------
-    report.findings.extend(_crossfile_findings(package, dm_files, accepted_models))
+    dm_index, dm_files, dup_findings = _resolve_dm_identities(dm_entries)
+    report.findings.extend(dup_findings)
+    report.findings.extend(_crossfile_findings(package, dm_index, dm_files, accepted_models))
     return report, package
+
+
+def _issue_key(dm: DataModule) -> tuple[int, str]:
+    raw = dm.issue_info.issue_number if dm.issue_info else ""
+    try:
+        return (int(raw), dm.issue_info.as_str() if dm.issue_info else "")
+    except ValueError:
+        return (-1, raw)
+
+
+def _resolve_dm_identities(
+    dm_entries: list[tuple[DataModule, str]],
+) -> tuple[dict[str, DataModule], dict[str, str], list[Finding]]:
+    """Duplicate-DMC policy (red-team adjudication 2026-07-14, #1/#2).
+
+    Byte-identical copies were already dropped at parse time. For distinct
+    contents claiming one DMC: same issue number -> XREF-006 error; a strictly
+    newer issue wins the index ("入库") with an XREF-007 warning.
+    """
+    findings: list[Finding] = []
+    by_dmc: dict[str, list[DataModule]] = {}
+    for dm, _digest in dm_entries:
+        by_dmc.setdefault(dm.dmc, []).append(dm)
+
+    dm_index: dict[str, DataModule] = {}
+    for dmc, entries in by_dmc.items():
+        if len(entries) > 1:
+            entries = sorted(entries, key=_issue_key)
+            for earlier, later in zip(entries, entries[1:], strict=False):
+                if (earlier.issue_info and later.issue_info) and (
+                    earlier.issue_info.as_str() == later.issue_info.as_str()
+                ):
+                    findings.append(
+                        Finding(
+                            rule_id="XREF-006",
+                            layer=Layer.L3_CROSSFILE,
+                            severity=Severity.ERROR,
+                            file=later.file,
+                            message=f"{dmc} appears in {earlier.file} and "
+                            f"{later.file} with different content but the same "
+                            f"issue {later.issue_info.as_str()}",
+                            fix_hint="re-issue one of the modules or remove the conflict",
+                        )
+                    )
+            newest = entries[-1]
+            if _issue_key(newest) > _issue_key(entries[0]):
+                copies = ", ".join(
+                    f"{e.file} @ {e.issue_info.as_str() if e.issue_info else '?'}" for e in entries
+                )
+                findings.append(
+                    Finding(
+                        rule_id="XREF-007",
+                        layer=Layer.L3_CROSSFILE,
+                        severity=Severity.WARNING,
+                        file=newest.file,
+                        message=f"{dmc} has superseded duplicates ({copies}); "
+                        "the newest issue was indexed",
+                        fix_hint="retire superseded issues from the package",
+                    )
+                )
+            dm_index[dmc] = newest
+        else:
+            dm_index[dmc] = entries[0]
+    dm_files = {dmc: dm.file for dmc, dm in dm_index.items()}
+    return dm_index, dm_files, findings
 
 
 def _crossfile_findings(
     package: PackageModel,
+    dm_index: dict[str, DataModule],
     dm_files: dict[str, str],
     accepted_models: tuple[str, ...],
 ) -> list[Finding]:
     findings: list[Finding] = []
-    dm_index = package.dm_index()
     icn_idents = set(package.icn_idents)
 
     def finding(
@@ -259,14 +348,15 @@ def _crossfile_findings(
         for dm in package.data_modules
     }
     for cycle in _find_cycles(graph):
-        carrier = cycle[0]  # smallest DMC in the cycle — deterministic carrier
-        chain = " -> ".join([*cycle, cycle[0]])
+        carrier = cycle[0]  # smallest DMC in the component — deterministic carrier
+        # Report the strongly connected component's members, not a reconstructed
+        # chain — a sorted join can fabricate edges (adjudication #7).
         findings.append(
             finding(
                 "XREF-005",
                 Severity.WARNING,
                 dm_files.get(carrier, carrier),
-                f"circular reference chain: {chain}",
+                f"circular reference component: {{{', '.join(cycle)}}}",
                 "break the cycle if unintended; cycles complicate knowledge-graph "
                 "traversal (S1000D does not forbid them)",
             )
