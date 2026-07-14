@@ -8,6 +8,8 @@ license = { text = "MIT" }
 authors = [{ name = "Yi Xin" }]
 dependencies = [
     "defusedxml>=0.7",
+    "lxml>=6.1.1",
+    "pydantic>=2.13.4",
 ]
 
 [project.scripts]
