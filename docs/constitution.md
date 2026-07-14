@@ -166,3 +166,4 @@ drift.
 | VIO-4 | Illegal DMC coding | SNS segment inconsistent with content type / malformed code |
 | VIO-5 | Issue-info inconsistency | issueInfo conflicts with the version registered in the DML |
 | VIO-6 | Out-of-domain document | A legally coded ship-maintenance data module mixed into the aircraft library |
+| VIO-7 | Circular reference chain | Data modules whose dmRefs form a cycle (A → B → A); warning severity — S1000D does not forbid reference cycles, but they matter for knowledge-graph traversal *(added by Day 2 SPEC adjudication, 2026-07-13)* |
