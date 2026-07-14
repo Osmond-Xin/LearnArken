@@ -9,7 +9,8 @@ authentic S1000D structure).
 | Package | Purpose |
 | --- | --- |
 | [package-a/](package-a/README.md) | **Valid** S1000D-like package for the fictional LA100 aircraft: 8 data modules (descriptive, procedural, fault isolation, IPD) + PM + DML + placeholder ICN. Intended to pass all validation. |
-| [package-b/](package-b/README.md) | **Invalid** package carrying violation classes VIO-1..VIO-6 exactly once each, plus one clean control module. The violation manifest in its README is the Day 2 validator's exam (INV-3). |
+| [package-b/](package-b/README.md) | **Invalid** package carrying violation classes VIO-1..VIO-7 exactly once each, plus one clean control module. The violation manifest in its README is the Day 2 validator's exam (INV-3). |
+| [package-c/](package-c/README.md) | **Valid** package whose DMs carry structured applicability assertions (serial range, variant) — added by the Day 2 SPEC Q3 adjudication as new input, leaving package-a/b untouched. |
 
 All synthetic XML follows S1000D 4.x core element semantics with honestly
 labeled simplifications and one labeled non-standard extension

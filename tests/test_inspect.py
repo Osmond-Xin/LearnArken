@@ -45,7 +45,7 @@ class TestPackageB:
     def test_counts(self):
         summary = scan_package(PACKAGE_B)
         assert summary.counts == {
-            "data_modules": 7,
+            "data_modules": 9,
             "publication_modules": 1,
             "data_module_lists": 1,
         }
@@ -59,6 +59,8 @@ class TestPackageB:
         "DMC-LA100-A-2X-10-00-00A-040A-D_EN-CA.xml",  # VIO-4 malformed DMC
         "DMC-LA100-A-24-10-00-00A-040A-D_EN-CA.xml",  # VIO-5 issue mismatch
         "DMC-SS200-A-58-10-00-00A-520A-A_EN-CA.xml",  # VIO-6 out-of-domain
+        "DMC-LA100-A-24-30-00-00A-040A-D_EN-CA.xml",  # VIO-7 cycle carrier
+        "DMC-LA100-A-24-40-00-00A-040A-D_EN-CA.xml",  # VIO-7 second cycle member
         "DMC-LA100-A-24-00-00-00A-040A-D_EN-CA.xml",  # clean control module
         "PMC-LA100-LEARN-00002-00_EN-CA.xml",
         "DML-LA100-LEARN-C-2026-00002.xml",
@@ -96,8 +98,8 @@ class TestCli:
     def test_inspect_json_output(self, capsys):
         assert main(["inspect", str(PACKAGE_B), "--json"]) == 0
         payload = json.loads(capsys.readouterr().out)
-        assert payload["counts"]["data_modules"] == 7
-        assert len(payload["data_modules"]) == 7
+        assert payload["counts"]["data_modules"] == 9
+        assert len(payload["data_modules"]) == 9
 
     def test_not_a_package_exits_2(self, tmp_path, capsys):
         assert main(["inspect", str(tmp_path)]) == 2

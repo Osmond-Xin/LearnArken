@@ -15,10 +15,11 @@ intended to **fail** validation with findings matching exactly this manifest.
 | VIO-4 | DMC-LA100-A-**2X-10**-00-00A-040A-D | `systemCode="2X"` — non-numeric SNS system code; DMC malformed | DMC coding check: illegal code format |
 | VIO-5 | DMC-LA100-A-**24-10**-00-00A-040A-D | DM claims `issueNumber="003"`; the DML registers it at `001` | Issue-info consistency check: DM vs DML |
 | VIO-6 | DMC-**SS200**-A-58-10-00-00A-520A-A | Ship ballast-pump module (vessel SS200) — legally coded but out-of-domain for an aircraft library | Domain check: modelIdentCode not in accepted set |
+| VIO-7 | DMC-LA100-A-**24-30**-00-00A-040A-D | References 24-40, which references 24-30 back — a circular dmRef chain. Carrier = 24-30 (smallest DMC in the cycle); 24-40 is the second member, not a separate finding | Cross-file check: circular reference (**warning** severity — added by Day 2 SPEC adjudication, 2026-07-13) |
 | — (clean) | DMC-LA100-A-**24-00**-00-00A-040A-D | No violation. Present to prove the validator does not over-flag compliant modules | Must produce zero findings |
 
 Support files: PMC-LA100-LEARN-00002-00 (references only structurally normal
-modules) and DML-LA100-LEARN-C-2026-00002 (registers all seven DMs; carries
+modules) and DML-LA100-LEARN-C-2026-00002 (registers all nine DMs; carries
 the VIO-5 mismatch).
 
 ## Rules of this package (INV-3)

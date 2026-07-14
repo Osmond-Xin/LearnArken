@@ -79,5 +79,24 @@
         <issueInfo issueNumber="001" inWork="00"/>
       </dmRefIdent></dmRef>
     </dmlEntry>
+    <!-- VIO-7 cycle pair (24-30 / 24-40), registered like every other module. -->
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="3" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
+    <dmlEntry>
+      <dmRef><dmRefIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="4" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="040" infoCodeVariant="A" itemLocationCode="D"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmRefIdent></dmRef>
+    </dmlEntry>
   </dmlContent>
 </dml>
