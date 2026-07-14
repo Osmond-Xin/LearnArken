@@ -1,13 +1,17 @@
 [project]
 name = "learnarken"
-version = "0.1.0"
+version = "0.2.0"
 description = "Standards-aware technical-publication intelligence platform for aviation (S1000D), built AI-first"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Yi Xin" }]
+# Upper bounds + uv.lock (CI installs with --locked): parser behavior must not
+# drift under unlocked installs (red-team adjudication 2026-07-14, #13).
 dependencies = [
-    "defusedxml>=0.7",
+    "defusedxml>=0.7,<1",
+    "lxml>=6.1.1,<7",
+    "pydantic>=2.13.4,<3",
 ]
 
 [project.scripts]

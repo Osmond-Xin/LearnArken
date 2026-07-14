@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic S1000D-like data module authored for LearnArken (INV-1).
+     package-c: structured-applicability showcase (Day 2 SPEC, Q3 adjudication).
+     This procedure applies only to serial numbers 0001–0050. -->
+<dmodule>
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode modelIdentCode="LA100" systemDiffCode="A" systemCode="24"
+                subSystemCode="5" subSubSystemCode="0" assyCode="00"
+                disassyCode="00" disassyCodeVariant="A"
+                infoCode="520" infoCodeVariant="A" itemLocationCode="A"/>
+        <language languageIsoCode="en" countryIsoCode="CA"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmIdent>
+      <dmAddressItems>
+        <issueDate year="2026" month="06" day="05"/>
+        <dmTitle>
+          <techName>Main battery</techName>
+          <infoName>Remove procedures</infoName>
+        </dmTitle>
+      </dmAddressItems>
+    </dmAddress>
+    <dmStatus issueType="new">
+      <security securityClassification="01"/>
+      <qualityAssurance>
+        <firstVerification verificationType="onobject"/>
+      </qualityAssurance>
+      <applic>
+        <displayText><simplePara>LA100, serial numbers 0001–0050 (lead-acid
+        battery installation)</simplePara></displayText>
+        <assert applicPropertyIdent="serialNumber" applicPropertyType="prodattr"
+                applicPropertyValues="0001~0050"/>
+      </applic>
+      <!-- Non-standard project extension (see docs/specs/day1.md, decision 3). -->
+      <learnarkenExtension>
+        <effectiveDate>2026-06-15</effectiveDate>
+        <expiryDate>2028-06-15</expiryDate>
+      </learnarkenExtension>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <procedure>
+      <preliminaryRqmts>
+        <reqCondGroup>
+          <reqCond>Aircraft electrical power is OFF and the battery switch is
+          tagged out.</reqCond>
+        </reqCondGroup>
+        <reqSupportEquips>
+          <supportEquipDescr>Insulated terminal wrench</supportEquipDescr>
+        </reqSupportEquips>
+        <reqSafety>
+          <safetyRqmts>
+            <warning>
+              <warningAndCautionPara>Battery terminals can supply high current
+              even with aircraft power off. Disconnect the negative terminal
+              first and keep tools clear of the positive terminal.</warningAndCautionPara>
+            </warning>
+          </safetyRqmts>
+        </reqSafety>
+      </preliminaryRqmts>
+      <mainProcedure>
+        <proceduralStep>
+          <para>Open the battery compartment access panel.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Disconnect the negative terminal, then the positive terminal.
+          Cap both terminals.</para>
+        </proceduralStep>
+        <proceduralStep>
+          <para>Release the hold-down clamps and lift the battery out of the
+          tray.</para>
+        </proceduralStep>
+      </mainProcedure>
+      <closeRqmts>
+        <reqCondGroup>
+          <reqCond>Battery tray is clean and the access panel is closed.</reqCond>
+        </reqCondGroup>
+      </closeRqmts>
+    </procedure>
+  </content>
+</dmodule>

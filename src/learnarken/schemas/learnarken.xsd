@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- LearnArken project mini-XSD (Day 2 SPEC, Q1 adjudication 2026-07-13).
+
+     This is OUR OWN schema for the project's simplified S1000D-like subset —
+     NOT the official S1000D schema (which would reject these deliberately
+     simplified synthetic samples; we have no access to real S1000D data, so
+     a similar standard and similarly generated documents stand in — INV-7).
+
+     Design rule: STRICT on element structure, LENIENT on attribute values
+     (xs:string) — value-level checks such as DMC code format belong to the
+     BREX layer (BREX-002), which produces precise, fix-hinted findings.
+     mainProcedure allows zero steps so BREX-003 (not SCHEMA-001) reports it. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- ======================= shared building blocks ==================== -->
+
+  <xs:complexType name="dmCodeType">
+    <xs:attribute name="modelIdentCode" type="xs:string" use="required"/>
+    <xs:attribute name="systemDiffCode" type="xs:string" use="required"/>
+    <xs:attribute name="systemCode" type="xs:string" use="required"/>
+    <xs:attribute name="subSystemCode" type="xs:string" use="required"/>
+    <xs:attribute name="subSubSystemCode" type="xs:string" use="required"/>
+    <xs:attribute name="assyCode" type="xs:string" use="required"/>
+    <xs:attribute name="disassyCode" type="xs:string" use="required"/>
+    <xs:attribute name="disassyCodeVariant" type="xs:string" use="required"/>
+    <xs:attribute name="infoCode" type="xs:string" use="required"/>
+    <xs:attribute name="infoCodeVariant" type="xs:string" use="required"/>
+    <xs:attribute name="itemLocationCode" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="issueInfoType">
+    <xs:attribute name="issueNumber" type="xs:string" use="required"/>
+    <xs:attribute name="inWork" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="languageType">
+    <xs:attribute name="languageIsoCode" type="xs:string" use="required"/>
+    <xs:attribute name="countryIsoCode" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="issueDateType">
+    <xs:attribute name="year" type="xs:string" use="required"/>
+    <xs:attribute name="month" type="xs:string" use="required"/>
+    <xs:attribute name="day" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="dmRefType">
+    <xs:sequence>
+      <xs:element name="dmRefIdent">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="dmCode" type="dmCodeType"/>
+            <xs:element name="issueInfo" type="issueInfoType" minOccurs="0"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Mixed text that may embed dmRef elements (paras, reqCond, …). -->
+  <xs:complexType name="paraType" mixed="true">
+    <xs:sequence>
+      <xs:element name="dmRef" type="dmRefType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="warningCautionType">
+    <xs:sequence>
+      <xs:element name="warningAndCautionPara" type="paraType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ============================ dmodule ============================== -->
+
+  <xs:element name="dmodule">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="identAndStatusSection">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="dmAddress">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="dmIdent">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="dmCode" type="dmCodeType"/>
+                          <xs:element name="language" type="languageType"/>
+                          <xs:element name="issueInfo" type="issueInfoType"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="dmAddressItems">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="issueDate" type="issueDateType"/>
+                          <xs:element name="dmTitle">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="techName" type="xs:string"/>
+                                <xs:element name="infoName" type="xs:string" minOccurs="0"/>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="dmStatus">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="security">
+                      <xs:complexType>
+                        <xs:attribute name="securityClassification" type="xs:string"
+                                      use="required"/>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="qualityAssurance" minOccurs="0">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="firstVerification">
+                            <xs:complexType>
+                              <xs:attribute name="verificationType" type="xs:string"/>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <!-- applic optional at schema level: its absence is a BREX
+                         warning (BREX-004), not a structural error. -->
+                    <xs:element name="applic" minOccurs="0">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="displayText">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="simplePara" type="xs:string"
+                                            maxOccurs="unbounded"/>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element name="assert" minOccurs="0" maxOccurs="unbounded">
+                            <xs:complexType>
+                              <xs:attribute name="applicPropertyIdent" type="xs:string"
+                                            use="required"/>
+                              <xs:attribute name="applicPropertyType" type="xs:string"
+                                            use="required"/>
+                              <xs:attribute name="applicPropertyValues" type="xs:string"
+                                            use="required"/>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <!-- learnarkenExtension is NOT S1000D (labeled project extension). -->
+                    <xs:element name="learnarkenExtension" minOccurs="0">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="effectiveDate" type="xs:string" minOccurs="0"/>
+                          <xs:element name="expiryDate" type="xs:string" minOccurs="0"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                  <xs:attribute name="issueType" type="xs:string"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="content">
+          <xs:complexType>
+            <xs:choice>
+              <xs:element name="description" type="descriptionType"/>
+              <xs:element name="procedure" type="procedureType"/>
+              <xs:element name="faultIsolation" type="faultIsolationType"/>
+              <xs:element name="illustratedPartsCatalog" type="ipcType"/>
+            </xs:choice>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="descriptionType">
+    <xs:sequence>
+      <xs:element name="levelledPara" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="title" type="xs:string" minOccurs="0"/>
+            <xs:element name="para" type="paraType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="procedureType">
+    <xs:sequence>
+      <xs:element name="preliminaryRqmts" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="reqCondGroup" type="reqCondGroupType" minOccurs="0"/>
+            <xs:element name="reqSupportEquips" minOccurs="0">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="supportEquipDescr" type="xs:string"
+                              maxOccurs="unbounded"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="reqSafety" minOccurs="0">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="safetyRqmts">
+                    <xs:complexType>
+                      <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element name="warning" type="warningCautionType"/>
+                        <xs:element name="caution" type="warningCautionType"/>
+                        <xs:element name="noSafety"/>
+                      </xs:choice>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <!-- zero steps allowed here on purpose: BREX-003 owns that check -->
+      <xs:element name="mainProcedure">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="proceduralStep" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element name="warning" type="warningCautionType"/>
+                    <xs:element name="caution" type="warningCautionType"/>
+                  </xs:choice>
+                  <xs:element name="para" type="paraType" maxOccurs="unbounded"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="closeRqmts" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="reqCondGroup" type="reqCondGroupType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="reqCondGroupType">
+    <xs:sequence>
+      <xs:element name="reqCond" type="paraType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="faultIsolationType">
+    <xs:sequence>
+      <xs:element name="faultDescription">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="para" type="paraType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="isolationProcedure">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="isolationStep" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="para" type="paraType" maxOccurs="unbounded"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ipcType">
+    <xs:sequence>
+      <xs:element name="figure" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="title" type="xs:string" minOccurs="0"/>
+            <xs:element name="graphic">
+              <xs:complexType>
+                <xs:attribute name="infoEntityIdent" type="xs:string" use="required"/>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="catalogSeqNumber" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="itemSeqNumber" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="quantityPerNextHigherAssy" type="xs:string"
+                              minOccurs="0"/>
+                  <xs:element name="partRef">
+                    <xs:complexType>
+                      <xs:attribute name="manufacturerCodeValue" type="xs:string"/>
+                      <xs:attribute name="partNumberValue" type="xs:string"/>
+                    </xs:complexType>
+                  </xs:element>
+                  <xs:element name="partSegment" minOccurs="0">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:element name="itemIdentData">
+                          <xs:complexType>
+                            <xs:sequence>
+                              <xs:element name="descrForPart" type="xs:string"/>
+                            </xs:sequence>
+                          </xs:complexType>
+                        </xs:element>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:sequence>
+                <xs:attribute name="itemSeqNumberValue" type="xs:string"/>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+          <xs:attribute name="catalogSeqNumberValue" type="xs:string"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- =============================== pm ================================ -->
+
+  <xs:element name="pm">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="identAndStatusSection">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="pmAddress">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="pmIdent">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="pmCode">
+                            <xs:complexType>
+                              <xs:attribute name="modelIdentCode" type="xs:string"
+                                            use="required"/>
+                              <xs:attribute name="pmIssuer" type="xs:string"/>
+                              <xs:attribute name="pmNumber" type="xs:string"/>
+                              <xs:attribute name="pmVolume" type="xs:string"/>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element name="language" type="languageType"/>
+                          <xs:element name="issueInfo" type="issueInfoType"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="pmAddressItems">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="issueDate" type="issueDateType"/>
+                          <xs:element name="pmTitle" type="xs:string"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="pmStatus">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="security">
+                      <xs:complexType>
+                        <xs:attribute name="securityClassification" type="xs:string"
+                                      use="required"/>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                  <xs:attribute name="issueType" type="xs:string"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="content">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="pmEntry" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="pmEntryTitle" type="xs:string" minOccurs="0"/>
+                    <xs:element name="dmRef" type="dmRefType" maxOccurs="unbounded"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- =============================== dml =============================== -->
+
+  <xs:element name="dml">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="identAndStatusSection">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="dmlAddress">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="dmlIdent">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="dmlCode">
+                            <xs:complexType>
+                              <xs:attribute name="modelIdentCode" type="xs:string"
+                                            use="required"/>
+                              <xs:attribute name="senderIdent" type="xs:string"/>
+                              <xs:attribute name="dmlType" type="xs:string"/>
+                              <xs:attribute name="yearOfDataIssue" type="xs:string"/>
+                              <xs:attribute name="seqNumber" type="xs:string"/>
+                            </xs:complexType>
+                          </xs:element>
+                          <xs:element name="issueInfo" type="issueInfoType"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                    <xs:element name="dmlAddressItems">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="issueDate" type="issueDateType"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="dmlContent">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="dmlEntry" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="dmRef" type="dmRefType"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
