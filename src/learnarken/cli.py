@@ -149,14 +149,11 @@ def _render_dm_human(payload: dict) -> str:
         f"    Issue:      {payload['issue']} ({payload['issue_type']})   "
         f"Language: {payload['language']}   Issue date: {payload['issue_date']}",
         "  Status:",
-        f"    Security:   {payload['security_classification']}   "
-        f"QA: {payload['qa_verification']}",
+        f"    Security:   {payload['security_classification']}   QA: {payload['qa_verification']}",
         f"    Applicability: {applic.get('display_text') or '—'}",
     ]
     for a in applic.get("assertions", []):
-        lines.append(
-            f"      assert: {a['property_ident']} ({a['property_type']}) = {a['values']}"
-        )
+        lines.append(f"      assert: {a['property_ident']} ({a['property_type']}) = {a['values']}")
     lines.append(
         f"    Effective:  {payload['effective_date']} -> Expiry: {payload['expiry_date']}"
         "   (learnarkenExtension, non-standard)"

@@ -61,14 +61,10 @@ _DMC_PATTERNS = {
 
 def _step_text(step: etree._Element) -> str:
     """Step text excluding its own inline warnings/cautions."""
-    return " ".join(
-        " ".join(para.itertext()) for para in step.findall("para")
-    ).lower()
+    return " ".join(" ".join(para.itertext()) for para in step.findall("para")).lower()
 
 
-def _check_hazard_warning(
-    root: etree._Element, dm: DataModule, path: Path
-) -> Iterator[Violation]:
+def _check_hazard_warning(root: etree._Element, dm: DataModule, path: Path) -> Iterator[Violation]:
     procedure = root.find("content/procedure")
     if procedure is None:
         return
@@ -111,17 +107,13 @@ def _check_has_steps(root: etree._Element, dm: DataModule, path: Path) -> Iterat
         yield procedure, "procedural data module has no proceduralStep"
 
 
-def _check_applic_present(
-    root: etree._Element, dm: DataModule, path: Path
-) -> Iterator[Violation]:
+def _check_applic_present(root: etree._Element, dm: DataModule, path: Path) -> Iterator[Violation]:
     status = root.find("identAndStatusSection/dmStatus")
     if status is not None and status.find("applic") is None:
         yield status, "dmStatus carries no applic element"
 
 
-def _check_extension_dates(
-    root: etree._Element, dm: DataModule, path: Path
-) -> Iterator[Violation]:
+def _check_extension_dates(root: etree._Element, dm: DataModule, path: Path) -> Iterator[Violation]:
     ext = dm.extension
     if ext and ext.effective_date and ext.expiry_date and ext.effective_date >= ext.expiry_date:
         yield (

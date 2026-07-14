@@ -169,8 +169,14 @@ def _crossfile_findings(
     dm_index = package.dm_index()
     icn_idents = set(package.icn_idents)
 
-    def finding(rule_id: str, severity: Severity, file: str, message: str, fix_hint: str,
-                line: int | None = None) -> Finding:
+    def finding(
+        rule_id: str,
+        severity: Severity,
+        file: str,
+        message: str,
+        fix_hint: str,
+        line: int | None = None,
+    ) -> Finding:
         return Finding(
             rule_id=rule_id,
             layer=Layer.L3_CROSSFILE,
@@ -194,8 +200,7 @@ def _crossfile_findings(
                         Severity.ERROR,
                         owner_file,
                         f"dmRef targets {target}, absent from the package",
-                        "point the reference at an existing data module or add "
-                        "the missing module",
+                        "point the reference at an existing data module or add the missing module",
                         line=ref.line,
                     )
                 )
@@ -250,9 +255,7 @@ def _crossfile_findings(
 
     # XREF-005 — circular dmRef chains (VIO-7; warning severity, KG hygiene).
     graph = {
-        dm.dmc: sorted(
-            {r.dm_code.as_str() for r in dm.dm_refs if r.dm_code.as_str() in dm_index}
-        )
+        dm.dmc: sorted({r.dm_code.as_str() for r in dm.dm_refs if r.dm_code.as_str() in dm_index})
         for dm in package.data_modules
     }
     for cycle in _find_cycles(graph):
