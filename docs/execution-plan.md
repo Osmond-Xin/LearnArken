@@ -93,20 +93,28 @@
 **学**:复习 [tutorials/01](tutorials/01-standards-and-xml.md) 的 BREX/SNS 节
 
 **做**:
-- [ ] Pydantic 规范模型:DMC、数据模块、publication module、引用、warning/caution
-- [ ] XSD 结构校验 + 引用完整性校验(DMC 引用、图片/ICN 引用)
-- [ ] 3–5 条简化 BREX 规则(rule id、severity、path、message、fix hint)
-- [ ] `learnarken validate <package>` 输出结构化 findings(JSON + 人读两种格式)
+- [ ] Pydantic 规范模型:DMC、数据模块、publication module、引用、warning/caution、
+      applicability(结构化断言 + displayText——为 Day 3 chunk 元数据奠基)
+- [ ] 四层校验器:L0 XML 语法合法 → L1 结构 schema 校验(简化 XSD)→
+      L2 单文件 BREX,3–5 条 Schematron 式断言(rule id、severity、path、
+      message、fix hint)→ L3 跨文件完整性(dmRef 悬空、ICN 缺失、
+      DM/DML 版本错位、循环引用)——L3 的引用图为将来知识图谱打基础
+- [ ] `learnarken validate <package>` 输出结构化 findings(JSON + 人读两种格式,
+      按层分组);低层失败则该文件 fail-closed,不进高层
+- [ ] `learnarken dm <package> <DMC>`:单 DM 详情——元数据模型、内容统计
+      (步骤/警告/引用数)、评估过的 BREX 规则数、issueDate 与生效/失效时间
 - [ ] golden 测试:每条规则至少一个通过用例 + 一个违规用例
 
-**证**:package-a 全过;package-b 产出精确到行/路径的 findings;`pytest` 覆盖每条规则。
+**证**:package-a 全过;package-b 产出精确到行/路径、与违规清单一一对应的
+findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规则。
 
 ### Day 3 — BM25 基线与检索评估(`v0.3.0`)
 
 **学**:[tutorials/02 检索基础](tutorials/02-information-retrieval.md)
 
 **做**:
-- [ ] 结构感知分块器:按步骤/warning 边界切,chunk 携带 DMC/任务元数据
+- [ ] 结构感知分块器:按步骤/warning 边界切,chunk 携带 DMC/任务/
+      applicability 元数据(适用性来自 Day 2 模型)
 - [ ] BM25 索引与查询(Tantivy 或 rank-bm25)
 - [ ] golden set:30–50 个「问题 → 相关 chunk」标注对——**标注必须人做**
       (这是检索评估的判断力所在,也是面试金料),AI 只许起草候选问题
