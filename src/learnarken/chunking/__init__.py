@@ -13,17 +13,40 @@ from pathlib import Path
 
 from learnarken.chunking import recursive, structure
 from learnarken.chunking.base import Chunk, applies_to, make_chunk_id
-from learnarken.loader import load_data_module, parse_file
+from learnarken.loader import MAX_FILE_BYTES, load_data_module, parse_file
 from learnarken.package import NotAPackageError
 
 logger = logging.getLogger("learnarken")
 
 STRATEGIES = {structure.STRATEGY: structure.chunk_dm, recursive.STRATEGY: recursive.chunk_dm}
 
-__all__ = ["Chunk", "applies_to", "make_chunk_id", "chunk_package", "STRATEGIES"]
+__all__ = [
+    "Chunk",
+    "applies_to",
+    "make_chunk_id",
+    "chunk_package",
+    "STRATEGIES",
+    "PartialPackageError",
+]
 
 
-def chunk_package(package_dir: str | Path, strategy: str = "structure") -> list[Chunk]:
+class PartialPackageError(Exception):
+    """One or more DMs could not be parsed/modeled — refused, fail closed (INV-4).
+
+    Chunking a package with unreadable modules would silently drop content
+    (a missing safety DM vanishes from the index). By default this is an error;
+    callers that genuinely want a best-effort index pass `skip_bad=True`.
+    """
+
+    def __init__(self, failures: list[tuple[str, str]]) -> None:
+        self.failures = failures
+        listing = "; ".join(f"{name}: {err}" for name, err in failures)
+        super().__init__(f"{len(failures)} data module(s) could not be chunked — {listing}")
+
+
+def chunk_package(
+    package_dir: str | Path, strategy: str = "structure", skip_bad: bool = False
+) -> list[Chunk]:
     package_dir = Path(package_dir)
     if not package_dir.is_dir():
         raise NotAPackageError(f"not a directory: {package_dir}")
@@ -35,12 +58,24 @@ def chunk_package(package_dir: str | Path, strategy: str = "structure") -> list[
     chunk_dm = STRATEGIES[strategy]
 
     chunks: list[Chunk] = []
+    failures: list[tuple[str, str]] = []
     for path in dm_files:
-        try:
-            tree = parse_file(path)[0]
-            dm = load_data_module(path, tree.getroot())
-        except Exception as exc:  # noqa: BLE001 — never index a partially-parsed DM
-            logger.warning("chunk_package: skipping unparseable %s (%s)", path.name, exc)
+        # Enforce the fail-closed size cap on the chunk path too (the validate
+        # path already does — red-team R4): never read an oversized file fully.
+        if path.stat().st_size > MAX_FILE_BYTES:
+            logger.warning("chunk_package: %s exceeds the %d-byte cap", path.name, MAX_FILE_BYTES)
+            failures.append((path.name, f"exceeds {MAX_FILE_BYTES}-byte size cap"))
             continue
-        chunks.extend(chunk_dm(path, tree, dm))
+        try:
+            tree, digest = parse_file(path)
+            dm = load_data_module(path, tree.getroot())
+        except Exception as exc:  # noqa: BLE001 — collect, then fail closed below
+            logger.warning("chunk_package: %s could not be chunked (%s)", path.name, exc)
+            failures.append((path.name, str(exc)))
+            continue
+        chunks.extend(chunk_dm(path, tree, dm, digest))
+    # Fail closed (INV-4): a package with unreadable modules is refused unless the
+    # caller explicitly opts into a partial index.
+    if failures and not skip_bad:
+        raise PartialPackageError(failures)
     return chunks

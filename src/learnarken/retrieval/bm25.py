@@ -17,9 +17,10 @@ from rank_bm25 import BM25Okapi
 
 from learnarken.chunking.base import Chunk
 
-# An identifier: an alphanumeric run containing a digit and a '-' or '/' internal
-# separator (DMCs, ICNs, part numbers). Matched first, kept whole and lowercased.
-_IDENTIFIER = re.compile(r"[A-Za-z0-9]+(?:[-/][A-Za-z0-9]+)+")
+# An identifier: an alphanumeric run containing a digit and a '-', '/' or '_'
+# internal separator (DMCs, ICNs, part numbers). Matched first, kept whole and
+# lowercased. `P/N 1234-567` and a bare `1234-567` both surface `1234-567`.
+_IDENTIFIER = re.compile(r"[A-Za-z0-9]+(?:[-/_][A-Za-z0-9]+)+")
 _WORD = re.compile(r"[A-Za-z0-9]+")
 
 
@@ -54,17 +55,26 @@ class BM25Index:
         corpus = [
             tokenize(" ".join([c.text, c.dmc, *c.icn_refs, *c.outbound_dm_refs])) for c in chunks
         ]
+        self._token_sets = [set(toks) for toks in corpus]
         # rank-bm25 cannot build over an empty corpus; guard so search returns [].
         self._bm25 = BM25Okapi(corpus) if corpus else None
 
     def search(self, query: str, k: int = 10) -> list[ScoredChunk]:
-        if self._bm25 is None:
+        if self._bm25 is None or k <= 0:
             return []
+        query_tokens = set(tokenize(query))
         scores = self._bm25.get_scores(tokenize(query))
         ranked = sorted(enumerate(scores), key=lambda kv: kv[1], reverse=True)
         out: list[ScoredChunk] = []
-        for rank, (idx, score) in enumerate(ranked[:k], start=1):
-            if score <= 0.0:  # no lexical overlap — not a hit
+        for idx, score in ranked:
+            # A hit needs actual token overlap. BM25 assigns negative scores to
+            # matches on terms present in most docs (negative IDF), so the score
+            # sign is NOT a reliable hit test (red-team #1) — check overlap.
+            if not (query_tokens & self._token_sets[idx]):
+                continue
+            out.append(
+                ScoredChunk(rank=len(out) + 1, score=round(float(score), 4), chunk=self.chunks[idx])
+            )
+            if len(out) >= k:
                 break
-            out.append(ScoredChunk(rank=rank, score=round(float(score), 4), chunk=self.chunks[idx]))
         return out

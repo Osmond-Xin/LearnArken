@@ -9,11 +9,14 @@ content (紧急场合) without re-parsing the source.
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import date
 
 from pydantic import BaseModel
 
 from learnarken.models import Applicability, DataModule
+
+logger = logging.getLogger("learnarken")
 
 
 class Chunk(BaseModel):
@@ -48,14 +51,25 @@ def inherited_fields(dm: DataModule) -> dict:
     }
 
 
-def make_chunk_id(dmc: str, source_path: str, strategy: str) -> str:
-    """Deterministic chunk id: stable across runs for the same anchor + strategy."""
-    key = f"{dmc}|{source_path}|{strategy}".encode()
-    return hashlib.sha1(key, usedforsecurity=False).hexdigest()[:12]
+def make_chunk_id(dmc: str, source_path: str, strategy: str, file_digest: str = "") -> str:
+    """Deterministic chunk id, stable across runs for the same source content.
+
+    `file_digest` (md5 of the source DM bytes) disambiguates two packages that
+    share a DMC + XPath but differ in content; identical bytes intentionally
+    yield the same id (they are the same document). 64-bit width keeps
+    collisions negligible across the corpus.
+    """
+    key = f"{dmc}|{source_path}|{strategy}|{file_digest}".encode()
+    return hashlib.sha1(key, usedforsecurity=False).hexdigest()[:16]
 
 
 def _values_match(query_value: str, assertion_values: str) -> bool:
-    """Does `query_value` satisfy a comma list of exact values / `min~max` ranges?"""
+    """Does `query_value` satisfy a comma list of exact values / numeric `min~max` ranges?
+
+    Ranges are numeric only. A non-numeric range (or non-numeric query against a
+    numeric range) is treated as *no match* and logged — the previous lexical
+    `<=` fallback wrongly matched e.g. `A2` inside `A10~A20` (red-team #5).
+    """
     for token in assertion_values.split(","):
         token = token.strip()
         if "~" in token:
@@ -64,8 +78,11 @@ def _values_match(query_value: str, assertion_values: str) -> bool:
                 if int(low) <= int(query_value) <= int(high):
                     return True
             except ValueError:
-                if low <= query_value <= high:  # lexical range fallback
-                    return True
+                logger.warning(
+                    "applicability range %r is not numeric (or query %r isn't); no match",
+                    token,
+                    query_value,
+                )
         elif token == query_value:
             return True
     return False
