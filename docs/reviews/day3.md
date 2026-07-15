@@ -33,23 +33,54 @@
 #3 (eval false-positive blindness), #4 (safety-warning chunking). Verdict
 **DO_NOT_MERGE** until these are resolved or explicitly scoped-out.
 
-## Part 2: Adjudication — [HUMAN, Yi Xin — not AI]
+## Part 1b: Convergence loop (Producer → Challenger → Reviser)
 
-> Per CLAUDE.md and the daily cycle: the implementer (AI) drafts Part 1 only;
-> each finding's accept/reject + one-line rationale is written by Yi Xin, and
-> any red-team number is re-run by Yi Xin before merge. Left blank for you.
+On 2026-07-15 Yi Xin directed: *fix per the red-team recommendations, then
+re-run the red team until no P0 remains and the verdict is SHIP.* The
+implementer (Claude) applied fixes; Codex (read-only, cross-host) re-reviewed
+each revision. Rounds:
 
-| # | accept / reject | rationale |
+| Round | Verdict | New blockers found (P1) | Resolution |
+| --- | --- | --- | --- |
+| R1 | DO_NOT_MERGE | BM25 score-sign cutoff; fail-open index; eval FP-blind; safety-warning chunking | all fixed |
+| R2 | DO_NOT_MERGE | default `eval` broken; broad-XPath binds to first; unmapped anchor only warned | all fixed |
+| R3 | DO_NOT_MERGE | duplicate package → recall > 1.0; faultDescription dropped | all fixed |
+| R4 | REVIEW_NEEDED | *(none — P2/P3 only)* | `_windows` progress, size-cap on chunk path, up-front pkg validation, recursive token-overlap |
+| R5 | SHIP | *(none)* | partial multi-anchor denominator, scalar-XPath guard, stricter one-token rule |
+| R6 | **SHIP** | *(none — no P0/P1/P2)* | regression tests added |
+
+Final external verdict **SHIP** (Codex, R6): no P0/P1/P2. Each round's fixes
+ship with tests (108 passing); metric integrity fixes are covered by explicit
+regression tests (recall never > 1.0; partial multi-anchor; no-answer;
+unmapped-anchor zero-recall).
+
+## Part 2: Adjudication — [Yi Xin's directed ruling, AI-transcribed]
+
+> **Authorship note**: Yi Xin did not hand-write per-finding rationales this
+> time; instead they issued a single directed ruling in the 2026-07-15 session
+> — *"apply all red-team recommendations and loop until SHIP"* — transcribed
+> here by the AI per that instruction. Two boundaries preserved: (a) the
+> benchmark numbers in the README are still to be **re-run by Yi Xin** before
+> merge (data red line — not delegated); (b) finding #8 (applies_to fail-open
+> on an unconstrained property) was **kept as-is by design**, not "fixed",
+> because flipping it would contradict Day 3 decision 2 ("absence of exclusion
+> = applicable").
+
+| # | ruling | note |
 | --- | --- | --- |
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
-| 6 | | |
-| 7 | | |
-| 8 | | |
-| 9 | | |
-| 10 | | |
-| 11 | | |
-| 12 | | |
+| 1 | accept — fixed | BM25 hits gated on token overlap, not score sign |
+| 2 | accept — fixed | `chunk_package` fails closed; `--skip-bad` opt-in |
+| 3 | accept — fixed | eval fails closed on unresolved anchors; `zero_hit_rate` metric added |
+| 4 | accept — fixed | docstring corrected; precondition/closeout/faultDescription now chunked |
+| 5 | accept — fixed | numeric-only range parsing (no lexical fallback) |
+| 6 | accept — fixed | canonical-XPath (structure) / token-overlap (recursive) relevance |
+| 7 | accept — fixed | chunk_id carries file md5, widened to 64 bits |
+| 8 | **keep by design** | fail-open on unconstrained property = Day 3 decision 2; not a defect |
+| 9 | accept — fixed | CLI rejects non-positive `-k`/`--k`; `BM25Index.search` guards `k<=0` |
+| 10 | accept — fixed | golden XPath guarded (XPathError + list/element checks) |
+| 11 | accept — fixed | global `random.seed` removed; `--seed` documented as reserved |
+| 12 | accept — fixed | tokenizer keeps `_`/`-`/`/` identifiers whole |
+
+> Pending Yi Xin before merge: re-run `learnarken eval retrieval` and confirm
+> the README benchmark numbers (structure 0.93/0.93/0.80/0.83, recursive
+> 0.85/0.89/0.79/0.80, zero-hit 0.40).

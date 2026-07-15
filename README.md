@@ -96,18 +96,22 @@ Scored against the **human-annotated** golden set
 relevance judged by Yi Xin — the retrieval-eval red line). Metric priority:
 Recall@k leads for RAG (tutorial 02 §4).
 
-| Strategy | Recall@5 | Recall@10 | MRR | nDCG@10 |
-| --- | --- | --- | --- | --- |
-| structure-aware | 0.93 | 0.93 | 0.84 | 0.86 |
-| recursive (control) | 0.85 | 0.89 | 0.79 | 0.82 |
+| Strategy | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate |
+| --- | --- | --- | --- | --- | --- |
+| structure-aware | 0.93 | 0.93 | 0.80 | 0.83 | 0.40 |
+| recursive (control) | 0.85 | 0.89 | 0.79 | 0.80 | 0.40 |
 
-Structure-aware chunking leads on every metric — the empirical form of
+Structure-aware chunking leads on every ranking metric — the empirical form of
 tutorial 02's top optimization lever (chunking ≫ k1/b, which is left at
-library defaults). Reproduce (fixed seed, versioned golden set):
+library defaults). The **zero-hit rate** (fraction of the 5 out-of-corpus trap
+queries the retriever correctly returns nothing for) is only 0.40 for both:
+lexical BM25 alone cannot refuse well, which is exactly what the fail-closed
+answer logic (Day 5) and adversarial no-answer evaluation (Day 8) are for —
+reported honestly rather than hidden. Reproduce (versioned golden set,
+deterministic):
 
 ```bash
-learnarken eval retrieval --package samples/package-a --package samples/package-c \
-  --golden eval/golden/day3.jsonl
+learnarken eval retrieval   # defaults to package-a + package-c, golden day3.jsonl
 ```
 
 ## Roadmap (Honest Layering)

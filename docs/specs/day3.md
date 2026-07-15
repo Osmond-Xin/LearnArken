@@ -86,9 +86,12 @@ class Chunk(BaseModel):
     icn_refs: list[str]
 ```
 
-- Structure-aware boundaries: one chunk per procedural step (warnings and
-  cautions attached to the step they precede), one per warning/caution block
-  outside steps, description sections split at paragraph level.
+- Structure-aware boundaries: one chunk per procedural step (a warning/caution
+  *inline to that step* is folded in and sets the hazard flag); each *preliminary*
+  reqSafety warning/caution is its own standalone chunk (not merged into the
+  steps it guards); preliminary conditions/support equipment → `precondition`
+  chunks and close requirements → a `closeout` chunk (no procedural content
+  dropped); description sections split at paragraph level.
 - Recursive control: fixed-size character windows with overlap
   (~800 chars / 100 overlap), same metadata inherited from the containing DM;
   `source_path` = the DM root plus a window ordinal.
