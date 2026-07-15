@@ -1,0 +1,32 @@
+{"query_id": "Q001", "query": "How do I remove the hydraulic pump?", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-520A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[3]"}]}
+{"query_id": "Q002", "query": "steps to install the hydraulic pump on the accessory gearbox", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-720A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[1]"}, {"dmc": "DMC-LA100-A-29-10-00-00A-720A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[2]"}]}
+{"query_id": "Q003", "query": "how to torque the pump supply and pressure line fittings", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-720A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[3]"}]}
+{"query_id": "Q004", "query": "inspect the main landing gear shock strut for leakage", "relevant": [{"dmc": "DMC-LA100-A-32-10-00-00A-310A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[1]"}]}
+{"query_id": "Q005", "query": "how do I remove the main battery", "relevant": [{"dmc": "DMC-LA100-A-24-50-00-00A-520A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[3]"}]}
+{"query_id": "Q006", "query": "disconnect battery terminals order negative positive", "relevant": [{"dmc": "DMC-LA100-A-24-50-00-00A-520A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[2]"}]}
+{"query_id": "Q007", "query": "DMC-LA100-A-29-10-00-00A-941A-D", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q008", "query": "ICN-LA100-29-001-01", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q009", "query": "part number LA-29-4711-1", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q010", "query": "which module has part LA-29-0025-4", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q011", "query": "hydraulic fluid under pressure can penetrate skin", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-520A-A", "source_path": "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"}]}
+{"query_id": "Q012", "query": "warning do not operate the pump dry", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-720A-A", "source_path": "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"}]}
+{"query_id": "Q013", "query": "ground safety pins before working under landing gear", "relevant": [{"dmc": "DMC-LA100-A-32-10-00-00A-310A-A", "source_path": "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"}]}
+{"query_id": "Q014", "query": "battery high current shock hazard with aircraft power off", "relevant": [{"dmc": "DMC-LA100-A-24-50-00-00A-520A-A", "source_path": "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"}]}
+{"query_id": "Q015", "query": "hydraulic system low pressure troubleshooting reservoir level", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-421A-A", "source_path": "/dmodule/content/faultIsolation/isolationProcedure/isolationStep[1]"}]}
+{"query_id": "Q016", "query": "landing gear does not retract weight on wheels switch", "relevant": [{"dmc": "DMC-LA100-A-32-10-00-00A-421A-A", "source_path": "/dmodule/content/faultIsolation/isolationProcedure/isolationStep[3]"}]}
+{"query_id": "Q017", "query": "what does the LA100 hydraulic power system supply", "relevant": [{"dmc": "DMC-LA100-A-29-00-00-00A-040A-D", "source_path": "/dmodule/content/description/levelledPara[1]"}]}
+{"query_id": "Q018", "query": "nose gear steering damper variant B shimmy", "relevant": [{"dmc": "DMC-LA100-A-32-20-00-00A-040A-D", "source_path": "/dmodule/content/description/levelledPara[1]"}]}
+{"query_id": "Q019", "query": "where are the hydraulic pump part numbers referenced from the remove procedure", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q020", "query": "how to replace the engine oil filter", "relevant": []}
+{"query_id": "Q021", "query": "cabin pressurization controller calibration schedule", "relevant": []}
+{"query_id": "Q022", "query": "APU automatic start sequence", "relevant": []}
+{"query_id": "Q023", "query": "de-icing boot inspection intervals", "relevant": []}
+{"query_id": "Q024", "query": "part LA-29-4711-9 mounting pad", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q025", "query": "examine the drag brace and side brace attachment bolts", "relevant": [{"dmc": "DMC-LA100-A-32-10-00-00A-310A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[2]"}]}
+{"query_id": "Q026", "query": "what SNS systems does the LA100 maintenance documentation cover", "relevant": [{"dmc": "DMC-LA100-A-00-00-00-00A-040A-D", "source_path": "/dmodule/content/description/levelledPara[1]"}]}
+{"query_id": "Q027", "query": "how to install the gasket on the hydraulic pump pad", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-720A-A", "source_path": "/dmodule/content/procedure/mainProcedure/proceduralStep[1]"}]}
+{"query_id": "Q028", "query": "pressure filter differential indicator extended", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-421A-A", "source_path": "/dmodule/content/faultIsolation/isolationProcedure/isolationStep[2]"}]}
+{"query_id": "Q029", "query": "manufacturer code LRN01 parts", "relevant": [{"dmc": "DMC-LA100-A-29-10-00-00A-941A-D", "source_path": "/dmodule/content/illustratedPartsCatalog"}]}
+{"query_id": "Q030", "query": "unintended gear retraction can cause death safety warning", "relevant": [{"dmc": "DMC-LA100-A-32-10-00-00A-310A-A", "source_path": "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"}]}
+{"query_id": "Q031", "query": "which airframes use a friction collar instead of steering damper", "relevant": [{"dmc": "DMC-LA100-A-32-20-00-00A-040A-D", "source_path": "/dmodule/content/description/levelledPara[1]"}]}
+{"query_id": "Q032", "query": "remove elevator flight control surfaces", "relevant": []}
