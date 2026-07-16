@@ -1,13 +1,22 @@
 """Recursive character chunking: the fixed-window control strategy (Day 3).
 
-Deliberately structure-blind — it splits the flattened DM text into
-overlapping character windows. Its job is to be the baseline the
-structure-aware strategy is measured against in the eval table (tutorial 02
-§6: prove what structure-awareness is worth). No new dependencies.
+Deliberately structure-blind — it splits the flattened DM text into character
+windows. Its job is to be the baseline the structure-aware strategy is
+measured against in the eval table (tutorial 02 §6).
+
+Day 4a (D13): re-based onto LangChain's `RecursiveCharacterTextSplitter` —
+the framework's canonical implementation of exactly this strategy (split on
+paragraph → sentence → word boundaries, fall back to hard cuts). Same 800/100
+window/overlap as Day 3; the Day 3 hand-rolled `_windows` splitter is retired.
+NOTE: boundaries differ slightly from the hand-rolled version (LC prefers
+separator hierarchies over mid-word breaks), so the Day 3 benchmark's
+recursive row is re-measured — refreshed numbers in the README, drift noted
+in the release notes.
 """
 
 from __future__ import annotations
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from lxml import etree
 
 from learnarken.chunking.base import Chunk, inherited_fields, make_chunk_id
@@ -19,29 +28,12 @@ STRATEGY = "recursive"
 WINDOW = 800
 OVERLAP = 100
 
-
-def _windows(text: str, window: int = WINDOW, overlap: int = OVERLAP) -> list[str]:
-    if window <= 0 or not (0 <= overlap < window):
-        raise ValueError(f"require window > 0 and 0 <= overlap < window, got {window}/{overlap}")
-    if len(text) <= window:
-        return [text] if text else []
-    step = window - overlap
-    out: list[str] = []
-    start = 0
-    while start < len(text):
-        end = min(start + window, len(text))
-        # Break at the last whitespace before the hard boundary to avoid mid-word cuts.
-        if end < len(text):
-            space = text.rfind(" ", start + step, end)
-            if space != -1:
-                end = space
-        out.append(text[start:end].strip())
-        if end >= len(text):
-            break
-        # Guarantee forward progress even when a whitespace break pulls `end` back
-        # far enough that end - overlap would not advance past `start` (red-team R4).
-        start = max(end - overlap, start + 1)
-    return [w for w in out if w]
+_SPLITTER = RecursiveCharacterTextSplitter(
+    chunk_size=WINDOW,
+    chunk_overlap=OVERLAP,
+    length_function=len,
+    keep_separator=False,
+)
 
 
 def chunk_dm(path, tree: etree._ElementTree, dm: DataModule, digest: str = "") -> list[Chunk]:
@@ -61,7 +53,7 @@ def chunk_dm(path, tree: etree._ElementTree, dm: DataModule, digest: str = "") -
         **inherited_fields(dm),
     )
     chunks: list[Chunk] = []
-    for i, window in enumerate(_windows(text)):
+    for i, window in enumerate(_SPLITTER.split_text(text)):
         source_path = f"/dmodule[{dm.dmc}]#win{i}"
         chunks.append(
             Chunk(

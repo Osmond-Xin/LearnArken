@@ -1,0 +1,244 @@
+{
+ "golden": "eval/golden/day4.jsonl",
+ "n_queries": 82,
+ "n_reviewed": 82,
+ "n_chunks": 43,
+ "model_revisions": {
+  "BAAI/bge-m3": "5617a9f61b028005a4858fdac845db406aefb181",
+  "Qwen/Qwen3-Embedding-8B": "1d8ad4ca9b3dd8059ad90a75d4983776a23d44af"
+ },
+ "results": {
+  "bge-m3": {
+   "overall": {
+    "recall@5": 0.9179,
+    "recall@10": 0.9701,
+    "mrr": 0.8375,
+    "ndcg@10": 0.8678,
+    "n_evaluated": 67,
+    "n_unmapped": 0,
+    "n_no_answer": 15,
+    "zero_hit_rate": 0.0
+   },
+   "by_category": {
+    "applicability": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 6,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "cross_reference": {
+     "recall@5": 0.8,
+     "recall@10": 1.0,
+     "mrr": 0.57,
+     "ndcg@10": 0.6701,
+     "n_evaluated": 5,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "descriptive": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 7,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "fault_isolation": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.9375,
+     "ndcg@10": 0.9539,
+     "n_evaluated": 8,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "identifier": {
+     "recall@5": 0.7143,
+     "recall@10": 0.7143,
+     "mrr": 0.7143,
+     "ndcg@10": 0.7143,
+     "n_evaluated": 7,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "identifier_perturbation": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 1,
+     "n_unmapped": 0,
+     "n_no_answer": 7,
+     "zero_hit_rate": 0.0
+    },
+    "no_answer": {
+     "recall@5": 0.0,
+     "recall@10": 0.0,
+     "mrr": 0.0,
+     "ndcg@10": 0.0,
+     "n_evaluated": 0,
+     "n_unmapped": 0,
+     "n_no_answer": 8,
+     "zero_hit_rate": 0.0
+    },
+    "paraphrase": {
+     "recall@5": 0.875,
+     "recall@10": 1.0,
+     "mrr": 0.6486,
+     "ndcg@10": 0.7316,
+     "n_evaluated": 12,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "procedural": {
+     "recall@5": 0.9167,
+     "recall@10": 1.0,
+     "mrr": 0.8313,
+     "ndcg@10": 0.8779,
+     "n_evaluated": 12,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "warning": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 0.9834,
+     "n_evaluated": 9,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    }
+   },
+   "sec_embed_docs": 0.2,
+   "sec_embed_queries": 1.1
+  },
+  "qwen3-8b": {
+   "overall": {
+    "recall@5": 0.9851,
+    "recall@10": 1.0,
+    "mrr": 0.8703,
+    "ndcg@10": 0.9003,
+    "n_evaluated": 67,
+    "n_unmapped": 0,
+    "n_no_answer": 15,
+    "zero_hit_rate": 0.0
+   },
+   "by_category": {
+    "applicability": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 6,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "cross_reference": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.5,
+     "ndcg@10": 0.6101,
+     "n_evaluated": 5,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "descriptive": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 7,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "fault_isolation": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 8,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "identifier": {
+     "recall@5": 0.8571,
+     "recall@10": 1.0,
+     "mrr": 0.5918,
+     "ndcg@10": 0.6905,
+     "n_evaluated": 7,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "identifier_perturbation": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 1.0,
+     "n_evaluated": 1,
+     "n_unmapped": 0,
+     "n_no_answer": 7,
+     "zero_hit_rate": 0.0
+    },
+    "no_answer": {
+     "recall@5": 0.0,
+     "recall@10": 0.0,
+     "mrr": 0.0,
+     "ndcg@10": 0.0,
+     "n_evaluated": 0,
+     "n_unmapped": 0,
+     "n_no_answer": 8,
+     "zero_hit_rate": 0.0
+    },
+    "paraphrase": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.8472,
+     "ndcg@10": 0.8896,
+     "n_evaluated": 12,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "procedural": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 0.875,
+     "ndcg@10": 0.9072,
+     "n_evaluated": 12,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    },
+    "warning": {
+     "recall@5": 1.0,
+     "recall@10": 1.0,
+     "mrr": 1.0,
+     "ndcg@10": 0.9864,
+     "n_evaluated": 9,
+     "n_unmapped": 0,
+     "n_no_answer": 0,
+     "zero_hit_rate": 0.0
+    }
+   },
+   "sec_embed_docs": 1.0,
+   "sec_embed_queries": 3.7
+  }
+ }
+}

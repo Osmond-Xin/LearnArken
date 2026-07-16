@@ -11,14 +11,18 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from learnarken.chunking import recursive, structure
+from learnarken.chunking import recursive, semantic, structure
 from learnarken.chunking.base import Chunk, applies_to, make_chunk_id
 from learnarken.loader import MAX_FILE_BYTES, load_data_module, parse_file
 from learnarken.package import NotAPackageError
 
 logger = logging.getLogger("learnarken")
 
-STRATEGIES = {structure.STRATEGY: structure.chunk_dm, recursive.STRATEGY: recursive.chunk_dm}
+STRATEGIES = {
+    structure.STRATEGY: structure.chunk_dm,
+    recursive.STRATEGY: recursive.chunk_dm,
+    semantic.STRATEGY: semantic.chunk_dm,  # Day 4a (spec Q5); makes network calls
+}
 
 __all__ = [
     "Chunk",

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Dev-time override: the embedding tensor changed 1536 -> 4096 when the
+     bake-off replaced MiniMax with Qwen3-8B as the default provider
+     (docs/notes/day4-dense-bakeoff.md). Vespa blocks field-type changes by
+     default because they destroy existing data — acceptable here (toy corpus,
+     re-fed from source in seconds). The `until` date keeps the override from
+     silently living forever; it expires and must be consciously renewed. -->
+<validation-overrides>
+  <allow until="2026-07-23">field-type-change</allow>
+</validation-overrides>

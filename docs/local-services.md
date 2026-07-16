@@ -12,14 +12,15 @@
 | --- | --- |
 | Container | `learnarken-vespa` |
 | Image | `vespaengine/vespa:latest` |
-| Query / feed port | `8080` |
-| Config-server port | `19071` |
-| Auth | none (local dev) |
+| Query / feed port | `127.0.0.1:8080` |
+| Config-server port | `127.0.0.1:19071` |
+| Auth | none — which is why the ports are loopback-bound (red-team day4 #8) |
 
 ```bash
-# start (already done on 2026-07-14)
+# start (recreated 2026-07-16 loopback-only: Vespa has no auth, so a 0.0.0.0
+# bind would let any LAN process query, poison, or clear the index)
 docker run -d --name learnarken-vespa --hostname vespa-container \
-  -p 8080:8080 -p 19071:19071 vespaengine/vespa
+  -p 127.0.0.1:8080:8080 -p 127.0.0.1:19071:19071 vespaengine/vespa
 
 # start / stop an existing container
 docker start learnarken-vespa
@@ -60,7 +61,14 @@ docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1 AS ok
 > keep in this doc. If Neo4j is ever exposed beyond localhost, move it to
 > `.env` and pass `NEO4J_AUTH` from there.
 
-## MiniMax API (embeddings — Day 4)
+## MiniMax API (embeddings — RETIRED 2026-07-16)
+
+> **Retired from the architecture** by the Day 4 adjudication
+> (docs/reviews/day4.md Part 2): the bake-off measured a length bias strong
+> enough to invert relevance (docs/notes/day4-embedding-length-bias.md), and
+> Qwen3-Embedding-8B (local) is now the sole dense provider. The client code
+> lives at commit `b414fa4`; `tools/probe_length_bias.py` remains runnable
+> stand-alone. Section kept for the historical record.
 
 Provider for **embeddings** (Day 4 dense retrieval / semantic chunking).
 Config pattern is reused from the FollowTheBig project
@@ -85,17 +93,26 @@ MINIMAX_API_PROXY_TOKEN=<secret; sent as the X-Proxy-Token header>
   the piece a stock OpenAI SDK would omit — it must be added manually.
 - Retry with backoff (3 attempts, exponential) around the POST.
 
-**Open technical item for Day 4** (not resolved today): the reference client
-only implements **chat completions** (`{api_url}/chat/completions`) — it has
-**no embedding endpoint**. So the embedding call must be written fresh. Two
-shapes to verify against the live endpoint before Day 4 implementation:
+### Embedding endpoint — RESOLVED by live probe, 2026-07-15
 
-1. OpenAI-compatible `POST {api_url}/embeddings` with `{model, input}` — if
-   the proxy exposes it.
-2. MiniMax-native embeddings (historically `POST /v1/embeddings` with a
-   `GroupId` query param and body `{model, texts, type: "db"|"query"}`,
-   where `db` vs `query` distinguishes indexing vs search vectors).
+The Day 3 open item ("the reference client only does chat completions; the
+embedding call is new code, and its shape is unverified") is **closed**. A
+probe against the live endpoint measured the following — these are facts, not
+documentation claims:
 
-Which one applies is a Day 4 spec question; recorded here so the decision
-(MiniMax as the embedding provider) is not lost. Day 3 makes **no** embedding
-calls (BM25 only — see day3 spec Out of Scope).
+| | |
+| --- | --- |
+| Shape | **MiniMax-native**, *not* OpenAI-compatible |
+| Request | `POST {MINIMAX_API_URL}/embeddings` · body `{model, texts: [...], type: "db"｜"query"}` |
+| Response | top-level **`vectors`** array (not `data[].embedding`); success = `base_resp.status_code == 0` |
+| Model | **`embo-01`** — note `MINIMAX_MODEL_NAME` holds the *chat* model (`MiniMax-M3`); embeddings need their own model name, so a separate env var or constant is required |
+| Dimension | **1536** |
+| Vectors | **L2-normalized** (\|v\| = 1.000) ⇒ Vespa `distance-metric: prenormalized-angular`; cosine ≡ inner product |
+| Auth | `Authorization: Bearer {MINIMAX_API_KEY}` **and** `X-Proxy-Token: {MINIMAX_API_PROXY_TOKEN}` — both required |
+| `GroupId` | **not needed** — the proxy handles it (upstream MiniMax CN requires it as a query param; our base URL is a proxy) |
+
+**`type` is a real asymmetric-encoding switch** (measured): embedding the same
+string with `type="db"` vs `type="query"` yields vectors at **cosine 0.860**,
+not 1.0. Index with `db`, search with `query` — mixing them degrades recall
+silently, with no error. This is the single highest-value finding of the Day 4
+probe.

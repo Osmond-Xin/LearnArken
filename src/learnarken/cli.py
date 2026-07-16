@@ -5,11 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
-from learnarken.chunking import PartialPackageError, chunk_package
+from learnarken.chunking import STRATEGIES, PartialPackageError, chunk_package
 from learnarken.models import DataModule, PackageModel
 from learnarken.package import NotAPackageError, _sanitize, scan_package
-from learnarken.retrieval import run_eval, search_package
+from learnarken.retrieval import MODES, index_package, run_ablation, run_eval, search_package
 from learnarken.validation import ValidationReport, analyze_package
 from learnarken.validation.rules import BREX_RULES
 
@@ -287,6 +288,7 @@ def _cmd_search(args: argparse.Namespace) -> int:
             k=args.top_k,
             context=context,
             skip_bad=args.skip_bad,
+            mode=args.mode,
         )
     except NotAPackageError as exc:
         print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
@@ -295,6 +297,11 @@ def _cmd_search(args: argparse.Namespace) -> int:
         print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
         print("refused (fail closed); pass --skip-bad to search readable modules", file=sys.stderr)
         return 1
+    except Exception as exc:  # Vespa/embedding down: refuse, never fake a hybrid (INV-4)
+        if type(exc).__name__ in ("VespaError", "EmbeddingError", "ValueError"):
+            print(f"error ({args.mode} mode, fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+            return 1
+        raise
     if args.json:
         payload = [
             {"rank": r.rank, "score": r.score, "chunk": r.chunk.model_dump()} for r in results
@@ -311,8 +318,8 @@ def _cmd_search(args: argparse.Namespace) -> int:
         )
     filters = ", ".join(f"{k}={v}" for k, v in context.items()) or "none"
     lines.append(
-        f"\n  query={args.query!r} · strategy={args.strategy} · k={args.top_k} · "
-        f"{len(results)} hits · filters: {filters}"
+        f"\n  query={args.query!r} · mode={args.mode} · strategy={args.strategy} · "
+        f"k={args.top_k} · {len(results)} hits · filters: {filters}"
     )
     print("\n".join(_sanitize(line) for line in lines))
     return 0
@@ -360,6 +367,86 @@ def _cmd_eval_retrieval(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_index(args: argparse.Namespace) -> int:
+    """Exit codes: 0 = OK; 1 = Vespa/embedding failure (fail closed); 2 = not a package."""
+    try:
+        n = index_package(args.package, strategy=args.strategy, skip_bad=args.skip_bad)
+    except NotAPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        return 2
+    except PartialPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        print("refused (fail closed); pass --skip-bad to index readable modules", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        if type(exc).__name__ in ("VespaError", "EmbeddingError"):
+            print(f"error (fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+            return 1
+        raise
+    print(f"indexed {n} chunks (strategy={args.strategy}) into Vespa")
+    return 0
+
+
+def _cmd_eval_ablation(args: argparse.Namespace) -> int:
+    """Exit codes: 0 = OK; 1 = golden/corpus problem or services unavailable."""
+    categories: dict[str, str] = {}
+    try:
+        for line in Path(args.golden).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                row = json.loads(line)
+                if "category" in row:
+                    categories[row["query_id"]] = row["category"]
+        report = run_ablation(
+            args.package,
+            args.golden,
+            modes=tuple(args.modes),
+            ks=tuple(args.k),
+            strategy=args.strategy,
+            categories=categories or None,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as exc:
+        print(f"error: cannot read golden set {args.golden}: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        if type(exc).__name__ in (
+            "VespaError",
+            "EmbeddingError",
+            "ValueError",
+            "PartialPackageError",
+            "NotAPackageError",
+        ):
+            print(f"error (fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+            return 1
+        raise
+    report["seed"] = args.seed
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False, default=str))
+        return 0
+    ks = tuple(args.k)
+    lines = [
+        f"Ablation · golden={report['golden']} ({report['n_queries']} queries) · "
+        f"strategy={report['strategy']} · seed={args.seed} (metadata only)",
+        f"  {'MODE':<15}"
+        + "".join(f"{f'Recall@{k}':<11}" for k in ks)
+        + f"{'MRR':<9}{f'nDCG@{max(ks)}':<10}{'ZeroHit':<9}{'p50 ms':<8}",
+    ]
+    for mode, m in report["results"].items():
+        lines.append(
+            f"  {mode:<15}"
+            + "".join(f"{m[f'recall@{k}']:<11}" for k in ks)
+            + f"{m['mrr']:<9}{m[f'ndcg@{max(ks)}']:<10}{m['zero_hit_rate']:<9}"
+            + f"{report['p50_ms'][mode]:<8}"
+        )
+    if report.get("per_category_recall"):
+        cats = sorted(next(iter(report["per_category_recall"].values())))
+        lines.append(f"\n  Per-category Recall@{min(ks)}:")
+        lines.append(f"  {'MODE':<15}" + "".join(f"{c[:12]:<14}" for c in cats))
+        for mode, by_cat in report["per_category_recall"].items():
+            lines.append(f"  {mode:<15}" + "".join(f"{by_cat[c]:<14}" for c in cats))
+    print("\n".join(lines))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="learnarken")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -393,7 +480,7 @@ def main(argv: list[str] | None = None) -> int:
 
     chunk_parser = subparsers.add_parser("chunk", help="split a package into retrieval chunks")
     chunk_parser.add_argument("package", help="path to the package directory")
-    chunk_parser.add_argument("--strategy", choices=["structure", "recursive"], default="structure")
+    chunk_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
     chunk_parser.add_argument("--dm", help="chunk only this DMC (DMC- prefix optional)")
     chunk_parser.add_argument(
         "--skip-bad",
@@ -406,8 +493,17 @@ def main(argv: list[str] | None = None) -> int:
     search_parser = subparsers.add_parser("search", help="BM25 query over a package's chunks")
     search_parser.add_argument("package", help="path to the package directory")
     search_parser.add_argument("query", help="free-text query")
+    search_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
     search_parser.add_argument(
-        "--strategy", choices=["structure", "recursive"], default="structure"
+        "--mode",
+        choices=list(MODES),
+        default="bm25",
+        help=(
+            "bm25 (offline, default) | dense | hybrid (RRF) | hybrid-rerank "
+            "(cross-encoder). Vespa-backed modes are engine-filtered to "
+            "<package> (by directory basename) — run `learnarken index` on it "
+            "first."
+        ),
     )
     search_parser.add_argument(
         "-k", "--top-k", type=_positive_int, default=10, help="number of results"
@@ -428,6 +524,14 @@ def main(argv: list[str] | None = None) -> int:
     search_parser.set_defaults(func=_cmd_search)
 
     eval_parser = subparsers.add_parser("eval", help="retrieval evaluation")
+    index_parser = subparsers.add_parser(
+        "index", help="chunk, embed (default provider) and feed Vespa"
+    )
+    index_parser.add_argument("package", nargs="+", help="package directories")
+    index_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
+    index_parser.add_argument("--skip-bad", action="store_true")
+    index_parser.set_defaults(func=_cmd_index)
+
     eval_sub = eval_parser.add_subparsers(dest="eval_command", required=True)
     retrieval_parser = eval_sub.add_parser(
         "retrieval", help="Recall@k / MRR / nDCG over the golden set, per strategy"
@@ -444,13 +548,13 @@ def main(argv: list[str] | None = None) -> int:
         "--k", type=_positive_int, nargs="+", default=[5, 10], help="Recall@k cut-offs"
     )
     retrieval_parser.add_argument(
-        "--strategy", choices=["structure", "recursive"], help="limit to one strategy"
+        "--strategy", choices=sorted(STRATEGIES), help="limit to one strategy"
     )
     retrieval_parser.add_argument(
         "--seed",
         type=int,
         default=42,
-        help="reserved for reproducibility; the current BM25 pipeline is deterministic",
+        help="metadata only (recorded in the artifact; the pipeline is deterministic)",
     )
     retrieval_parser.add_argument(
         "--skip-bad",
@@ -459,6 +563,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     retrieval_parser.add_argument("--json", action="store_true", help="output JSON")
     retrieval_parser.set_defaults(func=_cmd_eval_retrieval)
+
+    ablation_parser = eval_sub.add_parser(
+        "ablation", help="Day 4 mode ablation: bm25 / dense / hybrid / hybrid-rerank"
+    )
+    ablation_parser.add_argument(
+        "--package",
+        nargs="+",
+        default=["samples/package-a", "samples/package-c"],
+        help="package directories (default: package-a + package-c)",
+    )
+    ablation_parser.add_argument("--golden", default="eval/golden/day4.jsonl")
+    ablation_parser.add_argument("--modes", nargs="+", choices=list(MODES), default=list(MODES))
+    ablation_parser.add_argument("--k", nargs="+", type=_positive_int, default=[5, 10])
+    ablation_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
+    ablation_parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="metadata only (recorded in the artifact; retrieval is deterministic, no sampling)",
+    )
+    ablation_parser.add_argument("--json", action="store_true", help="output JSON")
+    ablation_parser.set_defaults(func=_cmd_eval_ablation)
 
     args = parser.parse_args(argv)
     if getattr(args, "command", None) == "eval" and not args.package:

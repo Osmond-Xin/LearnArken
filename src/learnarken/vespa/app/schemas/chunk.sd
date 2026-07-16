@@ -1,0 +1,81 @@
+# Chunk schema (Day 4a, docs/specs/day4.md).
+#
+# Dense store only — the text is stored for return but NOT indexed, because
+# BM25 runs in-process on the Python side (spec Q4).
+#
+# Tensor dimension follows the DEFAULT embedding provider, decided by the
+# Day 4a bake-off (docs/notes/day4-dense-bakeoff.md): Qwen3-Embedding-8B,
+# 4096 dims, L2-normalized by our provider config (normalize_embeddings=True)
+# => prenormalized-angular is correct AND cosine == inner product. Using
+# prenormalized-angular on UNnormalized vectors would be silently wrong.
+# (History: first deployment used MiniMax embo-01 @ 1536, retired after the
+# measured length bias inverted relevance rankings.)
+
+schema chunk {
+
+  document chunk {
+
+    field chunk_id type string {
+      indexing: summary | attribute
+    }
+
+    # match: word keeps a DMC whole. The Day 3 identifier rule survives into
+    # Vespa: never shred `DMC-LA100-A-29-10-00-00A-520A-A` on '-'.
+    field dmc type string {
+      indexing: summary | attribute
+      match: word
+    }
+
+    # Owning package (directory basename). Engine-side scope filter: a search
+    # over package-a must never surface package-c chunks (red-team day4 #5 —
+    # Day 5 citation grounding depends on it).
+    field package type string {
+      indexing: summary | attribute
+      match: word
+    }
+
+    field dm_title type string   { indexing: summary }
+    field issue_info type string { indexing: summary }
+    field chunk_type type string { indexing: summary | attribute }
+    field source_path type string { indexing: summary | attribute }
+    field strategy type string   { indexing: summary | attribute }
+
+    # Returned to the caller; deliberately not indexed (see header).
+    field text type string { indexing: summary }
+
+    field embedding type tensor<float>(x[4096]) {
+      indexing: attribute | index
+      attribute {
+        distance-metric: prenormalized-angular
+      }
+    }
+
+    # Day 3 metadata, kept as attributes so filtering happens in the engine:
+    # hazard flags (紧急场合) and the graph hooks.
+    field has_warning type bool { indexing: summary | attribute }
+    field has_caution type bool { indexing: summary | attribute }
+    field outbound_dm_refs type array<string> { indexing: summary | attribute }
+    field icn_refs type array<string> { indexing: summary | attribute }
+
+    # Applicability (排除场合) is carried as parallel arrays rather than a
+    # struct: filtering happens Python-side on the returned chunk, and the
+    # engine only needs to hand the assertions back intact.
+    field applic_display type string { indexing: summary }
+    field applic_properties type array<string> { indexing: summary | attribute }
+    field applic_values type array<string> { indexing: summary | attribute }
+
+    field security_classification type string { indexing: summary }
+    field effective_date type string { indexing: summary }
+    field expiry_date type string { indexing: summary }
+  }
+
+  # The only rank-profile we need: pure vector closeness. Fusion is Python's job.
+  rank-profile dense {
+    inputs {
+      query(q) tensor<float>(x[4096])
+    }
+    first-phase {
+      expression: closeness(field, embedding)
+    }
+  }
+}

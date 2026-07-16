@@ -31,6 +31,11 @@ logger = logging.getLogger("learnarken")
 # where full-string containment would spuriously miss (red-team R3).
 _RECURSIVE_OVERLAP = 0.6
 
+# Structure-blind strategies have no XPath anchor; they match golden anchors by
+# text containment instead (semantic added Day 4a — same matching rule as the
+# recursive control, for the same reason).
+_TEXT_MATCH_STRATEGIES = ("recursive", "semantic")
+
 
 @dataclass
 class GoldenQuery:
@@ -149,8 +154,10 @@ def _anchor_chunk_sets(
             for c in chunks:
                 if c.dmc != dmc:
                     continue
-                if c.strategy == "recursive":
-                    # ≥0.6 token overlap AND ≥2 shared tokens over a ≥2-token
+                if c.strategy in _TEXT_MATCH_STRATEGIES:
+                    # Strategies whose chunks carry no XPath (window/semantic
+                    # groups over flattened text) match by token overlap:
+                    # ≥0.6 overlap AND ≥2 shared tokens over a ≥2-token
                     # anchor, so a single generic token can't match (R4/R5).
                     shared = anchor_tokens & set(tokenize(c.text))
                     if (

@@ -66,18 +66,21 @@ class TestStructureChunking:
 
 
 class TestRecursiveWindows:
-    def test_high_overlap_terminates(self):
-        from learnarken.chunking.recursive import _windows
+    # Day 4a (D13): the splitter is LangChain's RecursiveCharacterTextSplitter;
+    # the red-team R4 termination/param concerns of the retired hand-rolled
+    # _windows now live in the framework. What remains OURS to verify is the
+    # configuration contract: bounded window size and forward progress.
+    def test_windows_bounded_and_terminating(self):
+        from learnarken.chunking.recursive import _SPLITTER, WINDOW
 
-        # red-team R4: pathological overlap must not hang — bounded output, terminates
-        wins = _windows(("word " * 400).strip(), window=100, overlap=90)
+        wins = _SPLITTER.split_text(("word " * 400).strip())
         assert 0 < len(wins) < 10_000
+        assert all(len(w) <= WINDOW for w in wins)
 
-    def test_invalid_params_rejected(self):
-        from learnarken.chunking.recursive import _windows
+    def test_overlap_smaller_than_window(self):
+        from learnarken.chunking.recursive import OVERLAP, WINDOW
 
-        with pytest.raises(ValueError):
-            _windows("text", window=100, overlap=100)
+        assert 0 <= OVERLAP < WINDOW
 
 
 class TestRecursiveChunking:
