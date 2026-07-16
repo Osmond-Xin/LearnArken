@@ -1,11 +1,25 @@
-"""BM25 retrieval with an identifier-preserving tokenizer (Day 3).
+"""BM25 retrieval with an identifier-preserving tokenizer (Day 3 → Day 4a).
 
 Tutorial 02 §1 / failure mode 1: a standard analyzer shreds identifiers like
 `DMC-LA100-A-29-10-00-00A-520A-A` or `P/N 1234-567` on punctuation, so an
 identifier query then drags in every doc sharing a bare numeric fragment. The
 single highest-leverage IR fix in a technical corpus is to keep identifiers as
-whole tokens. `tokenize` does exactly that, and BM25Index is a thin wrapper
-over rank-bm25 (decision Q1).
+whole tokens. `tokenize` does exactly that.
+
+Day 4a (D13): the engine underneath is LangChain's `BM25Retriever` (which
+wraps the same rank-bm25 library), with `tokenize` plugged in as its
+`preprocess_func`. Three Day 3 behaviors are ours, layered on top, because the
+framework has no hook for them:
+
+1. identifiers living in XML *attributes* (own DMC, ICN refs, dmRefs) are
+   appended to the indexed text so identifier lookups resolve;
+2. a hit requires actual token overlap — BM25 gives negative-IDF terms nonzero
+   scores, so score sign is not a hit test (red-team #1);
+3. ranked results carry scores (`ScoredChunk`), which the retriever interface
+   drops.
+
+`BM25Index.retriever` exposes the LangChain object for framework composition
+(EnsembleRetriever fusion etc.).
 """
 
 from __future__ import annotations
@@ -13,9 +27,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from rank_bm25 import BM25Okapi
+from langchain_community.retrievers import BM25Retriever
 
 from learnarken.chunking.base import Chunk
+from learnarken.chunking.documents import to_document
 
 # An identifier: an alphanumeric run containing a digit and a '-', '/' or '_'
 # internal separator (DMCs, ICNs, part numbers). Matched first, kept whole and
@@ -37,6 +52,11 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
+def _indexed_text(chunk: Chunk) -> str:
+    """Chunk text plus its attribute-borne identifiers (behavior 1)."""
+    return " ".join([chunk.text, chunk.dmc, *chunk.icn_refs, *chunk.outbound_dm_refs])
+
+
 @dataclass
 class ScoredChunk:
     rank: int
@@ -45,32 +65,40 @@ class ScoredChunk:
 
 
 class BM25Index:
-    """In-process BM25 index over a chunk list (no persistence — corpus is tiny)."""
+    """In-process BM25 over chunks: LangChain BM25Retriever + our domain layer."""
 
     def __init__(self, chunks: list[Chunk]) -> None:
         self.chunks = chunks
-        # Index the chunk text plus its identifiers (own DMC, ICN refs, outbound
-        # dmRefs) so identifier lookups resolve — these live in XML attributes,
-        # not element text, so they are absent from `text` (tutorial 02 §1).
-        corpus = [
-            tokenize(" ".join([c.text, c.dmc, *c.icn_refs, *c.outbound_dm_refs])) for c in chunks
-        ]
-        self._token_sets = [set(toks) for toks in corpus]
-        # rank-bm25 cannot build over an empty corpus; guard so search returns [].
-        self._bm25 = BM25Okapi(corpus) if corpus else None
+        corpus = [tokenize(_indexed_text(c)) for c in chunks]
+        self._token_sets = [set(tokens) for tokens in corpus]
+        # rank-bm25 (and thus the LC retriever) cannot build over an empty
+        # corpus; guard so search returns [].
+        self.retriever: BM25Retriever | None = (
+            BM25Retriever.from_documents(
+                [
+                    to_document(c).model_copy(update={"page_content": _indexed_text(c)})
+                    for c in chunks
+                ],
+                preprocess_func=tokenize,
+            )
+            if chunks
+            else None
+        )
 
     def search(self, query: str, k: int = 10) -> list[ScoredChunk]:
-        if self._bm25 is None or k <= 0:
+        if self.retriever is None or k <= 0:
             return []
-        query_tokens = set(tokenize(query))
-        scores = self._bm25.get_scores(tokenize(query))
+        query_tokens = tokenize(query)
+        query_token_set = set(query_tokens)
+        # The retriever interface drops scores; its `vectorizer` is the live
+        # rank-bm25 index built from the same corpus order (behavior 3).
+        scores = self.retriever.vectorizer.get_scores(query_tokens)
         ranked = sorted(enumerate(scores), key=lambda kv: kv[1], reverse=True)
         out: list[ScoredChunk] = []
         for idx, score in ranked:
-            # A hit needs actual token overlap. BM25 assigns negative scores to
-            # matches on terms present in most docs (negative IDF), so the score
-            # sign is NOT a reliable hit test (red-team #1) — check overlap.
-            if not (query_tokens & self._token_sets[idx]):
+            # Behavior 2 (red-team #1): require real token overlap; score sign
+            # is not a reliable hit test under negative IDF.
+            if not (query_token_set & self._token_sets[idx]):
                 continue
             out.append(
                 ScoredChunk(rank=len(out) + 1, score=round(float(score), 4), chunk=self.chunks[idx])

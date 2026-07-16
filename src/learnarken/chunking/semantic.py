@@ -23,7 +23,6 @@ from lxml import etree
 
 from learnarken.chunking.base import Chunk, inherited_fields, make_chunk_id
 from learnarken.chunking.structure import _dm_refs, _icn_refs
-from learnarken.embedding import embed
 from learnarken.loader import _text
 from learnarken.models import DataModule
 
@@ -39,8 +38,16 @@ MIN_SENTENCES = 4
 
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
-# Injection point for tests: monkeypatch this instead of the network.
-_embed = embed
+
+def _embed(sentences: list[str], _mode: str = "db") -> list[list[float]]:
+    """Sentence vectors via the default LangChain Embeddings provider (D13).
+
+    Kept as a module-level indirection so tests monkeypatch this instead of
+    the network. Boundary detection uses document-side encoding.
+    """
+    from learnarken.embedding.providers import get_embeddings
+
+    return get_embeddings().embed_documents(sentences)
 
 
 def _sentences(text: str) -> list[str]:

@@ -84,6 +84,50 @@ flowchart TB
 
 ## 3. 模块设计思路（为什么长这样）
 
+### 3.0 LangChain：系统默认技术栈（2026-07-16 起，重点说明）
+
+Yi Xin 裁决（discussions/day4 D13）：LangChain 作为项目默认技术选型引入——
+动机是**借项目掌握框架**，同时成为后续组件的默认实现方式。落地原则：
+**框架接管管道原语，领域逻辑保留在自己这层**。
+
+```mermaid
+flowchart LR
+    subgraph LC["LangChain 层（框架原语）"]
+        EMB["Embeddings 接口<br/>统一三家 provider"]
+        BM25R["BM25Retriever<br/>(langchain-community)"]
+        SPLIT["RecursiveCharacterTextSplitter<br/>(recursive 对照策略)"]
+        DOC["Document"]
+        FUT["EnsembleRetriever(RRF)<br/>CrossEncoderReranker<br/>LCEL/chains (Day 5)"]:::planned
+    end
+    subgraph OURS["领域层（不可外包给框架的部分）"]
+        TOK["保标识符分词器<br/>→ 作为 preprocess_func 注入"]
+        HARD["红队加固行为：属性标识符入索引/<br/>token重叠命中判据/带分结果"]
+        CHUNKM["Chunk 规范模型<br/>（适用性/hazard/图谱钩子）"]
+        VAL["Day 1-2 全部:<br/>安全解析/规范模型/四层校验"]
+        EVALH["评估 harness (IR 指标)"]
+    end
+    CHUNKM <-->|"chunking/documents.py<br/>唯一转换点"| DOC
+    TOK --> BM25R
+    HARD --> BM25R
+    classDef planned stroke-dasharray: 5 5,opacity:0.75;
+```
+
+各天代码的 LangChain 化审计结论（D13）：
+
+| 组件 | 结论 |
+| --- | --- |
+| Day 1–2（XML 安全解析、规范模型、四层校验器） | **无 LangChain 等价物**——校验不是该框架的领域，保持自研 |
+| Day 3 recursive 对照分块 | **已升级**为 LC `RecursiveCharacterTextSplitter`（800/100） |
+| Day 3 BM25 | **已升级**为 LC `BM25Retriever`（底层同为 rank-bm25），分词器经 `preprocess_func` 注入；三项红队加固行为在我们的包装层保留 |
+| Day 3 structure-aware 分块 | 领域 IP，无等价物，保留；经 `Document` 桥接进框架 |
+| Day 4 embedding 供应商 | 全部躲在 `Embeddings` 接口后（MiniMax 自研适配器——stock 版连不上带 X-Proxy-Token 的代理；本地模型用 `HuggingFaceEmbeddings`） |
+| 评估 harness | 无等价物（IR 指标），保留 |
+| Day 4 剩余（RRF/rerank）与 Day 5 RAG | 计划用 `EnsembleRetriever` / `CrossEncoderReranker` / LCEL（框架学习价值最高处） |
+
+已知风险：`langchain-community`（BM25Retriever 所在包）**已进入日落期**
+（import 时有弃用警告）。接受理由：底层就是我们已有的 rank-bm25，且领域层
+包装使得改挂别处是半天工作量；出现独立集成包后再迁。
+
 ### 3.1 单向分层，无环依赖
 
 ```text

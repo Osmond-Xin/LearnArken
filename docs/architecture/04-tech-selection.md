@@ -39,6 +39,16 @@
 | **MiniMax**（embedding） | BGE / E5 本地模型（执行计划原方案） | Yi Xin 指定；复用 FollowTheBig 的配置模式（含非标准 X-Proxy-Token 头）。**开口项**：参考实现无 embedding 端点，端点形状待验证 | discussions/day3 D8、[local-services.md](../local-services.md) |
 | 图数据来源 = 确定性序列化 | NLP 实体/关系抽取 | L3 校验器已建引用图，DMC/适用性/警告都是结构化字段——"抽取"就是序列化规范模型，不需要 NLP | discussions/day3 D3 |
 
+## 4.5 框架与模型选型（Day 4，2026-07-16 增补）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **LangChain = 系统默认技术栈** | 继续无框架手写 | Yi Xin 定向：**学习目标**（借项目掌握框架）+ 默认选型。落地原则"框架管管道原语、领域逻辑自留"；Day 1–2 无等价物不强套。先前 D11 的"不重构"结论只回答了"能否修 bug"，不适用于此动机 | [discussions/day4 D12/D13](../discussions/day4.md) |
+| **Qwen3-Embedding-8B = 默认 dense 模型** | MiniMax embo-01（原默认）、BGE-M3 | **三行 bake-off 用数字定**：Qwen3-8B R@5 0.985 / R@10 1.000 / MRR 0.870，胜 BGE-M3（0.910/0.970/0.833）与 MiniMax（0.500——实测长度偏置会颠倒排序，已单独立档）。8B 而非 0.6B 是 Yi Xin 效果优先的裁决；M5 Max/64GB 无成本压力 | [notes/day4-dense-bakeoff.md](../notes/day4-dense-bakeoff.md)、[notes/day4-embedding-length-bias.md](../notes/day4-embedding-length-bias.md)、D14 |
+| MiniMax 降级为对照行 | 移除 | 保留实现与长度偏置证据链——"我测出了供应商缺陷并换掉它"是完整故事；成本动机的原决策被测量推翻，诚实留痕 | D14 |
+| BGE-M3 保留（Day 4b 供应者） | 移除 | 它的独特价值在 dense 之外：sparse 权重（SPLADE 判据）与 ColBERT 多向量（late-interaction 判据），Vespa 是唯一全支持三表征的引擎 | D12 |
+| ⚠ 风险登记：langchain-community 日落 | — | BM25Retriever 所在包已弃用维护；领域层包装使迁移成本约半天，等独立包出现再迁 | D13 |
+
 ## 5. 有意不做的（负选型）
 
 | 不做 | 理由 | 重新评估点 |

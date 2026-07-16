@@ -1,13 +1,15 @@
 # Chunk schema (Day 4a, docs/specs/day4.md).
 #
 # Dense store only — the text is stored for return but NOT indexed, because
-# BM25 runs in-process on the Python side (spec Q4). Every dimension and the
-# distance metric below are MEASURED against the live MiniMax endpoint
-# (2026-07-15), not taken from documentation:
-#   embo-01 -> 1536 dims, vectors arrive L2-normalized (|v| = 1.000)
-#   => prenormalized-angular is correct AND cosine == inner product.
-# Using `angular` here would still work but wastes a normalization; using
+# BM25 runs in-process on the Python side (spec Q4).
+#
+# Tensor dimension follows the DEFAULT embedding provider, decided by the
+# Day 4a bake-off (docs/notes/day4-dense-bakeoff.md): Qwen3-Embedding-8B,
+# 4096 dims, L2-normalized by our provider config (normalize_embeddings=True)
+# => prenormalized-angular is correct AND cosine == inner product. Using
 # prenormalized-angular on UNnormalized vectors would be silently wrong.
+# (History: first deployment used MiniMax embo-01 @ 1536, retired after the
+# measured length bias inverted relevance rankings.)
 
 schema chunk {
 
@@ -33,7 +35,7 @@ schema chunk {
     # Returned to the caller; deliberately not indexed (see header).
     field text type string { indexing: summary }
 
-    field embedding type tensor<float>(x[1536]) {
+    field embedding type tensor<float>(x[4096]) {
       indexing: attribute | index
       attribute {
         distance-metric: prenormalized-angular
@@ -62,7 +64,7 @@ schema chunk {
   # The only rank-profile we need: pure vector closeness. Fusion is Python's job.
   rank-profile dense {
     inputs {
-      query(q) tensor<float>(x[1536])
+      query(q) tensor<float>(x[4096])
     }
     first-phase {
       expression: closeness(field, embedding)

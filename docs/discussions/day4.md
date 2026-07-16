@@ -302,6 +302,94 @@
   control row" from the pending decision (docs/notes, option 3) — BGE-small
   via fastembed (ONNX, no torch) measured mean rank 2.00 on the 4 probes.
 
+## D12. LangChain is a learning goal, not a bug fix; local-model selection (pending)
+
+- **Correction to D11's framing** (Yi Xin, 2026-07-16): the motive for
+  LangChain is to **learn the framework through this project** — unrelated to
+  the embedding defect. D11's "no refactor" verdict answered the wrong
+  question (can LangChain fix the bug? no) and does not answer this one
+  (should the project adopt LangChain as a learning vehicle?).
+- **AI analysis of where LangChain teaches the most, mapped to our plan**:
+  | LangChain primitive | Maps to | Note |
+  | --- | --- | --- |
+  | `Embeddings` interface | our `embedding/` module | wrap MiniMax client as a subclass (~20 lines); local models via `HuggingFaceEmbeddings` |
+  | `BM25Retriever` | Day 3 BM25 | built on the same `rank_bm25`; takes `preprocess_func` — our identifier-preserving tokenizer plugs straight in |
+  | `EnsembleRetriever` | Day 4 RRF fusion | its fusion algorithm IS reciprocal rank fusion |
+  | `ContextualCompressionRetriever` + `CrossEncoderReranker` | Day 4 rerank layer | `HuggingFaceCrossEncoder` loads bge-reranker locally |
+  | `VespaRetriever` (community) | our `vespa/store.py` | optional; pulls pyvespa — our thin store already gives the swap point |
+  | LCEL / chains / citations | **Day 5 RAG** | the highest-value place to learn the framework |
+- **Machine reality** (checked): Apple M5 Max, 64 GB — any local embedding
+  model up to Qwen3-Embedding-8B (Q4 ≈ 5 GB) runs comfortably.
+- **Local embedding candidates** (2026 landscape, web-verified):
+  BGE-M3 (560M; dense 1024d + sparse lexical weights + ColBERT multi-vector
+  from ONE model; 8k ctx; MIT; official pyvespa notebook — Vespa is the one
+  engine that serves all three representations), bge-small/base-en-v1.5
+  (33/109M; the control that already measured mean rank 2.00), nomic-embed-
+  text-v1.5 (137M, MRL), Qwen3-Embedding 0.6B/8B (MTEB open-source leader,
+  MRL, instruct-aware).
+- **AI recommendation**: adopt LangChain for the remaining Day 4a retrieval
+  plumbing (BM25Retriever + EnsembleRetriever + CrossEncoderReranker) where it
+  replaces code not yet written, keep `embedding/` + `vespa/store.py` as thin
+  adapters behind LangChain interfaces; pick **BGE-M3** as the local model —
+  best Vespa fit and it pre-loads Day 4b (its sparse output reads the SPLADE
+  gate, its multi-vector output reads the ColBERT gate, from one model).
+- **Decisions pending Yi Xin**: (a) LangChain enters now (Day 4a remainder) or
+  at Day 5; (b) which local model. Spec decision-layer amendment required
+  either way.
+
+## D13. Adjudication of D12 + LangChain retrofit audit of Days 1–3
+
+- **Rulings** (Yi Xin, 2026-07-16): LangChain is adopted **now** as the
+  system-default technology stack (learning goal); Days 1–3 are audited and
+  upgraded to LangChain **where an equivalent exists**; architecture docs get
+  a dedicated LangChain section. Dense bake-off runs MiniMax / BGE-M3 /
+  **Qwen3-8B** (Yi Xin picked 8B for maximum effect after the size-vs-quality
+  discussion), winner becomes default. Both workstreams in parallel.
+- **Retrofit audit result**:
+  | Day | Component | Verdict |
+  | --- | --- | --- |
+  | 1–2 | XML security parsing, canonical Pydantic model, four-layer validator | **No LangChain equivalent** — validation is not the framework's domain. Stays custom. |
+  | 3 | recursive control chunker | **Upgraded**: LangChain `RecursiveCharacterTextSplitter` (800/100). Boundaries differ slightly → Day 3 recursive row re-measured. |
+  | 3 | BM25 | **Upgraded**: LangChain `BM25Retriever` (same rank-bm25 underneath) with our identifier tokenizer as `preprocess_func`. Three red-team-hardened behaviors stay OURS on top (attribute-identifier indexing, token-overlap hit test vs negative IDF, scored results) — the framework has no hook for them. |
+  | 3 | structure-aware chunker | Domain IP, no equivalent — stays. Chunks bridge to LC `Document` via one conversion module. |
+  | 3 | semantic chunker | Algorithm identical to LC's `SemanticChunker` (percentile breakpoints); kept ours (40 lines) rather than adding the `langchain_experimental` grab-bag dep, now consuming the default LC `Embeddings` provider. |
+  | 3 | eval harness (Recall/MRR/nDCG) | No LangChain equivalent. Stays. |
+- **Risk recorded**: `langchain-community` (home of `BM25Retriever`) is
+  **being sunset** (deprecation warning at import; maintainers point to
+  standalone integration packages). Accepted for now — it wraps the same
+  rank-bm25 we already depend on, and our domain layer means the retriever
+  could be re-homed in an afternoon. Revisit if a standalone package appears.
+
+## D14. Dense bake-off: Qwen3-8B wins and becomes the default
+
+- **Method**: three providers behind one LangChain `Embeddings` interface,
+  exact cosine in Python (no ANN confound), scored by the unchanged Day 3
+  harness on eval/golden/day4.jsonl (82 queries; 32 human-reviewed subset
+  reported separately), structure chunks of package-a+c (43).
+- **Result** (docs/notes/day4-dense-bakeoff.md, reproduce:
+  `uv run python tools/dense_bakeoff.py`):
+  | Provider | R@5 | R@10 | MRR | nDCG@10 | R@5 (human-32) |
+  | --- | --- | --- | --- | --- | --- |
+  | MiniMax embo-01 | 0.500 | 0.679 | 0.359 | 0.430 | 0.463 |
+  | BGE-M3 | 0.910 | 0.970 | 0.833 | 0.866 | 0.926 |
+  | **Qwen3-8B** | **0.985** | **1.000** | **0.870** | **0.903** | **0.963** |
+- **Consequences**: `DEFAULT_PROVIDER = "qwen3-8b"`; Vespa schema tensor
+  1536 → 4096, redeployed and re-fed; end-to-end spot check — the query that
+  ranked 31/35 under MiniMax now returns the correct chunk at #1 (0.7975),
+  and a zero-overlap paraphrase ("which post comes off the power cell
+  first?") hits the right warning+step at #1–2. MiniMax stays implemented as
+  the ablation's contrast row; its length-bias finding stands as a Day 4
+  artifact. BGE-M3 stays for Day 4b (sparse/ColBERT representations).
+- **Bake-off caveats (for the red team)**: 50 of 82 queries carry AI-drafted
+  anchors pending Yi Xin's review — the human-32 subset shows the same
+  ordering, so the conclusion is stable across provenance; dense rows always
+  return k hits, so no_answer/identifier_perturbation categories read 0 for
+  all providers by construction and did not influence the ranking.
+- **Vespa lesson recorded**: changing a field's tensor dimension is blocked by
+  the engine's validation gate (`field-type-change`) — production data-loss
+  protection. Dev-time bypass: `validation-overrides.xml` with an expiry date
+  (checked in, expires 2026-07-23).
+
 ## D3. Day 4 interim report is the labeled fallback
 
 - **Context**: the Day 4 report was generated this session via the `agy`

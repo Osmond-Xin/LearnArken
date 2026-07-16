@@ -52,7 +52,29 @@ an expanded human-annotated golden set — tagged `v0.4.0`.
    The three prior records that put SPLADE/ColBERT out of slice
    (execution-plan 切片外, README Roadmap *Planned*, discussions/day3 D2) are
    amended from "Planned, indefinite" to "Day 4b, evidence-gated" — see Q7.
-9. **AI-verified technical correction, accepted into the decision record**:
+9. **LangChain is the system-default technology stack** (Yi Xin, 2026-07-16;
+   motive = learning the framework through the project, adopted as the default
+   choice going forward). Introduced immediately: all embedding providers sit
+   behind `langchain_core.embeddings.Embeddings`; BM25 runs on LangChain's
+   `BM25Retriever` (our identifier tokenizer as its `preprocess_func`); the
+   recursive control strategy is LangChain's `RecursiveCharacterTextSplitter`;
+   Chunk ⇄ `Document` conversion is a single bridge module. **Days 1–3
+   retrofit audit**: Day 3 retrieval/chunking upgraded as above; Day 1–2 (XML
+   security parsing, canonical model, four-layer validator) have no LangChain
+   equivalent — validation is not the framework's domain — and stay custom,
+   as does the eval harness (IR metrics) and the red-team-hardened BM25
+   behaviors layered on top of the retriever.
+10. **Dense provider is decided by a three-way bake-off** (Yi Xin, 2026-07-16):
+   MiniMax embo-01 vs BGE-M3 vs Qwen3-Embedding-8B, all consumed through the
+   same LangChain interface, exact-cosine ranked, scored by the Day 3 harness
+   on the 82-query golden set; **the winner becomes the default**, losers stay
+   as ablation contrast rows. Result (docs/notes/day4-dense-bakeoff.md):
+   **Qwen3-8B wins** — R@5 0.985 / R@10 1.000 / MRR 0.870, vs BGE-M3
+   0.910/0.970/0.833 and MiniMax 0.500/0.679/0.359 (the measured length bias
+   at full-set scale). `DEFAULT_PROVIDER = "qwen3-8b"`; Vespa schema tensor
+   4096; MiniMax remains implemented as a contrast row and the cost-motivated
+   decision 1 is superseded by measurement.
+11. **AI-verified technical correction, accepted into the decision record**:
    SPLADE does **not** strengthen BM25 on identifiers. SPLADE weights sit on
    a BERT wordpiece vocabulary (~30k), so `DMC-LA100-A-29-10-00-00A-520A-A`
    is shredded into subword fragments and cannot be matched whole. SPLADE

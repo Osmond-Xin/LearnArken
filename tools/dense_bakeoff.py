@@ -1,0 +1,152 @@
+"""Day 4a dense bake-off: MiniMax embo-01 vs BGE-M3 vs Qwen3-Embedding-8B.
+
+The winner becomes DEFAULT_PROVIDER (Yi Xin, 2026-07-16 — "用数字开门").
+Every provider is consumed through the same LangChain `Embeddings` interface,
+ranked by exact cosine in Python (no ANN, no engine — pure model comparison),
+and scored by the Day 3 evaluation harness against the golden set.
+
+    uv run python tools/dense_bakeoff.py [--golden eval/golden/day4.jsonl]
+
+Writes docs/notes/day4-dense-bakeoff.md. Deterministic given fixed model
+weights: no sampling anywhere (embeddings are deterministic per input).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import time
+from pathlib import Path
+from typing import NamedTuple
+
+from learnarken.chunking import chunk_package
+from learnarken.embedding.providers import get_embeddings
+from learnarken.retrieval.evaluate import (
+    evaluate_strategy,
+    load_golden,
+    resolve_anchors,
+    unresolved_anchors,
+)
+
+PACKAGES = ("samples/package-a", "samples/package-c")
+PROVIDERS = ("minimax", "bge-m3", "qwen3-8b")
+OUT = Path("docs/notes/day4-dense-bakeoff.md")
+
+
+class _Scored(NamedTuple):
+    chunk: object
+    score: float
+
+
+def cosine(a: list[float], b: list[float]) -> float:
+    # All three providers L2-normalize (MiniMax measured; locals configured),
+    # so the dot product is the cosine.
+    return sum(x * y for x, y in zip(a, b, strict=True))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--golden", default="eval/golden/day4.jsonl")
+    parser.add_argument("--providers", nargs="*", default=list(PROVIDERS))
+    args = parser.parse_args()
+
+    golden = load_golden(args.golden)
+    rows = [json.loads(line) for line in Path(args.golden).read_text().splitlines() if line.strip()]
+    category = {r["query_id"]: r.get("category", "?") for r in rows}
+    reviewed = {r["query_id"] for r in rows if r.get("relevance_reviewed")}
+
+    chunks = [c for pkg in PACKAGES for c in chunk_package(pkg, "structure")]
+    anchors = {a for q in golden for a in q.relevant}
+    resolved = resolve_anchors(list(PACKAGES), anchors)
+    missing = unresolved_anchors(anchors, resolved)
+    if missing:
+        print(f"WARNING: {len(missing)} unresolved anchors: {sorted(missing)[:4]} ...")
+
+    print(f"{len(golden)} queries ({len(reviewed)} human-reviewed) · {len(chunks)} chunks\n")
+    results: dict[str, dict] = {}
+
+    for name in args.providers:
+        print(f"=== {name}")
+        emb = get_embeddings(name)
+        t0 = time.perf_counter()
+        doc_vectors = emb.embed_documents([c.text for c in chunks])
+        t_docs = time.perf_counter() - t0
+        t0 = time.perf_counter()
+        query_vectors = {q.query_id: emb.embed_query(q.query) for q in golden}
+        t_queries = time.perf_counter() - t0
+
+        def search(query_text: str, k: int, _qv=query_vectors, _dv=doc_vectors, _g=golden):
+            qv = next(_qv[q.query_id] for q in _g if q.query == query_text)
+            ranked = sorted(zip(chunks, _dv, strict=True), key=lambda cv: -cosine(qv, cv[1]))[:k]
+            return [_Scored(c, cosine(qv, v)) for c, v in ranked]
+
+        overall = evaluate_strategy(chunks, search, golden, resolved)
+        human = evaluate_strategy(
+            chunks, search, [q for q in golden if q.query_id in reviewed], resolved
+        )
+        by_cat = {}
+        for cat in sorted({category[q.query_id] for q in golden}):
+            subset = [q for q in golden if category[q.query_id] == cat]
+            by_cat[cat] = evaluate_strategy(chunks, search, subset, resolved)
+        results[name] = {
+            "overall": overall,
+            "human32": human,
+            "by_category": by_cat,
+            "sec_embed_docs": round(t_docs, 1),
+            "sec_embed_queries": round(t_queries, 1),
+        }
+        print(f"    all-82   : {overall}")
+        print(f"    human-32 : {human}")
+
+    _write_report(results, len(golden), len(reviewed), len(chunks))
+    print(f"\nreport -> {OUT}")
+    return 0
+
+
+def _write_report(results: dict, n_all: int, n_human: int, n_chunks: int) -> None:
+    lines = [
+        "# Day 4a dense bake-off — MiniMax embo-01 / BGE-M3 / Qwen3-Embedding-8B",
+        "",
+        "> **AI-generated** (Claude, implementer), 2026-07-16, per Yi Xin's",
+        "> direction: three dense rows, the winner becomes the default provider.",
+        "> Harness: exact cosine in Python over structure chunks of package-a+c",
+        f"> ({n_chunks} chunks); scored by the Day 3 evaluation code against",
+        f"> eval/golden/day4.jsonl ({n_all} queries, of which {n_human} are",
+        "> human-reviewed Day 3 annotations; the rest are AI-drafted candidates",
+        "> pending review — both views reported). Reproduce:",
+        "> `uv run python tools/dense_bakeoff.py`",
+        "",
+        "## Overall",
+        "",
+        "| Provider | R@5 | R@10 | MRR | nDCG@10 "
+        "| R@5 (human-32) | MRR (human-32) | embed docs (s) |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for name, r in results.items():
+        o, h = r["overall"], r["human32"]
+        lines.append(
+            f"| {name} | {o['recall@5']} | {o['recall@10']} | {o['mrr']} | {o['ndcg@10']} "
+            f"| {h['recall@5']} | {h['mrr']} | {r['sec_embed_docs']} |"
+        )
+    lines += ["", "## Per category (Recall@5, all queries)", ""]
+    categories = sorted(next(iter(results.values()))["by_category"])
+    lines.append("| Provider | " + " | ".join(categories) + " |")
+    lines.append("| --- |" + " --- |" * len(categories))
+    for name, r in results.items():
+        cells = [str(r["by_category"][c]["recall@5"]) for c in categories]
+        lines.append(f"| {name} | " + " | ".join(cells) + " |")
+    lines += [
+        "",
+        "Notes: dense retrieval always returns k hits, so `zero_hit_rate` is 0",
+        "for every provider by construction — refusal is Day 5's job, and the",
+        "no_answer / identifier_perturbation categories are scored on that",
+        "basis (they read 0 here; the BM25 row is where refusal-by-absence",
+        "shows). Latency is embed time on this machine (M5 Max), not a serving",
+        "claim (INV-7).",
+        "",
+    ]
+    OUT.write_text("\n".join(lines), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
