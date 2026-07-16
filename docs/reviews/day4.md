@@ -167,3 +167,24 @@ precedent; see docs/discussions/day4.md D18):**
 Numbers re-run after the fixes: ranking metrics unchanged from the Part-2
 re-issue (bm25 0.83 / dense 0.99 / hybrid 0.93 / hybrid-rerank 0.99 R@5);
 red-team-reported numbers remain subject to Yi Xin's own re-run before merge.
+
+9. **Part 1b (second pass) ruling: fix C1–C7 and C11 now; C8/C9/C10 to the
+   backlog** (Yi Xin, 2026-07-16, same closeout session). Implemented, 140
+   tests green:
+   - **C1/C2** — `index_package` rejects colliding package basenames; the
+     Vespa-backed `search_package` fail-closes when any returned chunk_id is
+     not in the local package corpus (kills both the basename-collision leak
+     and the stale-index citation path).
+   - **C3** — 排除场合 filtering fail-closes when the full-corpus overfetch
+     would exceed the engine cap `MAX_TOP_K` (no silently incomplete filter).
+   - **C4** — historical MiniMax row moved into
+     `eval/results/day4-bakeoff-historical.json` (provenance included);
+     generator gains `--check`, and a test runs it so README↔artifact drift
+     fails the suite.
+   - **C5** — `approximate` must be a runtime `bool` before YQL interpolation.
+   - **C6** — `run_ablation` rejects duplicate golden query texts.
+   - **C7** — `dense_bakeoff` fails closed on unresolved anchors.
+   - **C11** — generator consistency check is an explicit raise, not `assert`.
+   - **Backlog (Day 5+)**: C8 (required integration target where skips fail —
+     couples to the CI strategy discussion), C9 (pin the Vespa image digest),
+     C10 (probe-tool labeling + chunk_id charset validation).

@@ -1,0 +1,12 @@
+{
+ "note": "Historical bake-off row: MiniMax embo-01, measured 2026-07-16 pre-review on the then-current golden set. The client was removed from the architecture by the Day 4 adjudication (docs/reviews/day4.md Part 2 ruling 5) after the measured length bias (docs/notes/day4-embedding-length-bias.md). Reproducible only at commit b414fa4. This artifact exists so the generator owns no numbers of its own (red-team day4 C4).",
+ "provider_label": "MiniMax embo-01 (remote) †",
+ "measured": "2026-07-16",
+ "reproducible_at_commit": "b414fa4",
+ "metrics": {
+  "recall@5": 0.5,
+  "recall@10": 0.68,
+  "mrr": 0.36,
+  "ndcg@10": 0.43
+ }
+}

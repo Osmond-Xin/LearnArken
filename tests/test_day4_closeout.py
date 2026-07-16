@@ -6,6 +6,7 @@ tests/test_day4_integration.py (finding #12).
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
@@ -164,24 +165,45 @@ class TestApplicabilityOverfetch:
             ),
         )
 
+    @staticmethod
+    def _applic(variant: str) -> Applicability:
+        return Applicability(
+            display_text=f"Variant {variant} only",
+            assertions=[
+                ApplicAssertion(property_ident="variant", property_type="", values=variant)
+            ],
+        )
+
     def test_applicable_answer_survives_post_filter_cut(self, monkeypatch):
         from learnarken.chunking.documents import to_document
 
-        inapplicable = self._variant_chunk("c-va", "A")  # rank 1, excluded for B
-        applicable = self._variant_chunk("c-vb", "B")  # rank 2, the real answer
         seen: dict = {}
 
         def fake_mode_retriever(mode, chunks, k, strategy, package=None):
-            seen.update(k=k, package=package, n_chunks=len(chunks))
+            # Local corpus chunks (the C1/C2 guard rejects foreign ids), with
+            # applicability overridden: rank 1 excluded for variant B, rank 2
+            # is the real answer.
+            inapplicable = chunks[0].model_copy(update={"applicability": self._applic("A")})
+            applicable = chunks[1].model_copy(update={"applicability": self._applic("B")})
+            seen.update(k=k, package=package, n_chunks=len(chunks), want=applicable.chunk_id)
             return _FixedRetriever(documents=[to_document(inapplicable), to_document(applicable)])
 
         monkeypatch.setattr(retrieval, "_mode_retriever", fake_mode_retriever)
         results = retrieval.search_package(
             "samples/package-a", "q", mode="dense", k=1, context={"variant": "B"}
         )
-        assert [r.chunk.chunk_id for r in results] == ["c-vb"]
+        assert [r.chunk.chunk_id for r in results] == [seen["want"]]
         assert seen["k"] == max(1, seen["n_chunks"])  # full-corpus overfetch bound
         assert seen["package"] == "package-a"  # engine-side scope (red-team #5)
+
+    def test_overfetch_beyond_engine_cap_fails_closed(self, monkeypatch):
+        import learnarken.vespa.store as store_mod
+
+        monkeypatch.setattr(store_mod, "MAX_TOP_K", 5)  # corpus is 20+ chunks
+        with pytest.raises(ValueError, match="incomplete filter"):
+            retrieval.search_package(
+                "samples/package-a", "q", mode="dense", k=1, context={"variant": "B"}
+            )
 
     def test_no_context_keeps_requested_k(self, monkeypatch):
         seen: dict = {}
@@ -193,3 +215,55 @@ class TestApplicabilityOverfetch:
         monkeypatch.setattr(retrieval, "_mode_retriever", fake_mode_retriever)
         retrieval.search_package("samples/package-a", "q", mode="dense", k=3)
         assert seen["k"] == 3
+
+
+class TestCloseoutSecondPass:
+    """Red-team day4 C1–C7/C11 (second-pass rulings, 2026-07-16)."""
+
+    def test_foreign_chunk_in_results_fails_closed(self, monkeypatch):
+        # C1/C2: a stale or basename-colliding index must not be citable.
+        from learnarken.chunking.documents import to_document
+
+        def fake_mode_retriever(mode, chunks, k, strategy, package=None):
+            return _FixedRetriever(documents=[to_document(_chunk("not-in-this-package"))])
+
+        monkeypatch.setattr(retrieval, "_mode_retriever", fake_mode_retriever)
+        with pytest.raises(ValueError, match="not in this package's corpus"):
+            retrieval.search_package("samples/package-a", "q", mode="dense", k=3)
+
+    def test_index_rejects_colliding_basenames(self):
+        # C1: the basename is the engine-side scope identity.
+        with pytest.raises(ValueError, match="basenames collide"):
+            retrieval.index_package(["tenant-a/manual", "tenant-b/manual"])
+
+    def test_approximate_must_be_a_real_bool(self, monkeypatch):
+        # C5: a crafted string must never reach the YQL annotation.
+        monkeypatch.setattr(store, "_request", lambda *a, **k: pytest.fail("request sent"))
+        with pytest.raises(ValueError, match="approximate must be a bool"):
+            store.search([0.0], approximate="true}or true{")
+
+    def test_ablation_rejects_duplicate_golden_texts(self, tmp_path):
+        # C6: the single-pass cache is keyed by query text.
+        golden = tmp_path / "golden.jsonl"
+        row = {"query_id": "q1", "query": "same text", "relevant": []}
+        golden.write_text(
+            json.dumps(row) + "\n" + json.dumps({**row, "query_id": "q2"}) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="duplicate golden query texts"):
+            retrieval.run_ablation(["samples/package-a"], golden, modes=("bm25",))
+
+    def test_readme_tables_match_artifacts(self):
+        # C4: `--check` is the drift guard — a red-team #1 style hand edit
+        # (or a stale README after re-running the eval) fails the suite.
+        import subprocess
+        import sys as _sys
+
+        repo = Path(__file__).parent.parent
+        result = subprocess.run(  # noqa: S603
+            [_sys.executable, "tools/gen_benchmark_tables.py", "--check"],
+            capture_output=True,
+            text=True,
+            cwd=repo,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr

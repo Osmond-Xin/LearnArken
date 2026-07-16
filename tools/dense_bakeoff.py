@@ -66,7 +66,12 @@ def main() -> int:
     resolved = resolve_anchors(list(PACKAGES), anchors)
     missing = unresolved_anchors(anchors, resolved)
     if missing:
-        print(f"WARNING: {len(missing)} unresolved anchors: {sorted(missing)[:4]} ...")
+        # Fail closed, matching run_eval/run_ablation: a benchmark artifact
+        # must not be produced from an invalid golden/corpus pairing (C7).
+        raise SystemExit(
+            f"{len(missing)} golden anchor(s) do not resolve: {sorted(missing)[:4]} — "
+            "refusing to produce a bake-off artifact (fail closed)"
+        )
 
     print(f"{len(golden)} queries ({len(reviewed)} human-reviewed) · {len(chunks)} chunks\n")
     results: dict[str, dict] = {}
@@ -148,9 +153,7 @@ def _write_report(results: dict, n_all: int, n_human: int, n_chunks: int) -> Non
         )
     lines += ["", "## Per category (Recall@5, answerable queries)", ""]
     categories = sorted(next(iter(results.values()))["by_category"])
-    cat_n = {
-        c: next(iter(results.values()))["by_category"][c]["n_evaluated"] for c in categories
-    }
+    cat_n = {c: next(iter(results.values()))["by_category"][c]["n_evaluated"] for c in categories}
     lines.append("| Provider | " + " | ".join(f"{c} (n={cat_n[c]})" for c in categories) + " |")
     lines.append("| --- |" + " --- |" * len(categories))
     for name, r in results.items():

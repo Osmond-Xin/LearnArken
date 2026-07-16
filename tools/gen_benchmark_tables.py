@@ -7,17 +7,23 @@ published tables is structurally impossible. The script refuses to emit any
 row that violates Recall monotonicity.
 
     uv run learnarken eval ablation --json > eval/results/day4-ablation.json
-    uv run python tools/dense_bakeoff.py        # also writes day4-bakeoff.json
-    uv run python tools/gen_benchmark_tables.py # rewrites README blocks
+    uv run python tools/dense_bakeoff.py           # also writes day4-bakeoff.json
+    uv run python tools/gen_benchmark_tables.py    # rewrites README blocks
+    uv run python tools/gen_benchmark_tables.py --check  # verify, no write (CI/test)
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 ABLATION = Path("eval/results/day4-ablation.json")
 BAKEOFF = Path("eval/results/day4-bakeoff.json")
+# Rows that can no longer be regenerated (provider removed from the
+# architecture) live in their own artifact with provenance — the generator
+# owns no numbers of its own (red-team day4 C4).
+BAKEOFF_HISTORICAL = Path("eval/results/day4-bakeoff-historical.json")
 README = Path("README.md")
 
 MODE_LABELS = {
@@ -31,11 +37,6 @@ PROVIDER_LABELS = {
     "bge-m3": "BGE-M3 (local)",
     "qwen3-8b": "Qwen3-Embedding-8B (local)",
 }
-
-# Historical row (client removed by the Day 4 adjudication): reproducible only
-# at commit b414fa4. Kept here — with provenance — rather than hand-edited in
-# the README, so the generator owns every published cell.
-MINIMAX_ROW = "| MiniMax embo-01 (remote) † | 0.50 | 0.68 | 0.36 | 0.43 |"
 
 INDICATIVE_N = 3  # per-category cells under this n are rendered in italics
 
@@ -59,7 +60,8 @@ def render_ablation(report: dict) -> list[str]:
     _check_monotonic(results, ABLATION)
     n_eval = {r["n_evaluated"] for r in results.values()}
     n_na = {r["n_no_answer"] for r in results.values()}
-    assert len(n_eval) == 1 and len(n_na) == 1, "modes evaluated different query sets"
+    if len(n_eval) != 1 or len(n_na) != 1:  # not `assert` — must survive python -O (C11)
+        raise SystemExit("REFUSING to emit table: modes evaluated different query sets")
 
     lines = [
         f"Ranking metrics over **answerable n={n_eval.pop()}**; zero-hit rate over "
@@ -69,8 +71,7 @@ def render_ablation(report: dict) -> list[str]:
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     best = {
-        k: max(r[k] for r in results.values())
-        for k in ("recall@5", "recall@10", "mrr", "ndcg@10")
+        k: max(r[k] for r in results.values()) for k in ("recall@5", "recall@10", "mrr", "ndcg@10")
     }
     for mode, r in results.items():
         cells = []
@@ -114,17 +115,19 @@ def render_ablation(report: dict) -> list[str]:
     return lines
 
 
-def render_bakeoff(report: dict) -> list[str]:
+def render_bakeoff(report: dict, historical: dict) -> list[str]:
     results = {name: r["overall"] for name, r in report["results"].items()}
     _check_monotonic(results, BAKEOFF)
+    _check_monotonic({historical["provider_label"]: historical["metrics"]}, BAKEOFF_HISTORICAL)
+    h = historical["metrics"]
     lines = [
         "| Provider | Recall@5 | Recall@10 | MRR | nDCG@10 |",
         "| --- | --- | --- | --- | --- |",
-        MINIMAX_ROW,
+        f"| {historical['provider_label']} | {h['recall@5']:.2f} | {h['recall@10']:.2f} "
+        f"| {h['mrr']:.2f} | {h['ndcg@10']:.2f} |",
     ]
     best = {
-        k: max(r[k] for r in results.values())
-        for k in ("recall@5", "recall@10", "mrr", "ndcg@10")
+        k: max(r[k] for r in results.values()) for k in ("recall@5", "recall@10", "mrr", "ndcg@10")
     }
     for name, r in results.items():
         cells = []
@@ -147,12 +150,23 @@ def replace_block(text: str, name: str, lines: list[str], path: Path) -> str:
     return head + begin + "\n" + "\n".join(lines) + "\n" + end + tail
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    check_only = "--check" in (argv if argv is not None else sys.argv[1:])
     ablation = json.loads(ABLATION.read_text(encoding="utf-8"))
     bakeoff = json.loads(BAKEOFF.read_text(encoding="utf-8"))
-    text = README.read_text(encoding="utf-8")
-    text = replace_block(text, "day4-ablation", render_ablation(ablation), README)
-    text = replace_block(text, "day4-bakeoff", render_bakeoff(bakeoff), README)
+    historical = json.loads(BAKEOFF_HISTORICAL.read_text(encoding="utf-8"))
+    current = README.read_text(encoding="utf-8")
+    text = replace_block(current, "day4-ablation", render_ablation(ablation), README)
+    text = replace_block(text, "day4-bakeoff", render_bakeoff(bakeoff, historical), README)
+    if check_only:
+        if text != current:
+            print(
+                f"MISMATCH: {README} tables differ from the eval artifacts — "
+                "re-run tools/gen_benchmark_tables.py (red-team day4 C4)"
+            )
+            return 1
+        print(f"{README} tables match the eval artifacts")
+        return 0
     README.write_text(text, encoding="utf-8")
     print(f"rewrote gen:day4-ablation and gen:day4-bakeoff blocks in {README}")
     return 0

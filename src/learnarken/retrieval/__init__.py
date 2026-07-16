@@ -96,12 +96,33 @@ def search_package(
     # 排除场合 filtering happens after retrieval for Vespa modes, so an
     # inapplicable chunk at rank ≤ k must not evict the applicable answer at
     # k+1 (red-team day4 #14). Overfetch bound = the full corpus: exact at
-    # this scale, so the post-filter cut provably loses nothing.
+    # this scale, so the post-filter cut provably loses nothing. The bound
+    # only holds within the engine's top-k cap — beyond it, refuse rather
+    # than silently return an incomplete filter (red-team day4 C3).
     fetch_k = max(k, len(chunks)) if context else k
+    if context:
+        from learnarken.vespa.store import MAX_TOP_K
+
+        if fetch_k > MAX_TOP_K:
+            raise ValueError(
+                f"排除场合 filtering needs a full-corpus overfetch of {fetch_k} chunks, "
+                f"above the engine cap {MAX_TOP_K} — refusing an incomplete filter "
+                "(fail closed); push the applicability predicate engine-side first"
+            )
     retriever = _mode_retriever(
         mode, chunks, k=fetch_k, strategy=strategy, package=Path(package_dir).name
     )
     ranked = [from_document(d) for d in retriever.invoke(query)]
+    # The engine may only answer with this package's chunks (red-team day4
+    # C1/C2): a stale index, or another directory sharing this basename,
+    # would otherwise be silently cited.
+    local_ids = {c.chunk_id for c in chunks}
+    foreign = sorted(c.chunk_id for c in ranked if c.chunk_id not in local_ids)
+    if foreign:
+        raise ValueError(
+            f"engine returned chunk(s) not in this package's corpus {foreign[:3]} — "
+            "stale or colliding index; re-run `learnarken index` (fail closed)"
+        )
     if context:
         ranked = [c for c in ranked if applies_to(c, context)]
     # Fused/reranked orderings have no single comparable score — rank is the
@@ -152,6 +173,13 @@ def index_package(
         get_embeddings,
     )
 
+    names = [Path(p).name for p in package_dirs]
+    if len(set(names)) != len(names):
+        raise ValueError(
+            f"package directory basenames collide: {sorted(names)} — the basename is "
+            "the engine-side scope identity, so same-named packages cannot be indexed "
+            "together (red-team day4 C1)"
+        )
     raw: list[Chunk] = []
     owner: dict[str, str] = {}  # chunk_id → owning package name (red-team #5)
     for pkg in package_dirs:
@@ -304,6 +332,12 @@ def run_ablation(
     INV-5 form).
     """
     golden = load_golden(golden_path)
+    # The single-pass cache is keyed by query text; duplicate texts would
+    # collapse two golden rows into one audit identity (red-team day4 C6).
+    texts = [q.query for q in golden]
+    if len(set(texts)) != len(texts):
+        duplicates = sorted({t for t in texts if texts.count(t) > 1})
+        raise ValueError(f"duplicate golden query texts: {duplicates[:3]} (fail closed)")
     anchors = {a for q in golden for a in q.relevant}
     resolved = resolve_anchors(package_dirs, anchors)
     missing = unresolved_anchors(anchors, resolved)

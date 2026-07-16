@@ -259,6 +259,8 @@ def search(
         raise ValueError(f"unknown strategy {strategy!r}; choose from {sorted(STRATEGIES)}")
     if package is not None and not _SAFE_PACKAGE.match(package):
         raise ValueError(f"invalid package name {package!r}")
+    if not isinstance(approximate, bool):  # str would be interpolated into YQL (C5)
+        raise ValueError(f"approximate must be a bool, got {type(approximate).__name__}")
     top_k = max(1, min(int(top_k), MAX_TOP_K))
     nn = f"{{targetHits:{top_k}, approximate:{str(approximate).lower()}}}"
     conditions = [f"({nn}nearestNeighbor(embedding, q))"]
