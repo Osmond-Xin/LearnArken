@@ -85,17 +85,26 @@ MINIMAX_API_PROXY_TOKEN=<secret; sent as the X-Proxy-Token header>
   the piece a stock OpenAI SDK would omit — it must be added manually.
 - Retry with backoff (3 attempts, exponential) around the POST.
 
-**Open technical item for Day 4** (not resolved today): the reference client
-only implements **chat completions** (`{api_url}/chat/completions`) — it has
-**no embedding endpoint**. So the embedding call must be written fresh. Two
-shapes to verify against the live endpoint before Day 4 implementation:
+### Embedding endpoint — RESOLVED by live probe, 2026-07-15
 
-1. OpenAI-compatible `POST {api_url}/embeddings` with `{model, input}` — if
-   the proxy exposes it.
-2. MiniMax-native embeddings (historically `POST /v1/embeddings` with a
-   `GroupId` query param and body `{model, texts, type: "db"|"query"}`,
-   where `db` vs `query` distinguishes indexing vs search vectors).
+The Day 3 open item ("the reference client only does chat completions; the
+embedding call is new code, and its shape is unverified") is **closed**. A
+probe against the live endpoint measured the following — these are facts, not
+documentation claims:
 
-Which one applies is a Day 4 spec question; recorded here so the decision
-(MiniMax as the embedding provider) is not lost. Day 3 makes **no** embedding
-calls (BM25 only — see day3 spec Out of Scope).
+| | |
+| --- | --- |
+| Shape | **MiniMax-native**, *not* OpenAI-compatible |
+| Request | `POST {MINIMAX_API_URL}/embeddings` · body `{model, texts: [...], type: "db"｜"query"}` |
+| Response | top-level **`vectors`** array (not `data[].embedding`); success = `base_resp.status_code == 0` |
+| Model | **`embo-01`** — note `MINIMAX_MODEL_NAME` holds the *chat* model (`MiniMax-M3`); embeddings need their own model name, so a separate env var or constant is required |
+| Dimension | **1536** |
+| Vectors | **L2-normalized** (\|v\| = 1.000) ⇒ Vespa `distance-metric: prenormalized-angular`; cosine ≡ inner product |
+| Auth | `Authorization: Bearer {MINIMAX_API_KEY}` **and** `X-Proxy-Token: {MINIMAX_API_PROXY_TOKEN}` — both required |
+| `GroupId` | **not needed** — the proxy handles it (upstream MiniMax CN requires it as a query param; our base URL is a proxy) |
+
+**`type` is a real asymmetric-encoding switch** (measured): embedding the same
+string with `type="db"` vs `type="query"` yields vectors at **cosine 0.860**,
+not 1.0. Index with `db`, search with `query` — mixing them degrades recall
+silently, with no error. This is the single highest-value finding of the Day 4
+probe.

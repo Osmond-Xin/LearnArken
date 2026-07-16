@@ -40,13 +40,26 @@
 
 | 步 | 动作 | 产出 | 谁做 |
 | --- | --- | --- | --- |
-| 1 学 | 读当日教程,列出 3 个"实现时要验证的概念" | 教程笔记(可简) | 人 |
+| 1a 研 | 深度调研当日领域:背景、发展源流、主流特色、未来方向、最佳实践、必会技巧与坑(中文) | `docs/research/dayN-report.md` | AI(Gemini Deep Research) |
+| 1b 读 | 读调研报告 + 当日教程,列出 3 个"实现时要验证的概念" | 教程笔记(可简) | 人 |
+| 1c 扫 | 未知点扫描(blind spot pass)+ 必会知识点深讲,对照报告与教程 | `docs/research/dayN-unknowns.md` | AI(Claude) |
 | 2 规 | 写当日 SPEC:目标、接口、验收标准、明确不做什么 | `docs/specs/dayN.md` | **人写,AI 只许提问** |
 | 3 做 | AI 按 SPEC 实现,小步 commit | feature branch | AI(Claude Code) |
 | 4 审 | 第二个独立 agent **只读**红队:P0/P1/P2 findings + 终判 SHIP / REVIEW_NEEDED / DO_NOT_MERGE | `docs/reviews/dayN.md` 前半 | AI(Codex / Gemini / MiniMax) |
 | 5 裁 | 逐条裁决 findings:accept / reject + 一句话理由;红队报的数字必须自验 | `docs/reviews/dayN.md` 后半 | **人,不可外包** |
 | 6 证 | `make test` 全绿 + 当日验收标准逐条打勾 | CI 绿 | 人跑,AI 修 |
 | 7 交 | squash merge → tag → release notes(含当日基准数字)→ 手写学习日志 | `docs/journal/dayN.md` | 人写日志 |
+
+> **学习流程 v2**(2026-07-15 起、Day 4 生效,Yi Xin 指示):步骤 1 由"读教程"
+> 升级为"研→读→扫"三段。方法论来自 Anthropic《A Field Guide to Claude Fable:
+> Finding Your Unknowns》的未知象限框架——把 unknown unknowns 显式化是 agentic
+> 工作方式的核心技能;对应到学习:先用深度调研建立领域全景(压缩 unknown
+> unknowns),再由实现方 AI 做盲区扫描 + 必会点深讲(把 known unknowns 讲透),
+> 然后按原教程实践。调研通道:首选 Gemini 官方 Deep Research
+> (Interactions API,agent `deep-research-preview-04-2026`,
+> `tools/deep_research.py`,需付费级 `GEMINI_API_KEY`;或在 Gemini App 手动跑
+> 后存档);兜底为 `agy`(Antigravity CLI)+ Gemini 3.1 Pro 单次联网调研,
+> 产物必须标注"模拟"。`gemini` CLI 个人免费层已被 Google 停用,不是可用通道。
 
 **理解三道闸**(招聘方核查的就是这三样,也是自学的强制机制):
 - **SPEC 是人写的**——拆解能力装不出来;
