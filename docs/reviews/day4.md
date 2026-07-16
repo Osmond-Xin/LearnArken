@@ -87,10 +87,51 @@ under instruction, per the Day 3 precedent; wording faithful to the ruling)
 **Adjudicated earlier in-session** (pre-review, host-side): dependency upper
 bounds (#10, first half) fixed in `b414fa4`.
 
-**Remaining findings not yet explicitly adjudicated** — carried to the Day 4b
-/ Day 5 backlog for ruling: #5 (package-scoped Vespa retrieval — flagged as a
-Day 5 grounding prerequisite), #8 (Vespa port binding), #9 (YQL
-parameterization), #10 second half (HF model revision pinning), #12
-(integration test suite), #13 (ablation re-runs searches), #14 (applicability
-push-down), #15 (per-category n labels — partially addressed by the generator
-note), #16, #17.
+**Remaining findings adjudicated at closeout (Yi Xin, 2026-07-16 closeout
+session — transcribed by the implementer under instruction, per the Day 3
+precedent; see docs/discussions/day4.md D18):**
+
+6. **Fix ALL nine remaining findings before merge** (the implementer's
+   fix-five/backlog-four recommendation was overruled). Implemented, all
+   tests green (134 passed + heavy smoke suite):
+   - **#5** — `package` attribute in the Vespa schema (fed as the package
+     directory basename), engine-side YQL filter, and a fail-closed
+     post-check: an out-of-scope hit raises instead of being returned.
+     CLI `search` Vespa modes are now scoped to `<package>`.
+   - **#8** — container recreated with `-p 127.0.0.1:8080:8080
+     -p 127.0.0.1:19071:19071`; docs/local-services.md updated with the
+     rationale (no auth ⇒ loopback only). Corpus re-deployed and re-fed.
+   - **#9** — YQL inputs validated before interpolation: strategy against
+     the chunking registry, package names against `^[A-Za-z0-9._-]+$`,
+     `top_k` clamped to [1, 400].
+   - **#10 (second half)** — all three HF models pinned by commit SHA
+     (`REVISIONS` / `RERANKER_REVISION`), recorded in the corpus manifest
+     and every eval artifact; `verify_corpus` fails closed on a revision
+     mismatch.
+   - **#12** — `tests/test_day4_integration.py`: skip-marked on
+     `vespa.is_up()` (feed/search/scope/delete round-trip with cleanup);
+     model-loading + rerank smoke gated on `LEARNARKEN_HEAVY_TESTS=1`.
+     Hermetic closeout tests in `tests/test_day4_closeout.py`.
+   - **#13** — `run_ablation` runs each mode × query exactly once; overall,
+     per-category and latency all derive from the cached ranking.
+   - **#14** — with an 排除场合 context, Vespa modes overfetch the full
+     corpus (exact bound at toy scale) before post-filtering, so an
+     inapplicable chunk can no longer evict the applicable answer;
+     regression-tested.
+   - **#15 (tail)** — per-category table headers carry `(n=…)`; cells with
+     n<3 render italic via the generator.
+   - **#16** — tables are now rewritten *in place* between
+     `<!-- BEGIN gen:… -->` markers in README by
+     `tools/gen_benchmark_tables.py`, from `day4-ablation.json` +
+     `day4-bakeoff.json` (dense_bakeoff now writes an artifact); the
+     historical MiniMax row lives in the generator with provenance.
+   - **#17** — `--seed` labeled "metadata only" in help and output.
+7. **Day 4b gate: stays SHUT** — no learning-value override; ADR-0001
+   (includes the pre-ruled Python-side-MaxSim position from D7 should the
+   gate ever open).
+8. **Day 4 review point: minimal RDF/SPARQL dependency-graph query pulled
+   into Day 9** — ADR-0002; execution-plan Day 9 updated.
+
+Numbers re-run after the fixes: ranking metrics unchanged from the Part-2
+re-issue (bm25 0.83 / dense 0.99 / hybrid 0.93 / hybrid-rerank 0.99 R@5);
+red-team-reported numbers remain subject to Yi Xin's own re-run before merge.

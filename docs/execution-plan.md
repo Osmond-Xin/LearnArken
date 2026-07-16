@@ -28,8 +28,10 @@
 混合检索(dense + RRF + rerank)与消融表 → 带引用的 RAG 问答 →
 校验修复 agent → 评估红队 → API + 在线 demo。
 
-**切片外**(README Roadmap 标 Planned):SPLADE、ColBERT、RDF/SPARQL 全量知识图谱、
-世界模型、vLLM 本地 serving、TensorRT-LLM、Rust 扩展、GNN、形式化验证。
+**切片外**(README Roadmap 标 Planned):RDF/SPARQL 全量知识图谱(**最小依赖
+图查询已于 Day 4 复评拉回切片,挂 Day 9——ADR-0002**)、世界模型、vLLM 本地
+serving、TensorRT-LLM、Rust 扩展、GNN、形式化验证。SPLADE 与 ColBERT 曾列
+此处,后改为 Day 4b 证据开门项,**门未开、已按证据关闭**(ADR-0001)。
 
 > 注:旧版把"多智能体"整体划到切片外。AI-first 之后实现成本大幅下降,
 > 因此把两个最有面试价值的 agent 场景收回切片内(Day 7–8),其余仍推迟。
@@ -153,6 +155,13 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
 
 **证**:消融表进 README;红队裁决记录落盘;数字本人复跑一致。
 
+> **4a/4b 拆分(spec day4 Q7 + D5 裁决,记录于 2026-07-16 收口)**:
+> Day 4a = LangChain 默认栈 + Qwen3-8B 稠密 + Vespa + 四行消融,`v0.4.0`;
+> Day 4b = SPLADE/ColBERT,**证据开门**——仅当 4a 的 per-category 表暴露
+> 具体缺口才立项,无独立 tag。**结果:门未开,已关闭**(paraphrase 缺口被
+> dense 关死至 1.00,identifier 未输;ADR-0001,内含未来若开门 MaxSim 走
+> Python 侧的预裁)。
+>
 > 🔓 本日完成 = Projects 简历行与 AI 赛道解锁(见私档,此处不展开)。
 >
 > 🔁 **复评点(Day 4 收口时执行)**:重新评估是否把一个**最小 RDF/SPARQL
@@ -160,6 +169,7 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
 > 出现在目标岗位的职位标题里(详见私档),是当前切片唯一的标题级关键词缺口;
 > 教程 [06 知识图谱](tutorials/06-knowledge-graph.md) §9 已备好"图谱 × RAG"
 > 的三个组合接口。决策(拉回/维持 Planned)与理由记入 ADR。
+> **→ 已执行(2026-07-16):拉回,挂 Day 9(ADR-0002)。**
 
 ### Day 5 — 带引用的 RAG 问答(`v0.5.0`)⚑ 重型红队节点
 
@@ -229,6 +239,10 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
       (governed-AI 行业即用此语;求职材料同步用词,见私档),并注明与
       ML 传统含义(分布偏移检测)的区别
 - [ ] 根目录 `llms.txt`:给 AI agent 的仓库导览(是什么、证据在哪、怎么复跑)
+- [ ] **最小依赖图查询切片**(Day 4 复评点拉回,ADR-0002):chunk 已带的
+      dmRefs/ICN 钩子入 Neo4j,回答一类依赖查询(如"DM X 被废弃影响哪些
+      程序"),按 tutorial 06 §9 的组合接口之一与检索并联;当日超时则按
+      INV-8 滑点规则优先裁剪为设计稿
 - [ ] 复盘 specs/reviews/journal 全目录,补齐缺漏
 
 **证**:一个陌生 AI agent 只读 `llms.txt` + `EVIDENCE.md` 能在 5 分钟内

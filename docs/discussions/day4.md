@@ -463,6 +463,42 @@
 - **Still pending ruling**: red-team #5 (package-scoped retrieval — Day 5
   grounding prerequisite), #8, #9, #10 (model revision pins), #12–#17.
 
+## D18. Closeout adjudication: all nine remaining findings fixed; both gates ruled
+
+> AI-distilled, same-session transcription of Yi Xin's rulings (2026-07-16,
+> closeout session); pending human review.
+
+- **Context**: the closeout session opened with the environment self-check
+  (120 tests green, lint clean, containers up, manifest present — matching
+  the handoff) and put four questions to Yi Xin in one batch.
+- **Rulings** (transcribed):
+  1. **Red-team remaining nine findings: fix ALL before merge** — not the
+     recommended fix-five-backlog-four split. Scope: #5 package-scoped
+     retrieval (engine-side filter, fail-closed), #8 Vespa ports bound to
+     127.0.0.1, #9 YQL parameterization, #10 second half (HF model revision
+     pins, INV-5), #12 skip-marked integration suite, #13 ablation
+     single-pass caching, #14 applicability push-down, #15 tail + #16 notes
+     tables generated from artifacts, #17 seed labeled metadata-only.
+  2. **Day 4b gate stays SHUT** — the ablation numbers close both gates
+     (paraphrase R@5: BM25 0.33 → dense 1.00; identifier: dense 0.857 >
+     BM25 0.714). No learning-value override. Decision + rationale go to an
+     ADR; Day 4 closes with 4a only, `v0.4.0`.
+  3. **RDF/SPARQL review point: PULL the minimal dependency-graph query
+     slice back in, attached around Day 9** — closes the only title-level
+     JD keyword gap; Neo4j and the chunk graph hooks (dmRefs/ICN) are
+     already in place. Decision goes to an ADR; execution-plan Day 9 gains
+     the slice.
+  4. **D7 contradiction pre-ruled: Python-side MaxSim** — moot while the 4b
+     gate is shut, but recorded as the standing position should the gate
+     ever open: consistency with Q3 (engine stays a dense store) outweighs
+     Vespa's ColBERT-native selling point, and the D2 engine-selection
+     rationale must be restated accordingly at that time.
+- **Consequences**: nine fixes + re-feed + ablation re-run this session;
+  `docs/adr/` created with ADR-0001 (4b gate) and ADR-0002 (graph slice);
+  execution-plan gains the 4a/4b split (Q7) and the Day 9 graph slice;
+  README Roadmap wording updated; then self-review → cross-host red team →
+  merge chain (Day 3 first).
+
 ## D3. Day 4 interim report is the labeled fallback
 
 - **Context**: the Day 4 report was generated this session via the `agy`

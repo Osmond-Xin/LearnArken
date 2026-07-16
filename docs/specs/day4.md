@@ -216,38 +216,45 @@ and where the Day 4b gate is read:
 ## Acceptance Criteria — [AI-assembled from execution-plan Day 4 + the
 2026-07-15 decisions; pending approval]
 
-- [ ] MiniMax embedding client works against the live endpoint: native
-      `{texts, type}` shape, `vectors` response, `base_resp.status_code`
-      checked, `X-Proxy-Token` sent, retry/backoff — and **`type=db` on index,
-      `type=query` on search** (the measured asymmetry; a test asserts the two
-      vectors differ)
-- [ ] Vespa application package deploys from the repo; `learnarken index`
+- [x] ~~MiniMax embedding client works against the live endpoint~~ —
+      **superseded by adjudication** (Part 2 ruling 5, 2026-07-16): the client
+      was built, probed live (`type=db/query` asymmetry measured, cos 0.860),
+      then removed from the architecture after the measured length bias;
+      historical client at commit `b414fa4`, evidence in
+      docs/notes/day4-embedding-length-bias.md + tools/probe_length_bias.py
+- [x] Vespa application package deploys from the repo; `learnarken index`
       feeds package-a + package-c chunks; re-feeding is idempotent
-- [ ] Semantic chunking implemented (Q5); chunking table gains its third row
-- [ ] Identifier queries still resolve exactly through the Vespa path
-      (decision 2 regression: a DMC query returns its DM and not numeric
-      look-alikes)
-- [ ] All four modes runnable via `learnarken search --mode …`
-- [ ] Golden set expanded to ~80 queries, human-annotated, versioned
-- [ ] `learnarken eval ablation` reproducible (fixed seed, versioned golden
-      set); four-row table + per-category breakdown generated
-- [ ] Failure-case analysis written: ≥1 concrete identifier/part-number query
-      where dense loses to BM25 → `docs/notes/day4-failure-cases.md`
-- [ ] Ablation numbers survive the **heavy red team** (Producer → Challenger →
-      Reviser until no new P0/P1); Challenger attacks the eval method itself
-      (leakage? seed? sample size? multiple comparisons?)
-- [ ] Yi Xin re-runs the red team's numbers personally (iron rule)
-- [ ] Ablation table into README; **local integration run green** (Q6: CI is
-      simplified — it runs the hermetic tests only and passes by default, so
-      the verification bar for Day 4 is the local run); branch → PR → squash →
-      tag `v0.4.0`, release notes carrying the numbers and stating they come
-      from a local run
-- [ ] Day 4b gate read from the per-category table and recorded (which of
-      SPLADE / ColBERT is justified by which gap — or neither); Day 4b then
-      continues under the same `v0.4.0` tag (Q7), subject to the INV-8 ceiling
-- [ ] Day 4 re-evaluation checkpoint executed (execution-plan 🔁): minimal
-      RDF/SPARQL graph query pulled back into the slice or kept Planned →
-      decision + rationale into an ADR
+      (doc id = chunk_id; verified again on the 2026-07-16 loopback re-deploy)
+- [x] Semantic chunking implemented (Q5); chunking table gains its third row
+      (semantic 0.81 < recursive 0.85 < structure 0.93 R@5)
+- [x] Identifier queries still resolve exactly through the Vespa path
+      (decision 2 regression: dense identifier R@5 0.86 — the DMC `match: word`
+      field survives; tests cover the tokenizer through the retriever)
+- [x] All four modes runnable via `learnarken search --mode …` (now
+      engine-scoped to `<package>` — red-team #5 fix)
+- [x] Golden set expanded to 82 queries, **all human-reviewed**
+      (Yi Xin, 2026-07-16), versioned at eval/golden/day4.jsonl
+- [x] `learnarken eval ablation` reproducible (deterministic; seed recorded as
+      metadata; versioned golden set; model revisions pinned and recorded in
+      the artifact); four-row table + per-category breakdown generated
+- [x] Failure-case analysis written → docs/notes/day4-failure-cases.md
+      (the *predicted* failure inverted: dense wins identifiers at this scale;
+      the documented real failure is dense's inability to refuse)
+- [x] Ablation numbers survived the **heavy red team** (Codex cross-host,
+      17 findings, 4 P0 — all adjudicated; tables re-issued from artifacts;
+      docs/reviews/day4.md)
+- [x] Yi Xin re-ran the red team's numbers personally (Part 2 ruling 4);
+      **the post-closeout-fix numbers await the same re-run before merge**
+- [ ] Ablation table into README (done, generator-owned); **local integration
+      run green** (done: 134 tests + live Vespa suite + heavy smoke);
+      branch → PR → squash → tag `v0.4.0` with release notes — **pending, the
+      merge chain is the last closeout step**
+- [x] Day 4b gate read from the per-category table and recorded: **neither
+      gate opened; Day 4b closed** → docs/adr/0001-day4b-gate-stays-shut.md
+      (includes the pre-ruled Python-side MaxSim position)
+- [x] Day 4 re-evaluation checkpoint executed (execution-plan 🔁): minimal
+      RDF/SPARQL graph query **pulled into Day 9** →
+      docs/adr/0002-minimal-graph-query-slice.md
 
 ## Explicitly Out of Scope (today) — [AI-DRAFTED, pending approval]
 
