@@ -1,8 +1,8 @@
 """Day 4a tests: providers, Document bridge, RRF fusion, mode plumbing.
 
-Hermetic — no network, no Vespa, no model weights. A live-service
-integration suite is red-team day4 finding #12, pending adjudication;
-until then the local bar is the documented manual run.
+Hermetic — no network, no Vespa, no model weights. The live-service
+integration suite (red-team day4 #12) is tests/test_day4_integration.py;
+the closeout-fix tests are tests/test_day4_closeout.py.
 """
 
 from datetime import date
