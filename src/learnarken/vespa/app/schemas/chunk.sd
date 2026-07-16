@@ -26,6 +26,14 @@ schema chunk {
       match: word
     }
 
+    # Owning package (directory basename). Engine-side scope filter: a search
+    # over package-a must never surface package-c chunks (red-team day4 #5 —
+    # Day 5 citation grounding depends on it).
+    field package type string {
+      indexing: summary | attribute
+      match: word
+    }
+
     field dm_title type string   { indexing: summary }
     field issue_info type string { indexing: summary }
     field chunk_type type string { indexing: summary | attribute }

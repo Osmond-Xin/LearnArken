@@ -12,8 +12,10 @@ no caller reaches around it.
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
+import re
 import subprocess
 import time
 import urllib.error
@@ -24,6 +26,12 @@ from learnarken.chunking.base import Chunk
 from learnarken.models import Applicability, ApplicAssertion
 
 logger = logging.getLogger("learnarken")
+
+# YQL is assembled by string interpolation, so every interpolated value is
+# validated first (red-team day4 #9): strategies against the chunking
+# registry, package names against a conservative charset, top_k clamped.
+_SAFE_PACKAGE = re.compile(r"^[A-Za-z0-9._-]+$")
+MAX_TOP_K = 400
 
 APP_DIR = Path(__file__).parent / "app"
 CONFIG_URL = "http://localhost:19071"
@@ -47,7 +55,10 @@ def _request(url: str, payload: dict | None = None, method: str = "GET", timeout
             return json.loads(response.read() or b"{}")
     except urllib.error.HTTPError as exc:
         raise VespaError(f"{method} {url} -> HTTP {exc.code}: {exc.read()[:300].decode()}") from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
+    except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException) as exc:
+        # ConnectionError/HTTPException cover RemoteDisconnected: the container
+        # port is open before the service answers, which urlopen does not wrap
+        # in URLError (seen live during the 2026-07-16 container recreation).
         raise VespaError(f"{method} {url} -> {exc}. Is the {CONTAINER} container running?") from exc
 
 
@@ -98,10 +109,11 @@ def deploy(app_dir: Path = APP_DIR, wait: int = 120) -> None:
     raise VespaError(f"deployed, but {QUERY_URL} did not come up within {wait}s")
 
 
-def _document_fields(chunk: Chunk) -> dict:
+def _document_fields(chunk: Chunk, package: str) -> dict:
     applic = chunk.applicability
     return {
         "chunk_id": chunk.chunk_id,
+        "package": package,
         "dmc": chunk.dmc,
         "dm_title": chunk.dm_title,
         "issue_info": chunk.issue_info,
@@ -156,13 +168,24 @@ def _chunk_from_fields(fields: dict) -> Chunk:
     )
 
 
-def feed(chunks: list[Chunk], vectors: list[list[float]]) -> int:
-    """Upsert chunks with their embeddings. Idempotent: doc id = chunk_id (INV-2)."""
-    if len(chunks) != len(vectors):
-        raise VespaError(f"{len(chunks)} chunks but {len(vectors)} vectors — refusing to feed")
-    for chunk, vector in zip(chunks, vectors, strict=True):
+def feed(chunks: list[Chunk], vectors: list[list[float]], packages: list[str]) -> int:
+    """Upsert chunks with their embeddings. Idempotent: doc id = chunk_id (INV-2).
+
+    `packages[i]` is the owning package name of `chunks[i]` (directory
+    basename) — stored as an attribute so search can scope to one package
+    engine-side (red-team day4 #5).
+    """
+    if not (len(chunks) == len(vectors) == len(packages)):
+        raise VespaError(
+            f"{len(chunks)} chunks / {len(vectors)} vectors / {len(packages)} package "
+            "names — refusing to feed"
+        )
+    bad = sorted({p for p in packages if not _SAFE_PACKAGE.match(p)})
+    if bad:
+        raise VespaError(f"invalid package name(s) {bad} — refusing to feed")
+    for chunk, vector, package in zip(chunks, vectors, packages, strict=True):
         url = f"{QUERY_URL}/document/v1/{NAMESPACE}/{DOC_TYPE}/docid/{chunk.chunk_id}"
-        fields = _document_fields(chunk)
+        fields = _document_fields(chunk, package)
         fields["embedding"] = {"values": vector}
         _request(url, {"fields": fields}, method="POST")
     logger.info("fed %d chunks to Vespa", len(chunks))
@@ -173,6 +196,14 @@ def clear() -> None:
     """Drop every document of this type. Keeps re-indexing runs honest."""
     _request(
         f"{QUERY_URL}/document/v1/{NAMESPACE}/{DOC_TYPE}/docid?selection=true&cluster=learnarken",
+        method="DELETE",
+    )
+
+
+def delete(chunk_id: str) -> None:
+    """Delete one document by chunk id (integration-test cleanup)."""
+    _request(
+        f"{QUERY_URL}/document/v1/{NAMESPACE}/{DOC_TYPE}/docid/{chunk_id}",
         method="DELETE",
     )
 
@@ -207,19 +238,34 @@ def list_doc_ids() -> set[str]:
 
 
 def search(
-    vector: list[float], top_k: int = 10, strategy: str | None = None, approximate: bool = False
+    vector: list[float],
+    top_k: int = 10,
+    strategy: str | None = None,
+    package: str | None = None,
+    approximate: bool = False,
 ) -> list[tuple[Chunk, float]]:
     """Nearest-neighbour search. Returns (chunk, relevance) ranked best first.
 
-    `approximate=False` by default: at this corpus size HNSW and brute force
-    give the same answers, and exact search keeps the ablation free of an
-    ANN-approximation confound (spec, Interfaces). Flip it to True to
-    demonstrate the HNSW-vs-exact recall trade-off.
+    `package` scopes the search to one package engine-side and fails closed if
+    the engine still returns an out-of-scope chunk (red-team day4 #5 — a Day 5
+    answer must never cite another package). `approximate=False` by default:
+    at this corpus size HNSW and brute force give the same answers, and exact
+    search keeps the ablation free of an ANN-approximation confound (spec,
+    Interfaces). Flip it to True to demonstrate the HNSW-vs-exact trade-off.
     """
+    from learnarken.chunking import STRATEGIES
+
+    if strategy is not None and strategy not in STRATEGIES:
+        raise ValueError(f"unknown strategy {strategy!r}; choose from {sorted(STRATEGIES)}")
+    if package is not None and not _SAFE_PACKAGE.match(package):
+        raise ValueError(f"invalid package name {package!r}")
+    top_k = max(1, min(int(top_k), MAX_TOP_K))
     nn = f"{{targetHits:{top_k}, approximate:{str(approximate).lower()}}}"
     conditions = [f"({nn}nearestNeighbor(embedding, q))"]
     if strategy:
         conditions.append(f'strategy contains "{strategy}"')
+    if package:
+        conditions.append(f'package contains "{package}"')
     payload = {
         "yql": f"select * from {DOC_TYPE} where {' and '.join(conditions)}",
         "ranking.profile": "dense",
@@ -228,4 +274,13 @@ def search(
     }
     body = _request(f"{QUERY_URL}/search/", payload, method="POST")
     hits = body.get("root", {}).get("children", []) or []
-    return [(_chunk_from_fields(h["fields"]), float(h.get("relevance", 0.0))) for h in hits]
+    results: list[tuple[Chunk, float]] = []
+    for h in hits:
+        fields = h["fields"]
+        if package and fields.get("package") != package:
+            raise VespaError(
+                f"engine returned chunk {fields.get('chunk_id')!r} from package "
+                f"{fields.get('package')!r} outside requested scope {package!r} (fail closed)"
+            )
+        results.append((_chunk_from_fields(fields), float(h.get("relevance", 0.0))))
+    return results

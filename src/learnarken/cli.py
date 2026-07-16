@@ -425,7 +425,7 @@ def _cmd_eval_ablation(args: argparse.Namespace) -> int:
     ks = tuple(args.k)
     lines = [
         f"Ablation · golden={report['golden']} ({report['n_queries']} queries) · "
-        f"strategy={report['strategy']} · seed={args.seed}",
+        f"strategy={report['strategy']} · seed={args.seed} (metadata only)",
         f"  {'MODE':<15}"
         + "".join(f"{f'Recall@{k}':<11}" for k in ks)
         + f"{'MRR':<9}{f'nDCG@{max(ks)}':<10}{'ZeroHit':<9}{'p50 ms':<8}",
@@ -500,9 +500,9 @@ def main(argv: list[str] | None = None) -> int:
         default="bm25",
         help=(
             "bm25 (offline, default) | dense | hybrid (RRF) | hybrid-rerank "
-            "(cross-encoder). Vespa-backed modes search everything currently "
-            "indexed, not only <package> — run `learnarken index` on the same "
-            "corpus first."
+            "(cross-encoder). Vespa-backed modes are engine-filtered to "
+            "<package> (by directory basename) — run `learnarken index` on it "
+            "first."
         ),
     )
     search_parser.add_argument(
@@ -554,7 +554,7 @@ def main(argv: list[str] | None = None) -> int:
         "--seed",
         type=int,
         default=42,
-        help="reserved for reproducibility; the current BM25 pipeline is deterministic",
+        help="metadata only (recorded in the artifact; the pipeline is deterministic)",
     )
     retrieval_parser.add_argument(
         "--skip-bad",
@@ -581,7 +581,7 @@ def main(argv: list[str] | None = None) -> int:
         "--seed",
         type=int,
         default=42,
-        help="recorded for reproducibility (retrieval is deterministic; no sampling)",
+        help="metadata only (recorded in the artifact; retrieval is deterministic, no sampling)",
     )
     ablation_parser.add_argument("--json", action="store_true", help="output JSON")
     ablation_parser.set_defaults(func=_cmd_eval_ablation)

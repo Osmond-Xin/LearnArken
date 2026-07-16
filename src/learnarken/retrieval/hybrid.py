@@ -31,6 +31,8 @@ from learnarken.retrieval.bm25 import BM25Index
 from learnarken.retrieval.dense import VespaDenseRetriever
 
 RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
+# Pinned snapshot (red-team day4 #10, INV-5) — recorded in eval artifacts.
+RERANKER_REVISION = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
 RRF_K = 60  # EnsembleRetriever's `c`; the 2009 paper's constant — not a knob
 CANDIDATE_K = 20  # per-arm fetch depth feeding fusion/rerank
 
@@ -44,13 +46,16 @@ def bm25_retriever(chunks: list[Chunk], k: int = CANDIDATE_K):
 
 
 def hybrid_retriever(
-    chunks: list[Chunk], k: int = CANDIDATE_K, strategy: str = "structure"
+    chunks: list[Chunk],
+    k: int = CANDIDATE_K,
+    strategy: str = "structure",
+    package: str | None = None,
 ) -> EnsembleRetriever:
     """BM25 + Vespa dense, fused by reciprocal rank (equal weights = plain RRF)."""
     return EnsembleRetriever(
         retrievers=[
             bm25_retriever(chunks, k=k),
-            VespaDenseRetriever(k=k, strategy=strategy),
+            VespaDenseRetriever(k=k, strategy=strategy, package=package),
         ],
         weights=[0.5, 0.5],
         c=RRF_K,
@@ -67,7 +72,8 @@ def _reranker(top_n: int) -> CrossEncoderReranker:
 
         _RERANKER_CACHE["model"] = CrossEncoderReranker(
             model=HuggingFaceCrossEncoder(
-                model_name=RERANKER_MODEL, model_kwargs={"device": "mps"}
+                model_name=RERANKER_MODEL,
+                model_kwargs={"device": "mps", "revision": RERANKER_REVISION},
             ),
             top_n=top_n,
         )
@@ -81,9 +87,10 @@ def reranked_retriever(
     k: int = 10,
     candidate_k: int = CANDIDATE_K,
     strategy: str = "structure",
+    package: str | None = None,
 ) -> ContextualCompressionRetriever:
     """The full pipeline: hybrid RRF candidates → cross-encoder rerank → top k."""
     return ContextualCompressionRetriever(
-        base_retriever=hybrid_retriever(chunks, k=candidate_k, strategy=strategy),
+        base_retriever=hybrid_retriever(chunks, k=candidate_k, strategy=strategy, package=package),
         base_compressor=_reranker(top_n=k),
     )

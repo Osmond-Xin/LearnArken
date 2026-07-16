@@ -28,6 +28,7 @@ class VespaDenseRetriever(BaseRetriever):
 
     k: int = 10
     strategy: str = "structure"  # only match chunks fed under this strategy
+    package: str | None = None  # engine-side scope filter (red-team day4 #5)
     approximate: bool = False  # exact by default: no ANN confound at toy scale
     embeddings: Embeddings | None = Field(default=None, exclude=True)
 
@@ -44,7 +45,11 @@ class VespaDenseRetriever(BaseRetriever):
         else:
             vector = self._embedder().embed_query(query)
         hits = vespa.search(
-            vector, top_k=self.k, strategy=self.strategy, approximate=self.approximate
+            vector,
+            top_k=self.k,
+            strategy=self.strategy,
+            package=self.package,
+            approximate=self.approximate,
         )
         documents = []
         for chunk, score in hits:

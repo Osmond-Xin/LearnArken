@@ -12,14 +12,15 @@
 | --- | --- |
 | Container | `learnarken-vespa` |
 | Image | `vespaengine/vespa:latest` |
-| Query / feed port | `8080` |
-| Config-server port | `19071` |
-| Auth | none (local dev) |
+| Query / feed port | `127.0.0.1:8080` |
+| Config-server port | `127.0.0.1:19071` |
+| Auth | none — which is why the ports are loopback-bound (red-team day4 #8) |
 
 ```bash
-# start (already done on 2026-07-14)
+# start (recreated 2026-07-16 loopback-only: Vespa has no auth, so a 0.0.0.0
+# bind would let any LAN process query, poison, or clear the index)
 docker run -d --name learnarken-vespa --hostname vespa-container \
-  -p 8080:8080 -p 19071:19071 vespaengine/vespa
+  -p 127.0.0.1:8080:8080 -p 127.0.0.1:19071:19071 vespaengine/vespa
 
 # start / stop an existing container
 docker start learnarken-vespa

@@ -93,7 +93,14 @@ def search_package(
             chunks = [c for c in chunks if applies_to(c, context)]
         return BM25Index(chunks).search(query, k=k)
 
-    retriever = _mode_retriever(mode, chunks, k=k, strategy=strategy)
+    # 排除场合 filtering happens after retrieval for Vespa modes, so an
+    # inapplicable chunk at rank ≤ k must not evict the applicable answer at
+    # k+1 (red-team day4 #14). Overfetch bound = the full corpus: exact at
+    # this scale, so the post-filter cut provably loses nothing.
+    fetch_k = max(k, len(chunks)) if context else k
+    retriever = _mode_retriever(
+        mode, chunks, k=fetch_k, strategy=strategy, package=Path(package_dir).name
+    )
     ranked = [from_document(d) for d in retriever.invoke(query)]
     if context:
         ranked = [c for c in ranked if applies_to(c, context)]
@@ -102,15 +109,25 @@ def search_package(
     return [ScoredChunk(rank=i + 1, score=0.0, chunk=c) for i, c in enumerate(ranked[:k])]
 
 
-def _mode_retriever(mode: str, chunks: list[Chunk], k: int, strategy: str):
+def _mode_retriever(
+    mode: str, chunks: list[Chunk], k: int, strategy: str, package: str | None = None
+):
     from learnarken.retrieval import hybrid as _hybrid
     from learnarken.retrieval.dense import VespaDenseRetriever
 
     if mode == "dense":
-        return VespaDenseRetriever(k=k, strategy=strategy)
+        return VespaDenseRetriever(k=k, strategy=strategy, package=package)
     if mode == "hybrid":
-        return _hybrid.hybrid_retriever(chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy)
-    return _hybrid.reranked_retriever(chunks, k=k, strategy=strategy)
+        return _hybrid.hybrid_retriever(
+            chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy, package=package
+        )
+    return _hybrid.reranked_retriever(
+        chunks,
+        k=k,
+        candidate_k=max(k, _hybrid.CANDIDATE_K),
+        strategy=strategy,
+        package=package,
+    )
 
 
 MANIFEST_PATH = Path(".vespa-manifest.json")  # git-ignored; written by index_package
@@ -128,22 +145,37 @@ def index_package(
     import json as _json
 
     from learnarken import vespa
-    from learnarken.embedding.providers import DEFAULT_PROVIDER, DIMENSIONS, get_embeddings
+    from learnarken.embedding.providers import (
+        DEFAULT_PROVIDER,
+        DIMENSIONS,
+        REVISIONS,
+        get_embeddings,
+    )
 
     raw: list[Chunk] = []
+    owner: dict[str, str] = {}  # chunk_id → owning package name (red-team #5)
     for pkg in package_dirs:
-        raw.extend(chunk_package(pkg, strategy=strategy, skip_bad=skip_bad))
+        name = Path(pkg).name
+        for c in chunk_package(pkg, strategy=strategy, skip_bad=skip_bad):
+            if owner.get(c.chunk_id, name) != name:
+                raise ValueError(
+                    f"chunk {c.chunk_id} appears in both {owner[c.chunk_id]!r} and "
+                    f"{name!r} — cannot assign a package scope; index them separately"
+                )
+            owner[c.chunk_id] = name
+            raw.append(c)
     chunks = _dedupe_chunks(raw)
     if not vespa.is_up():
         vespa.deploy()
     vectors = get_embeddings().embed_documents([c.text for c in chunks])
-    fed = vespa.feed(chunks, vectors)
+    fed = vespa.feed(chunks, vectors, [owner[c.chunk_id] for c in chunks])
     MANIFEST_PATH.write_text(
         _json.dumps(
             {
                 "packages": sorted(str(p) for p in package_dirs),
                 "strategy": strategy,
                 "provider": DEFAULT_PROVIDER,
+                "revision": REVISIONS[DEFAULT_PROVIDER],
                 "dimension": DIMENSIONS[DEFAULT_PROVIDER],
                 "chunk_ids": sorted(c.chunk_id for c in chunks),
             },
@@ -165,7 +197,7 @@ def verify_corpus(chunks: list[Chunk], strategy: str) -> None:
     import json as _json
 
     from learnarken import vespa
-    from learnarken.embedding.providers import DEFAULT_PROVIDER
+    from learnarken.embedding.providers import DEFAULT_PROVIDER, REVISIONS
 
     local_ids = {c.chunk_id for c in chunks}
     if not MANIFEST_PATH.is_file():
@@ -181,6 +213,11 @@ def verify_corpus(chunks: list[Chunk], strategy: str) -> None:
         problems.append(
             f"manifest provider {manifest.get('provider')!r} != current default "
             f"{DEFAULT_PROVIDER!r} (vectors in the engine are from another model)"
+        )
+    if manifest.get("revision") != REVISIONS[DEFAULT_PROVIDER]:
+        problems.append(
+            f"manifest model revision {manifest.get('revision')!r} != pinned "
+            f"{REVISIONS[DEFAULT_PROVIDER]!r} (INV-5: vectors are from another snapshot)"
         )
     if set(manifest.get("chunk_ids", ())) != local_ids:
         problems.append("manifest chunk ids differ from the local corpus")
@@ -259,11 +296,12 @@ def run_ablation(
     """The Day 4a ablation: same chunks, same golden set, one row per mode.
 
     Requires `index_package` to have fed Vespa with the same packages+strategy
-    (verified by document count — refuses to compare rows over mismatched
-    corpora). Reports overall metrics + p50 search latency per mode, and a
-    per-category Recall@5 breakdown when `categories` maps query_id → category.
-    Deterministic: retrieval only, no sampling (seed irrelevant, recorded by
-    the CLI for INV-5 form).
+    (manifest + engine-set verified — refuses to compare rows over mismatched
+    corpora). Each mode runs every query exactly once; overall metrics, the
+    per-category breakdown and p50 latency all derive from that single cached
+    pass (red-team day4 #13 — no repeated model/reranker work). Deterministic:
+    retrieval only, no sampling (seed irrelevant, recorded by the CLI for
+    INV-5 form).
     """
     golden = load_golden(golden_path)
     anchors = {a for q in golden for a in q.relevant}
@@ -286,12 +324,17 @@ def run_ablation(
     results: dict[str, dict] = {}
     latencies: dict[str, float] = {}
     per_category: dict[str, dict[str, float]] = {}
-    top = max(ks)
+    per_category_n: dict[str, int] = {}
+    # evaluate_strategy probes rankings to max(ks, 10); the single real pass
+    # per query must cache at least that depth (red-team day4 #13).
+    top = max(ks + (10,))
     for mode in modes:
         if mode == "bm25":
             index = BM25Index(chunks)
             search = index.search
         else:
+            # No package filter here: the ablation spans all indexed packages,
+            # and verify_corpus already proved the engine holds exactly them.
             retriever = _mode_retriever(mode, chunks, k=top, strategy=strategy)
 
             def search(query: str, k: int, _r=retriever):
@@ -301,29 +344,41 @@ def run_ablation(
                     for i, d in enumerate(docs)
                 ]
 
+        # One real search per query; every metric below derives from this cache.
+        ranked_cache: dict[str, list[ScoredChunk]] = {}
         timings: list[float] = []
         for q in golden:
             t0 = time.perf_counter()
-            search(q.query, k=top)
+            ranked_cache[q.query] = search(q.query, k=top)
             timings.append(time.perf_counter() - t0)
         latencies[mode] = round(sorted(timings)[len(timings) // 2] * 1000, 1)  # p50 ms
 
-        results[mode] = evaluate_strategy(chunks, search, golden, resolved, ks=ks)
+        def cached_search(query: str, k: int, _cache=ranked_cache):
+            return _cache[query][:k]
+
+        results[mode] = evaluate_strategy(chunks, cached_search, golden, resolved, ks=ks)
         if categories:
             by_cat: dict[str, float] = {}
             for cat in sorted(set(categories.values())):
                 subset = [q for q in golden if categories.get(q.query_id) == cat]
-                by_cat[cat] = evaluate_strategy(chunks, search, subset, resolved, ks=ks)[
-                    f"recall@{min(ks)}"
-                ]
+                metrics = evaluate_strategy(chunks, cached_search, subset, resolved, ks=ks)
+                by_cat[cat] = metrics[f"recall@{min(ks)}"]
+                # answerable n per category (red-team day4 #15) — mode-independent
+                per_category_n[cat] = metrics["n_evaluated"]
             per_category[mode] = by_cat
+
+    from learnarken.embedding.providers import pinned_revisions
+    from learnarken.retrieval.hybrid import RERANKER_MODEL, RERANKER_REVISION
 
     return {
         "golden": str(golden_path),
         "n_queries": len(golden),
         "strategy": strategy,
         "packages": [str(p) for p in package_dirs],
+        # INV-5 (red-team day4 #10): the exact model snapshots behind these rows.
+        "model_revisions": {**pinned_revisions(), RERANKER_MODEL: RERANKER_REVISION},
         "results": results,
         "p50_ms": latencies,
         "per_category_recall": per_category,
+        "per_category_n": per_category_n,
     }

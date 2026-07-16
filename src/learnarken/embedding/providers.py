@@ -38,21 +38,39 @@ DIMENSIONS = {"bge-m3": 1024, "qwen3-8b": 4096}
 
 DEFAULT_PROVIDER = "qwen3-8b"
 
+# HF snapshots pinned by commit SHA (red-team day4 #10, INV-5): an upstream
+# weight update must not silently move published numbers. These are the local
+# snapshots the Day 4 benchmarks ran on; they are recorded in the corpus
+# manifest and every eval artifact.
+REVISIONS = {
+    "bge-m3": "5617a9f61b028005a4858fdac845db406aefb181",
+    "qwen3-8b": "1d8ad4ca9b3dd8059ad90a75d4983776a23d44af",
+}
+
 _LOCAL_CONFIG: dict[str, dict] = {
     "bge-m3": {
         "model_name": "BAAI/bge-m3",
-        "model_kwargs": {"device": "mps"},
+        "model_kwargs": {"device": "mps", "revision": REVISIONS["bge-m3"]},
         "encode_kwargs": {"normalize_embeddings": True},
     },
     "qwen3-8b": {
         "model_name": "Qwen/Qwen3-Embedding-8B",
         # fp16: 8B in fp32 would be ~30 GB; fp16 halves it and MPS prefers it.
-        "model_kwargs": {"device": "mps", "model_kwargs": {"torch_dtype": "float16"}},
+        "model_kwargs": {
+            "device": "mps",
+            "revision": REVISIONS["qwen3-8b"],
+            "model_kwargs": {"torch_dtype": "float16"},
+        },
         "encode_kwargs": {"normalize_embeddings": True},
         # Qwen3's asymmetric side: documents plain, queries via its "query" prompt.
         "query_encode_kwargs": {"normalize_embeddings": True, "prompt_name": "query"},
     },
 }
+
+
+def pinned_revisions() -> dict[str, str]:
+    """HF model name → pinned commit SHA, for recording in eval artifacts."""
+    return {_LOCAL_CONFIG[p]["model_name"]: sha for p, sha in REVISIONS.items()}
 
 
 def _local(name: str) -> HuggingFaceEmbeddings:
