@@ -499,6 +499,32 @@
   README Roadmap wording updated; then self-review → cross-host red team →
   merge chain (Day 3 first).
 
+## D19. Second-pass red team on the closeout diff; ruling: fix C1–C7/C11 now
+
+> AI-distilled, same-session transcription (2026-07-16, closeout session);
+> pending human review.
+
+- **Context**: per the automatic red-team gate, the closeout fixes themselves
+  went through a cross-host Codex pass (Part 1b, verdict REVIEW_NEEDED:
+  1 P0 / 3 P1 / 4 P2 / 3 P3). Headline: package scope was *not* yet a safe
+  boundary — basename collision (C1) and stale-index citation (C2) survived
+  the first fix; the overfetch completeness proof silently broke past the
+  engine cap (C3).
+- **Ruling** (Yi Xin): fix C1–C7 and C11 in this session; C8 (required
+  integration target), C9 (Vespa image digest pin), C10 (probe labeling +
+  chunk_id charset) to the Day 5+ backlog.
+- **Implemented** (commit `8e33d8d`, 140 tests green): scope identity now
+  fail-closes on both collision and staleness (returned ids must be ⊆ the
+  local package corpus); README↔artifact drift now *fails the test suite*
+  (`gen_benchmark_tables.py --check`); the historical MiniMax row moved into
+  an artifact with provenance; four small fail-closed guards (C3/C5/C6/C7)
+  and the `assert`→`raise` hardening (C11).
+- **Convergence**: a third, focused pass checks the C-fixes for new P0/P1;
+  Day 3 precedent — converged when none appear.
+- **Meta-lesson worth the journal**: the first fix for #5 established the
+  mechanism (engine-side filter) but chose a weak identity (directory
+  basename). Red-teaming the fix, not just the feature, is what caught it.
+
 ## D3. Day 4 interim report is the labeled fallback
 
 - **Context**: the Day 4 report was generated this session via the `agy`
