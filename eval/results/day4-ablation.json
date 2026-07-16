@@ -6,6 +6,11 @@
     "samples/package-a",
     "samples/package-c"
   ],
+  "model_revisions": {
+    "BAAI/bge-m3": "5617a9f61b028005a4858fdac845db406aefb181",
+    "Qwen/Qwen3-Embedding-8B": "1d8ad4ca9b3dd8059ad90a75d4983776a23d44af",
+    "BAAI/bge-reranker-v2-m3": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
+  },
   "results": {
     "bm25": {
       "recall@5": 0.8284,
@@ -50,9 +55,9 @@
   },
   "p50_ms": {
     "bm25": 0.1,
-    "dense": 54.6,
-    "hybrid": 4.1,
-    "hybrid-rerank": 123.9
+    "dense": 54.7,
+    "hybrid": 7.1,
+    "hybrid-rerank": 125.6
   },
   "per_category_recall": {
     "bm25": {
@@ -103,6 +108,18 @@
       "procedural": 1.0,
       "warning": 1.0
     }
+  },
+  "per_category_n": {
+    "applicability": 6,
+    "cross_reference": 5,
+    "descriptive": 7,
+    "fault_isolation": 8,
+    "identifier": 7,
+    "identifier_perturbation": 1,
+    "no_answer": 0,
+    "paraphrase": 12,
+    "procedural": 12,
+    "warning": 9
   },
   "seed": 42
 }
