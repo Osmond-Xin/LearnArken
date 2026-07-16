@@ -146,3 +146,15 @@ class TestModePlumbing:
     def test_hybrid_retriever_refuses_empty_corpus(self):
         with pytest.raises(ValueError, match="empty chunk list"):
             hybrid_retriever([])
+
+
+class TestBM25DocumentHygiene:
+    def test_returned_documents_carry_clean_text_but_score_on_identifiers(self):
+        # Self-review finding 2026-07-16: augmented text must feed ONLY the
+        # scorer; returned documents (what fusion/rerank/from_document see)
+        # must carry the source chunk text.
+        chunk = _chunk("c1", "Remove the pump.", icn_refs=["ICN-LA100-29-001-01"])
+        index = BM25Index([chunk])
+        docs = index.retriever.invoke("ICN-LA100-29-001-01")  # attribute-borne id
+        assert docs, "identifier from XML attributes must still be searchable"
+        assert docs[0].page_content == "Remove the pump."  # clean, not augmented

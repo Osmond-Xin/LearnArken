@@ -393,7 +393,8 @@
 ## D15. Ablation results: dense dominates at toy scale; the gates read differently than predicted
 
 - **Numbers** (82 queries, structure chunks, `learnarken eval ablation`):
-  bm25 R@5 0.821 / dense **0.985** / hybrid 0.910 / hybrid-rerank 0.970;
+  bm25 R@5 0.821 / dense **0.985** / hybrid 0.910 / hybrid-rerank 0.985
+  (post document-hygiene fix; pre-fix 0.970 — see D16);
   zero-hit rate bm25 0.40, all dense-bearing modes 0.00; p50 <1 / 53 / 56 /
   214 ms. Per-category and the three honest footnotes (hybrid < dense; why
   rerank raising R@5 does not violate the pre-committed self-check; latency
@@ -412,6 +413,35 @@
 - **Chunking table completed** (Q5): semantic row R@5 0.815 / MRR 0.741 —
   structure-aware (0.926) still wins; retrieval ablation ran on structure, as
   pre-declared.
+
+## D16. Implementer self-review (pre-red-team, per Yi Xin's mid-session order)
+
+- **Process**: Yi Xin directed "完成后先自查 review，然后调用红队验证" — a
+  self-review pass before the mandatory cross-host red team.
+- **Finding 1 (fixed + regression test): BM25 document hygiene.** The
+  LangChain `BM25Retriever` was built over identifier-augmented text, and its
+  *returned* Documents carried that augmented text — so the reranker scored
+  identifier-stuffed strings and `from_document()` reconstructed Chunks whose
+  text differed from source. Fix: augmented text now feeds only the frozen
+  scorer (`vectorizer`); `retriever.docs` carries clean chunk text. **Impact
+  was measurable**: re-running the ablation moved ONLY the rerank row (R@5
+  0.970 → 0.985, MRR 0.861 → 0.851); rank-based rows unaffected. README /
+  notes updated with post-fix numbers and the drift disclosed.
+- **Finding 2 (documented, not fixed): cross-package scope in Vespa modes.**
+  `search --mode dense|hybrid|hybrid-rerank` searches everything currently
+  indexed in Vespa, not only the `<package>` argument (chunks carry no package
+  field). Disclosed in the CLI help; the ablation guards itself with a
+  document-count check. Proper fix (a package/corpus attribute + filter) left
+  for the red team / Day 4b to prioritize.
+- **Finding 3 (accepted): the ablation's corpus-consistency check is weak** —
+  document-count equality does not prove the fed corpus is the same chunk set
+  (a different strategy with coincidentally equal count would pass). Toy-scale
+  accepted risk, noted for the red team.
+- **Finding 4 (accepted): `--seed` is decorative** — retrieval is
+  deterministic end to end; the flag exists for INV-5 form and its help text
+  says so.
+- Also fixed in passing: a mangled backtick escape in the `--mode` help text;
+  `lru_cache` import.
 
 ## D3. Day 4 interim report is the labeled fallback
 

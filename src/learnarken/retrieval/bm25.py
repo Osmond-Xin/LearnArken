@@ -73,17 +73,24 @@ class BM25Index:
         self._token_sets = [set(tokens) for tokens in corpus]
         # rank-bm25 (and thus the LC retriever) cannot build over an empty
         # corpus; guard so search returns [].
-        self.retriever: BM25Retriever | None = (
-            BM25Retriever.from_documents(
+        if chunks:
+            retriever = BM25Retriever.from_documents(
                 [
                     to_document(c).model_copy(update={"page_content": _indexed_text(c)})
                     for c in chunks
                 ],
                 preprocess_func=tokenize,
             )
-            if chunks
-            else None
-        )
+            # The augmented text exists only to build the scoring index (the
+            # vectorizer is frozen at construction). The *returned* documents
+            # must carry the clean chunk text — otherwise fusion/rerank layers
+            # downstream would rerank and display identifier-stuffed text, and
+            # from_document() would reconstruct a Chunk whose text differs from
+            # the source (self-review finding, 2026-07-16).
+            retriever.docs = [to_document(c) for c in chunks]
+            self.retriever: BM25Retriever | None = retriever
+        else:
+            self.retriever = None
 
     def search(self, query: str, k: int = 10) -> list[ScoredChunk]:
         if self.retriever is None or k <= 0:

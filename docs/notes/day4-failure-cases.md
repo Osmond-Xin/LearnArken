@@ -51,12 +51,18 @@ the bake-off (provider replaced, MiniMax kept as the ablation contrast row).
   is not free insurance — at this corpus/model pairing its value is the
   refusal behavior and identifier hard-matching it retains, not the ranking
   lift. Reported as measured; not hidden.
-- **rerank Recall@5 (0.970) > hybrid Recall@5 (0.910)** does *not* violate the
-  pre-committed self-check ("rerank cannot raise Recall"): the rule holds at
-  the candidate-pool depth (20), where rerank creates no new candidates.
-  Within-pool reordering can legitimately lift a relevant doc from fused rank
-  7 into the top-5. At pool depth, hybrid R@10 = rerank R@10 = 0.970 — the
-  invariant holds.
+- **rerank Recall@5 (0.985, post-fix) > hybrid Recall@5 (0.910)** does *not*
+  violate the pre-committed self-check ("rerank cannot raise Recall"): the
+  rule holds at the candidate-pool depth (20), where rerank creates no new
+  candidates. Within-pool reordering can legitimately lift a relevant doc
+  from fused rank 7 into the top-5. At pool depth, hybrid R@10 = rerank
+  R@10 = 0.970 — the invariant holds.
+- **Numbers above are post-fix**: the first ablation run scored the reranker
+  against identifier-augmented text (self-review finding; BM25's scoring
+  corpus had leaked into the returned documents). Fixing document hygiene
+  changed ONLY the rerank row (R@5 0.970 → 0.985, MRR 0.861 → 0.851) —
+  bm25/dense/hybrid are rank-based and were unaffected. Honest drift, both
+  runs preserved in the eval JSON.
 - **BM25 p50 = 0.0 ms** is sub-millisecond in-process scoring over 43 chunks
   rounding down; dense/hybrid p50 (~55 ms) is dominated by Qwen3-8B query
   encoding on MPS; rerank p50 (~214 ms) adds the cross-encoder pass over 20

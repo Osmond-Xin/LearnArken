@@ -498,7 +498,12 @@ def main(argv: list[str] | None = None) -> int:
         "--mode",
         choices=list(MODES),
         default="bm25",
-        help="bm25 (offline, default) | dense | hybrid (RRF) | hybrid-rerank (cross-encoder)",
+        help=(
+            "bm25 (offline, default) | dense | hybrid (RRF) | hybrid-rerank "
+            "(cross-encoder). Vespa-backed modes search everything currently "
+            "indexed, not only <package> — run `learnarken index` on the same "
+            "corpus first."
+        ),
     )
     search_parser.add_argument(
         "-k", "--top-k", type=_positive_int, default=10, help="number of results"

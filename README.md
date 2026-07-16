@@ -151,7 +151,7 @@ rerank via `bge-reranker-v2-m3` over 20 candidates:
 | bm25 (in-process) | 0.82 | 0.88 | 0.74 | 0.77 | **0.40** | <1 ms |
 | dense (Vespa + Qwen3-8B) | **0.99** | **1.00** | **0.87** | **0.90** | 0.00 | 53 ms |
 | hybrid (RRF) | 0.91 | 0.97 | 0.84 | 0.87 | 0.00 | 56 ms |
-| hybrid + rerank | 0.97 | 0.97 | 0.86 | 0.89 | 0.00 | 214 ms |
+| hybrid + rerank | **0.99** | 0.97 | 0.85 | 0.88 | 0.00 | 214 ms |
 
 Honest readings (details + per-category table:
 [docs/notes/day4-failure-cases.md](docs/notes/day4-failure-cases.md)):
