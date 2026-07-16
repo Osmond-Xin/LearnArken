@@ -1,18 +1,25 @@
 """Embedding providers behind LangChain's `Embeddings` interface (Day 4a).
 
-LangChain is the project's default stack (Yi Xin, 2026-07-16 — adopted as a
-learning goal and system default; discussions/day4.md D12/D13). This module is
-where that shows for embeddings: every provider — remote MiniMax or local
-HuggingFace — is exposed as a `langchain_core.embeddings.Embeddings`, so
-retrievers, the semantic chunker, and the bake-off all consume one interface.
+LangChain is the project's default stack (Yi Xin, 2026-07-16; discussions/
+day4.md D12/D13). Every provider is exposed as a
+`langchain_core.embeddings.Embeddings`, so retrievers, the semantic chunker,
+and the bake-off all consume one interface.
 
-`embed_documents` vs `embed_query` carries the asymmetric-encoding split:
-for MiniMax that is the measured `type=db` / `type=query` switch; for Qwen3 it
-is the model's query prompt (`prompt_name="query"`); BGE-M3 is symmetric.
+DEFAULT_PROVIDER was decided by measurement, not preference — the Day 4a dense
+bake-off (docs/notes/day4-dense-bakeoff.md): **Qwen3-Embedding-8B** R@5 0.985 /
+R@10 1.0 / MRR 0.870 over the golden set, vs BGE-M3 0.910/0.970/0.833 and
+MiniMax embo-01 0.500/0.679/0.359. The Day 4 adjudication (docs/reviews/
+day4.md Part 2) then **removed MiniMax from the architecture entirely** —
+its measured length bias inverted relevance rankings
+(docs/notes/day4-embedding-length-bias.md); the retired client is preserved
+at commit `b414fa4` so the historical bake-off row stays reproducible.
 
-DEFAULT_PROVIDER is decided by measurement, not preference: the Day 4a dense
-bake-off (MiniMax / BGE-M3 / Qwen3-8B on the golden set) picks the winner —
-"用数字开门", the project's own methodology.
+BGE-M3 stays registered: its sparse + ColBERT representations are the Day 4b
+gate's candidate supplies, and it is the bake-off contrast row.
+
+`embed_documents` vs `embed_query` carries each model's asymmetric encoding:
+Qwen3 applies its "query" prompt on the query side (verified live: same text,
+doc-vs-query cosine 0.857); BGE-M3 is symmetric.
 """
 
 from __future__ import annotations
@@ -20,41 +27,16 @@ from __future__ import annotations
 from functools import cache, lru_cache
 from typing import TYPE_CHECKING
 
-from langchain_core.embeddings import Embeddings
-
-from learnarken.embedding.minimax import MiniMaxEmbedder
-
 if TYPE_CHECKING:  # heavy import (torch); deferred to first use
+    from langchain_core.embeddings import Embeddings
     from langchain_huggingface import HuggingFaceEmbeddings
 
-# Vespa schema tensor dimension per provider (measured / model cards).
-DIMENSIONS = {"minimax": 1536, "bge-m3": 1024, "qwen3-8b": 4096}
+# Vespa schema tensor dimension per provider (model cards; schema follows the
+# default). All providers are configured to emit L2-normalized vectors, which
+# is what makes `prenormalized-angular` correct in the schema.
+DIMENSIONS = {"bge-m3": 1024, "qwen3-8b": 4096}
 
-# Winner of the Day 4a dense bake-off (docs/notes/day4-dense-bakeoff.md,
-# 2026-07-16): Qwen3-8B R@5 0.985 / R@10 1.0 / MRR 0.870 over the 82-query
-# golden set, vs BGE-M3 0.910/0.970/0.833 and MiniMax 0.500/0.679/0.359 (the
-# measured length bias, docs/notes/day4-embedding-length-bias.md). Losers stay
-# available as ablation contrast rows.
 DEFAULT_PROVIDER = "qwen3-8b"
-
-
-class MiniMaxProxyEmbeddings(Embeddings):
-    """LangChain adapter over the probe-verified MiniMax client.
-
-    The stock LangChain `MiniMaxEmbeddings` cannot talk to our proxy (403 —
-    no `X-Proxy-Token` support), so we wrap our own client instead; the wire
-    shape is otherwise identical (verified: cosine 1.000000 on the same text).
-    """
-
-    def __init__(self, client: MiniMaxEmbedder | None = None) -> None:
-        self._client = client or MiniMaxEmbedder()
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return self._client.embed(list(texts), "db")
-
-    def embed_query(self, text: str) -> list[float]:
-        return self._client.embed([text], "query")[0]
-
 
 _LOCAL_CONFIG: dict[str, dict] = {
     "bge-m3": {
@@ -83,8 +65,6 @@ def _local(name: str) -> HuggingFaceEmbeddings:
 def get_embeddings(provider: str | None = None) -> Embeddings:
     """One Embeddings instance per provider (cached — local models are heavy)."""
     name = provider or DEFAULT_PROVIDER
-    if name == "minimax":
-        return MiniMaxProxyEmbeddings()
     if name in _LOCAL_CONFIG:
         return _local(name)
     raise ValueError(f"unknown embedding provider {name!r}; choose from {sorted(DIMENSIONS)}")

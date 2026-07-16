@@ -185,6 +185,27 @@ def count() -> int:
     return int(body.get("root", {}).get("fields", {}).get("totalCount", 0))
 
 
+def list_doc_ids() -> set[str]:
+    """Every document id currently in the engine, via the visit API.
+
+    The ground truth for corpus-identity verification (red-team day4 #4):
+    unlike `count()`, a set comparison cannot be fooled by a stale or mixed
+    index that happens to have the right size.
+    """
+    ids: set[str] = set()
+    continuation = ""
+    while True:
+        url = f"{QUERY_URL}/document/v1/{NAMESPACE}/{DOC_TYPE}/docid?wantedDocumentCount=1024"
+        if continuation:
+            url += f"&continuation={continuation}"
+        body = _request(url, timeout=30)
+        for doc in body.get("documents", []):
+            ids.add(doc["id"].rsplit("::", 1)[-1])
+        continuation = body.get("continuation", "")
+        if not continuation:
+            return ids
+
+
 def search(
     vector: list[float], top_k: int = 10, strategy: str | None = None, approximate: bool = False
 ) -> list[tuple[Chunk, float]]:

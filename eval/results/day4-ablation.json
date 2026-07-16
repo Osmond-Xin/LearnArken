@@ -1,0 +1,108 @@
+{
+  "golden": "eval/golden/day4.jsonl",
+  "n_queries": 82,
+  "strategy": "structure",
+  "packages": [
+    "samples/package-a",
+    "samples/package-c"
+  ],
+  "results": {
+    "bm25": {
+      "recall@5": 0.8284,
+      "recall@10": 0.8806,
+      "mrr": 0.7393,
+      "ndcg@10": 0.7701,
+      "n_evaluated": 67,
+      "n_unmapped": 0,
+      "n_no_answer": 15,
+      "zero_hit_rate": 0.4
+    },
+    "dense": {
+      "recall@5": 0.9851,
+      "recall@10": 1.0,
+      "mrr": 0.8703,
+      "ndcg@10": 0.9003,
+      "n_evaluated": 67,
+      "n_unmapped": 0,
+      "n_no_answer": 15,
+      "zero_hit_rate": 0.0
+    },
+    "hybrid": {
+      "recall@5": 0.9254,
+      "recall@10": 1.0,
+      "mrr": 0.8496,
+      "ndcg@10": 0.8829,
+      "n_evaluated": 67,
+      "n_unmapped": 0,
+      "n_no_answer": 15,
+      "zero_hit_rate": 0.0
+    },
+    "hybrid-rerank": {
+      "recall@5": 0.9851,
+      "recall@10": 0.9851,
+      "mrr": 0.852,
+      "ndcg@10": 0.8846,
+      "n_evaluated": 67,
+      "n_unmapped": 0,
+      "n_no_answer": 15,
+      "zero_hit_rate": 0.0
+    }
+  },
+  "p50_ms": {
+    "bm25": 0.1,
+    "dense": 54.6,
+    "hybrid": 4.1,
+    "hybrid-rerank": 123.9
+  },
+  "per_category_recall": {
+    "bm25": {
+      "applicability": 1.0,
+      "cross_reference": 0.6,
+      "descriptive": 1.0,
+      "fault_isolation": 1.0,
+      "identifier": 0.7143,
+      "identifier_perturbation": 1.0,
+      "no_answer": 0.0,
+      "paraphrase": 0.375,
+      "procedural": 1.0,
+      "warning": 1.0
+    },
+    "dense": {
+      "applicability": 1.0,
+      "cross_reference": 1.0,
+      "descriptive": 1.0,
+      "fault_isolation": 1.0,
+      "identifier": 0.8571,
+      "identifier_perturbation": 1.0,
+      "no_answer": 0.0,
+      "paraphrase": 1.0,
+      "procedural": 1.0,
+      "warning": 1.0
+    },
+    "hybrid": {
+      "applicability": 1.0,
+      "cross_reference": 0.8,
+      "descriptive": 1.0,
+      "fault_isolation": 1.0,
+      "identifier": 0.8571,
+      "identifier_perturbation": 1.0,
+      "no_answer": 0.0,
+      "paraphrase": 0.75,
+      "procedural": 1.0,
+      "warning": 1.0
+    },
+    "hybrid-rerank": {
+      "applicability": 1.0,
+      "cross_reference": 0.8,
+      "descriptive": 1.0,
+      "fault_isolation": 1.0,
+      "identifier": 1.0,
+      "identifier_perturbation": 1.0,
+      "no_answer": 0.0,
+      "paraphrase": 1.0,
+      "procedural": 1.0,
+      "warning": 1.0
+    }
+  },
+  "seed": 42
+}

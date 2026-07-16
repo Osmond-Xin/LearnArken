@@ -54,9 +54,43 @@
 3. **Day 5 grounding hazard**: package-scope leakage (#5) becomes wrong-source
    citations the moment answers carry references.
 
-## Part 2: Adjudication (human-written — Yi Xin)
+## Part 2: Adjudication (Yi Xin, 2026-07-16 — transcribed by the implementer
+under instruction, per the Day 3 precedent; wording faithful to the ruling)
 
-> Pending. Per the iron rule, every number above that the red team or the
-> implementer reported (including the corrected `0.9851/0.9851` rerank row)
-> is to be re-run by Yi Xin before merge; findings are accepted/rejected one
-> by one here.
+1. **Finding #3 (AI-drafted anchors) — RESOLVED by completing the review.**
+   Yi Xin reviewed all 50 candidate anchors (and edited the golden set in the
+   process — post-review numbers drifted slightly, confirming real review).
+   `relevance_reviewed: true` on all 82; the implementer additionally flipped
+   `category_reviewed` on the original 32 as within the ruling's scope —
+   flagged here for veto.
+2. **Finding #4 (corpus identity) — ACCEPT the manifest scheme.** Implemented:
+   `learnarken index` writes `.vespa-manifest.json` (packages, strategy,
+   provider, dimension, chunk ids); `run_ablation` verifies manifest AND the
+   engine's actual document-id set (visit API) against the local corpus —
+   fail closed on any mismatch.
+3. **Findings #1/#2/#6 — re-issue the tables.** Done: tables are now generated
+   only by `tools/gen_benchmark_tables.py` from the committed eval artifact
+   (`eval/results/day4-ablation.json`), with a built-in Recall-monotonicity
+   refusal (#1) and answerable-n labeling (#2). The #6 fusion guard was fixed
+   first (GuardedBM25Retriever + regression test), then everything re-run on
+   the reviewed golden set.
+4. **Number re-runs — done by Yi Xin** ("第四项已经跑完").
+5. **Additional ruling: remove MiniMax from the architecture; Qwen3-8B (the
+   measured best) is the sole dense provider.** Implemented: client + config
+   loader deleted (which also eliminates finding #7's cwd-`.env` attack
+   surface), provider registry reduced to bge-m3/qwen3-8b, stale
+   `DIMENSION=1536` export fixed (#11), local-services.md section retired,
+   historical row reproducible at commit `b414fa4`;
+   `tools/probe_length_bias.py` made self-contained so the length-bias
+   evidence stays runnable.
+
+**Adjudicated earlier in-session** (pre-review, host-side): dependency upper
+bounds (#10, first half) fixed in `b414fa4`.
+
+**Remaining findings not yet explicitly adjudicated** — carried to the Day 4b
+/ Day 5 backlog for ruling: #5 (package-scoped Vespa retrieval — flagged as a
+Day 5 grounding prerequisite), #8 (Vespa port binding), #9 (YQL
+parameterization), #10 second half (HF model revision pinning), #12
+(integration test suite), #13 (ablation re-runs searches), #14 (applicability
+push-down), #15 (per-category n labels — partially addressed by the generator
+note), #16, #17.

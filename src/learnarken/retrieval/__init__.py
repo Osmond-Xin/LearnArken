@@ -41,6 +41,7 @@ __all__ = [
     "index_package",
     "run_eval",
     "run_ablation",
+    "verify_corpus",
 ]
 
 
@@ -112,12 +113,22 @@ def _mode_retriever(mode: str, chunks: list[Chunk], k: int, strategy: str):
     return _hybrid.reranked_retriever(chunks, k=k, strategy=strategy)
 
 
+MANIFEST_PATH = Path(".vespa-manifest.json")  # git-ignored; written by index_package
+
+
 def index_package(
     package_dirs: list[str | Path], strategy: str = "structure", skip_bad: bool = False
 ) -> int:
-    """Chunk, embed with the default provider, and (up)feed Vespa. Idempotent."""
+    """Chunk, embed with the default provider, and (up)feed Vespa. Idempotent.
+
+    Writes a corpus manifest (red-team day4 #4, adjudicated ACCEPT): what was
+    fed, from where, chunked how, embedded by what — so evaluation can verify
+    it is comparing rows over exactly this corpus, not a stale or mixed index.
+    """
+    import json as _json
+
     from learnarken import vespa
-    from learnarken.embedding.providers import get_embeddings
+    from learnarken.embedding.providers import DEFAULT_PROVIDER, DIMENSIONS, get_embeddings
 
     raw: list[Chunk] = []
     for pkg in package_dirs:
@@ -126,7 +137,62 @@ def index_package(
     if not vespa.is_up():
         vespa.deploy()
     vectors = get_embeddings().embed_documents([c.text for c in chunks])
-    return vespa.feed(chunks, vectors)
+    fed = vespa.feed(chunks, vectors)
+    MANIFEST_PATH.write_text(
+        _json.dumps(
+            {
+                "packages": sorted(str(p) for p in package_dirs),
+                "strategy": strategy,
+                "provider": DEFAULT_PROVIDER,
+                "dimension": DIMENSIONS[DEFAULT_PROVIDER],
+                "chunk_ids": sorted(c.chunk_id for c in chunks),
+            },
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
+    return fed
+
+
+def verify_corpus(chunks: list[Chunk], strategy: str) -> None:
+    """Fail closed unless the engine's contents match this exact corpus.
+
+    Three checks (red-team day4 #4): the manifest exists and matches the
+    requested corpus (provider/strategy/chunk ids), AND the engine's actual
+    document-id set — fetched via the visit API, not counted — equals the
+    local chunk-id set.
+    """
+    import json as _json
+
+    from learnarken import vespa
+    from learnarken.embedding.providers import DEFAULT_PROVIDER
+
+    local_ids = {c.chunk_id for c in chunks}
+    if not MANIFEST_PATH.is_file():
+        raise ValueError(
+            "no corpus manifest found — run `learnarken index` first "
+            "(fail closed: cannot prove what the engine holds)"
+        )
+    manifest = _json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    problems = []
+    if manifest.get("strategy") != strategy:
+        problems.append(f"manifest strategy {manifest.get('strategy')!r} != requested {strategy!r}")
+    if manifest.get("provider") != DEFAULT_PROVIDER:
+        problems.append(
+            f"manifest provider {manifest.get('provider')!r} != current default "
+            f"{DEFAULT_PROVIDER!r} (vectors in the engine are from another model)"
+        )
+    if set(manifest.get("chunk_ids", ())) != local_ids:
+        problems.append("manifest chunk ids differ from the local corpus")
+    engine_ids = vespa.list_doc_ids()
+    if engine_ids != local_ids:
+        extra, missing = engine_ids - local_ids, local_ids - engine_ids
+        problems.append(f"engine holds {len(extra)} unknown / misses {len(missing)} expected docs")
+    if problems:
+        raise ValueError(
+            "corpus verification failed — re-run `learnarken index` with the same "
+            "packages/strategy (fail closed): " + "; ".join(problems)
+        )
 
 
 def run_eval(
@@ -199,8 +265,6 @@ def run_ablation(
     Deterministic: retrieval only, no sampling (seed irrelevant, recorded by
     the CLI for INV-5 form).
     """
-    from learnarken import vespa
-
     golden = load_golden(golden_path)
     anchors = {a for q in golden for a in q.relevant}
     resolved = resolve_anchors(package_dirs, anchors)
@@ -215,13 +279,9 @@ def run_ablation(
 
     needs_vespa = any(m != "bm25" for m in modes)
     if needs_vespa:
-        fed = vespa.count()
-        if fed != len(chunks):
-            raise ValueError(
-                f"Vespa holds {fed} documents but the corpus chunks to {len(chunks)} — "
-                f"run `learnarken index` with the same packages/strategy first (fail closed: "
-                "rows over mismatched corpora are not comparable)"
-            )
+        # Manifest + engine-set verification (red-team day4 #4, adjudicated
+        # ACCEPT 2026-07-16) — replaces the count-only check.
+        verify_corpus(chunks, strategy)
 
     results: dict[str, dict] = {}
     latencies: dict[str, float] = {}

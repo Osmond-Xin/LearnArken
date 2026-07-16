@@ -443,6 +443,26 @@
 - Also fixed in passing: a mangled backtick escape in the `--mode` help text;
   `lru_cache` import.
 
+## D17. Adjudication executed: review complete, manifest in, MiniMax out, tables regenerated
+
+- **Rulings applied** (full transcription in docs/reviews/day4.md Part 2):
+  golden set fully human-reviewed (all 82); corpus manifest + engine-set
+  verification replaces the count check; fusion refusal guard fixed and all
+  tables re-issued **from the committed eval artifact via a generator that
+  refuses impossible rows**; MiniMax deleted from the architecture —
+  Qwen3-8B is the sole dense provider (historical client at `b414fa4`).
+- **Collateral fixes**: red-team #7 (cwd-`.env` poisoning) eliminated by
+  deleting the config loader; #11 stale `DIMENSION` export now
+  provider-aware; local `.env` removed.
+- **Post-fix measurement notes**: hybrid R@10 → 1.00 (guard effect);
+  hybrid-rerank R@5 0.99, identifier category 1.00; bm25 row drifted
+  0.821 → 0.828 from Yi Xin's anchor edits during review — evidence the
+  review actually happened. Sharpened conclusion: no dense-bearing mode can
+  refuse *by construction* (fusion inherits dense's always-k behavior); the
+  zero-hit story belongs to pure BM25 until Day 5's fail-closed answer layer.
+- **Still pending ruling**: red-team #5 (package-scoped retrieval — Day 5
+  grounding prerequisite), #8, #9, #10 (model revision pins), #12–#17.
+
 ## D3. Day 4 interim report is the labeled fallback
 
 - **Context**: the Day 4 report was generated this session via the `agy`

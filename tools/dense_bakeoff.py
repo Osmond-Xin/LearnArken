@@ -1,4 +1,9 @@
-"""Day 4a dense bake-off: MiniMax embo-01 vs BGE-M3 vs Qwen3-Embedding-8B.
+"""Day 4a dense bake-off: BGE-M3 vs Qwen3-Embedding-8B (+ historical MiniMax).
+
+HISTORY: the original three-way run included MiniMax embo-01 (R@5 0.500 —
+the measured length bias). The Day 4 adjudication removed the MiniMax client
+from the architecture; to reproduce that historical row, run this script at
+commit `b414fa4`. Current runs cover the two local providers.
 
 The winner becomes DEFAULT_PROVIDER (Yi Xin, 2026-07-16 — "用数字开门").
 Every provider is consumed through the same LangChain `Embeddings` interface,
@@ -29,7 +34,7 @@ from learnarken.retrieval.evaluate import (
 )
 
 PACKAGES = ("samples/package-a", "samples/package-c")
-PROVIDERS = ("minimax", "bge-m3", "qwen3-8b")
+PROVIDERS = ("bge-m3", "qwen3-8b")
 OUT = Path("docs/notes/day4-dense-bakeoff.md")
 
 
@@ -39,8 +44,7 @@ class _Scored(NamedTuple):
 
 
 def cosine(a: list[float], b: list[float]) -> float:
-    # All three providers L2-normalize (MiniMax measured; locals configured),
-    # so the dot product is the cosine.
+    # Providers are configured to L2-normalize, so the dot product is the cosine.
     return sum(x * y for x, y in zip(a, b, strict=True))
 
 
@@ -105,7 +109,7 @@ def main() -> int:
 
 def _write_report(results: dict, n_all: int, n_human: int, n_chunks: int) -> None:
     lines = [
-        "# Day 4a dense bake-off — MiniMax embo-01 / BGE-M3 / Qwen3-Embedding-8B",
+        "# Day 4a dense bake-off — BGE-M3 / Qwen3-Embedding-8B (MiniMax row: historical)",
         "",
         "> **AI-generated** (Claude, implementer), 2026-07-16, per Yi Xin's",
         "> direction: three dense rows, the winner becomes the default provider.",

@@ -1,7 +1,8 @@
 """Day 4a tests: providers, Document bridge, RRF fusion, mode plumbing.
 
-Hermetic — no network, no Vespa, no model weights. Anything needing live
-services is in test_day4_integration.py (skipped when services are absent).
+Hermetic — no network, no Vespa, no model weights. A live-service
+integration suite is red-team day4 finding #12, pending adjudication;
+until then the local bar is the documented manual run.
 """
 
 from datetime import date
@@ -12,8 +13,8 @@ from langchain_core.retrievers import BaseRetriever
 
 from learnarken.chunking.base import Chunk
 from learnarken.chunking.documents import from_document, to_document
-from learnarken.embedding.minimax import MiniMaxEmbedder
-from learnarken.embedding.providers import MiniMaxProxyEmbeddings
+from learnarken.embedding import DIMENSION, DIMENSIONS
+from learnarken.embedding.providers import DEFAULT_PROVIDER
 from learnarken.retrieval import search_package
 from learnarken.retrieval.bm25 import BM25Index
 from learnarken.retrieval.hybrid import RRF_K, hybrid_retriever
@@ -48,23 +49,6 @@ class TestDocumentBridge:
 
     def test_page_content_is_chunk_text(self):
         assert to_document(_chunk("c1", "some text")).page_content == "some text"
-
-
-class TestMiniMaxProxyEmbeddings:
-    def test_documents_use_db_and_query_uses_query(self, monkeypatch):
-        calls: list[tuple[list[str], str]] = []
-
-        def fake_embed(self, texts, mode):
-            calls.append((texts, mode))
-            return [[0.0] * 3 for _ in texts]
-
-        monkeypatch.setattr(MiniMaxEmbedder, "__init__", lambda self: None)
-        monkeypatch.setattr(MiniMaxEmbedder, "embed", fake_embed)
-        emb = MiniMaxProxyEmbeddings()
-        emb.embed_documents(["a", "b"])
-        emb.embed_query("q")
-        # The measured asymmetric-encoding switch: index=db, search=query.
-        assert calls == [(["a", "b"], "db"), (["q"], "query")]
 
 
 class _FixedRetriever(BaseRetriever):
@@ -158,3 +142,36 @@ class TestBM25DocumentHygiene:
         docs = index.retriever.invoke("ICN-LA100-29-001-01")  # attribute-borne id
         assert docs, "identifier from XML attributes must still be searchable"
         assert docs[0].page_content == "Remove the pump."  # clean, not augmented
+
+
+class TestFusionRefusalGuard:
+    def test_bm25_arm_refuses_unknown_identifier_inside_fusion(self):
+        # red-team day4 #6: the retriever handed to EnsembleRetriever must
+        # apply the token-overlap guard, or fusion votes for arbitrary docs
+        # on an unknown part number.
+        chunks = [
+            _chunk("c1", "Remove the pump."),
+            _chunk(
+                "c2",
+                "Battery terminals supply current.",
+                source_path="/dmodule/content/procedure/mainProcedure/proceduralStep[9]",
+            ),
+        ]
+        retriever = BM25Index(chunks).retriever
+        assert retriever.invoke("LA-99-0000-0") == []  # unknown identifier -> refuse
+        assert retriever.invoke("pump")  # known term still retrieves
+
+
+class TestProviderRegistry:
+    def test_default_dimension_is_provider_aware(self):
+        # red-team day4 #11: DIMENSION must track the actual default provider.
+        assert DEFAULT_PROVIDER == "qwen3-8b"
+        assert DIMENSION == DIMENSIONS[DEFAULT_PROVIDER] == 4096
+
+    def test_unknown_provider_rejected(self):
+        import pytest as _pytest
+
+        from learnarken.embedding.providers import get_embeddings
+
+        with _pytest.raises(ValueError, match="unknown embedding provider"):
+            get_embeddings("minimax")  # removed from the architecture (Part 2)

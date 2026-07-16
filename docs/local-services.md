@@ -60,7 +60,14 @@ docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1 AS ok
 > keep in this doc. If Neo4j is ever exposed beyond localhost, move it to
 > `.env` and pass `NEO4J_AUTH` from there.
 
-## MiniMax API (embeddings — Day 4)
+## MiniMax API (embeddings — RETIRED 2026-07-16)
+
+> **Retired from the architecture** by the Day 4 adjudication
+> (docs/reviews/day4.md Part 2): the bake-off measured a length bias strong
+> enough to invert relevance (docs/notes/day4-embedding-length-bias.md), and
+> Qwen3-Embedding-8B (local) is now the sole dense provider. The client code
+> lives at commit `b414fa4`; `tools/probe_length_bias.py` remains runnable
+> stand-alone. Section kept for the historical record.
 
 Provider for **embeddings** (Day 4 dense retrieval / semantic chunking).
 Config pattern is reused from the FollowTheBig project

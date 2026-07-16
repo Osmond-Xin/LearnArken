@@ -55,8 +55,8 @@ def _sentences(text: str) -> list[str]:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    # MiniMax vectors arrive L2-normalized (measured), so the dot product is the
-    # cosine. Normalizing again here would be wasted work.
+    # Providers are configured to emit L2-normalized vectors, so the dot
+    # product is the cosine. Normalizing again here would be wasted work.
     return sum(x * y for x, y in zip(a, b, strict=True))
 
 

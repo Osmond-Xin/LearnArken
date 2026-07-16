@@ -64,6 +64,33 @@ class ScoredChunk:
     chunk: Chunk
 
 
+class GuardedBM25Retriever(BM25Retriever):
+    """BM25Retriever that refuses zero-overlap hits (red-team day4 #6).
+
+    The stock retriever returns its top-k regardless of whether the query
+    shares a single token with them — so inside RRF fusion the lexical arm
+    would vote for arbitrary documents on an unknown part number, silently
+    destroying the refusal behavior the architecture keeps BM25 for. This
+    subclass applies the same token-overlap hit test as `BM25Index.search`
+    (Day 3 red-team #1) before anything reaches the fusion layer.
+    """
+
+    token_sets: list[set[str]] = []
+
+    def _get_relevant_documents(self, query: str, *, run_manager=None) -> list:
+        query_tokens = set(tokenize(query))
+        scores = self.vectorizer.get_scores(tokenize(query))
+        ranked = sorted(range(len(self.docs)), key=lambda i: scores[i], reverse=True)
+        out = []
+        for idx in ranked:
+            if not (query_tokens & self.token_sets[idx]):
+                continue
+            out.append(self.docs[idx])
+            if len(out) >= self.k:
+                break
+        return out
+
+
 class BM25Index:
     """In-process BM25 over chunks: LangChain BM25Retriever + our domain layer."""
 
@@ -74,7 +101,7 @@ class BM25Index:
         # rank-bm25 (and thus the LC retriever) cannot build over an empty
         # corpus; guard so search returns [].
         if chunks:
-            retriever = BM25Retriever.from_documents(
+            retriever = GuardedBM25Retriever.from_documents(
                 [
                     to_document(c).model_copy(update={"page_content": _indexed_text(c)})
                     for c in chunks
@@ -88,7 +115,8 @@ class BM25Index:
             # from_document() would reconstruct a Chunk whose text differs from
             # the source (self-review finding, 2026-07-16).
             retriever.docs = [to_document(c) for c in chunks]
-            self.retriever: BM25Retriever | None = retriever
+            retriever.token_sets = self._token_sets
+            self.retriever: GuardedBM25Retriever | None = retriever
         else:
             self.retriever = None
 

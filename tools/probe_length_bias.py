@@ -1,14 +1,52 @@
 """Reproduce the Day 4a embedding length-bias finding (docs/notes/day4-embedding-length-bias.md).
 
-Needs a local .env with the MINIMAX_* credentials.
+SELF-CONTAINED MiniMax client: the production client was removed from the
+architecture by the Day 4 adjudication (docs/reviews/day4.md Part 2), but this
+evidence script must stay runnable (INV-5). Credentials are read from the
+FollowTheBig project's .env (the original config source, never committed).
 
-    uv run python tools/probe_length_bias.py
+    uv run --with requests python tools/probe_length_bias.py
 """
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
+import requests
+
 from learnarken.chunking import chunk_package
-from learnarken.embedding import embed
+
+_ENV_FILE = Path.home() / "Documents/project/FollowTheBig/.env"
+
+
+def _load_creds() -> dict[str, str]:
+    creds = {}
+    for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            k, v = line.split("=", 1)
+            creds[k.strip()] = v.strip().strip('"').strip("'")
+    return creds
+
+
+def embed(texts: list[str], mode: str) -> list[list[float]]:
+    """Minimal MiniMax-native embedding call (shape measured 2026-07-15)."""
+    c = _load_creds()
+    r = requests.post(
+        c["MINIMAX_API_URL"].rstrip("/") + "/embeddings",
+        headers={
+            "Authorization": f"Bearer {c['MINIMAX_API_KEY']}",
+            "X-Proxy-Token": c.get("MINIMAX_API_PROXY_TOKEN", ""),
+            "Content-Type": "application/json",
+        },
+        json={"model": "embo-01", "texts": texts, "type": mode},
+        timeout=int(os.getenv("PROBE_TIMEOUT", "30")),
+    )
+    r.raise_for_status()
+    body = r.json()
+    assert body.get("base_resp", {}).get("status_code", 1) == 0, body.get("base_resp")
+    return body["vectors"]
+
 
 QUERY = "How do I remove the pump?"
 BASE = "Remove the four mounting bolts and remove the pump."

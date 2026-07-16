@@ -67,3 +67,15 @@ the bake-off (provider replaced, MiniMax kept as the ablation contrast row).
   rounding down; dense/hybrid p50 (~55 ms) is dominated by Qwen3-8B query
   encoding on MPS; rerank p50 (~214 ms) adds the cross-encoder pass over 20
   candidates. Toy-scale numbers, not serving claims (INV-7).
+
+## 5. Post-adjudication update (2026-07-16, second re-run)
+
+The numbers in §4 predate two events: Yi Xin's completion of the golden-set
+review (anchors edited — bm25 R@5 moved 0.821 → 0.828) and the red-team #6
+fusion-guard fix. Current authoritative numbers live in
+`eval/results/day4-ablation.json` and the README tables generated from it.
+Notable post-fix changes: hybrid R@10 reached 1.00 (the guard stopped the
+lexical arm voting for garbage), hybrid-rerank reached R@5 0.99, and the
+identifier category under rerank reached 1.00. The zero-hit conclusion is
+unchanged — and sharpened: no dense-bearing mode can refuse by construction;
+only pure BM25 refuses today.
