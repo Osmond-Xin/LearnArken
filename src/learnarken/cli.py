@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from learnarken.chunking import PartialPackageError, chunk_package
+from learnarken.chunking import STRATEGIES, PartialPackageError, chunk_package
 from learnarken.models import DataModule, PackageModel
 from learnarken.package import NotAPackageError, _sanitize, scan_package
 from learnarken.retrieval import run_eval, search_package
@@ -393,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
 
     chunk_parser = subparsers.add_parser("chunk", help="split a package into retrieval chunks")
     chunk_parser.add_argument("package", help="path to the package directory")
-    chunk_parser.add_argument("--strategy", choices=["structure", "recursive"], default="structure")
+    chunk_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
     chunk_parser.add_argument("--dm", help="chunk only this DMC (DMC- prefix optional)")
     chunk_parser.add_argument(
         "--skip-bad",
@@ -406,9 +406,7 @@ def main(argv: list[str] | None = None) -> int:
     search_parser = subparsers.add_parser("search", help="BM25 query over a package's chunks")
     search_parser.add_argument("package", help="path to the package directory")
     search_parser.add_argument("query", help="free-text query")
-    search_parser.add_argument(
-        "--strategy", choices=["structure", "recursive"], default="structure"
-    )
+    search_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
     search_parser.add_argument(
         "-k", "--top-k", type=_positive_int, default=10, help="number of results"
     )
@@ -444,7 +442,7 @@ def main(argv: list[str] | None = None) -> int:
         "--k", type=_positive_int, nargs="+", default=[5, 10], help="Recall@k cut-offs"
     )
     retrieval_parser.add_argument(
-        "--strategy", choices=["structure", "recursive"], help="limit to one strategy"
+        "--strategy", choices=sorted(STRATEGIES), help="limit to one strategy"
     )
     retrieval_parser.add_argument(
         "--seed",

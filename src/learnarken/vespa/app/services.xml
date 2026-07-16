@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Vespa application package for LearnArken (Day 4a, docs/specs/day4.md).
+
+     Vespa is a DENSE VECTOR STORE ONLY here. BM25, RRF fusion and reranking
+     all live in Python (spec Q3/Q4: keep retrieval logic in the application
+     layer so the engine stays swappable). Hence: no BM25 field, no fusion
+     rank-profile, no global-phase, no ONNX model.
+
+     Single node, single group — toy scale (INV-7). INV-2 is satisfied by
+     sharding staying behind this config plus vespa/store.py, not by pretending
+     to be distributed. -->
+<services version="1.0">
+
+  <container id="default" version="1.0">
+    <document-api/>
+    <search/>
+    <nodes>
+      <node hostalias="node1"/>
+    </nodes>
+  </container>
+
+  <content id="learnarken" version="1.0">
+    <min-redundancy>1</min-redundancy>
+    <documents>
+      <document type="chunk" mode="index"/>
+    </documents>
+    <nodes>
+      <node hostalias="node1" distribution-key="0"/>
+    </nodes>
+  </content>
+
+</services>
