@@ -54,6 +54,38 @@
 3. **Day 5 grounding hazard**: package-scope leakage (#5) becomes wrong-source
    citations the moment answers carry references.
 
+## Part 1b: Red-team findings on the closeout diff (2026-07-16, second pass)
+
+- Review target: the closeout fixes themselves — `4922b64..ee9d713` (rulings
+  #5/#8/#9/#10/#12/#13/#14/#15/#16/#17 applied, tests, regenerated artifacts)
+- Reviewing model: **Codex** (`codex exec --sandbox read-only`, cross-host via
+  adversarial-review 0.5.0); host (Claude) ran an independent pass before
+  reading the external output. External verdict: **REVIEW_NEEDED** — "do not
+  treat package scoping as closed until basename collision / stale-index
+  leakage is fixed."
+- Adjudication: Yi Xin's, below the table is intentionally left blank.
+
+| # | Grade | Tag | Finding | Location | Suggestion |
+| --- | --- | --- | --- | --- | --- |
+| C1 | P0 | external-only | **Package scope leaks on basename collision**: scope identity is `Path(package_dir).name`, so `/tenant-a/manual` and `/tenant-b/manual` share the id `manual`; a search over one can return the other's chunks and the fail-closed check passes | `retrieval/__init__.py` `search_package`/`index_package`; `store.py` post-check | unique package ids; reject duplicate basenames at indexing; additionally reject returned chunk_ids not in the local package's chunk-id set |
+| C2 | P1 | cross-validated | **`search_package` never verifies corpus identity** (only the ablation does): stale engine contents under the same basename can be cited by Day 5 | `retrieval/__init__.py` `search_package` | verify returned ids ⊆ local chunk ids, or per-package manifest check before retrieval |
+| C3 | P1 | cross-validated (severity ↑ external) | **Overfetch bound breaks silently at >400 chunks**: `fetch_k = len(chunks)` is clamped by `MAX_TOP_K=400`, so the "full-corpus, provably lossless" claim only holds ≤400 | `store.py` clamp; `retrieval/__init__.py` comment | fail closed when `context and len(chunks) > MAX_TOP_K` (or raise cap with tests) |
+| C4 | P1 | cross-validated | **README can still drift**: the MiniMax historical row is generator-hard-coded (not artifact-owned) and nothing *enforces* README == rendered artifacts (no `--check` mode/test) | `tools/gen_benchmark_tables.py` | historical row into an artifact with provenance; add `--check` + a test comparing rendered blocks to README |
+| C5 | P2 | external-only | `approximate` interpolated into YQL without a runtime bool check (type-confusion injection for Python callers) | `store.py` `search` | `isinstance(approximate, bool)` before interpolation |
+| C6 | P2 | external-only | Ablation cache keyed by query *text*, not `query_id` — duplicate texts collapse audit identity | `retrieval/__init__.py` `run_ablation` | assert query-text uniqueness before caching (or key by id) |
+| C7 | P2 | external-only | `dense_bakeoff` only *warns* on unresolved anchors — can publish numbers from a known-invalid golden/corpus pairing | `tools/dense_bakeoff.py` | raise, matching `run_eval`/`run_ablation` |
+| C8 | P2 | external-only | Integration suite silently skips when Vespa is down — a "green" run may exercise none of the live path (tension with Q6's local-bar ruling, by design today) | `tests/test_day4_integration.py` | a required target where skips fail (e.g. `make test-integration`) |
+| C9 | P3 | host-only | Vespa container image is an unpinned `latest` tag while models are SHA-pinned — INV-5 covers only half the stack | `docs/local-services.md` | pin image digest |
+| C10 | P3 | external + host (variant) | `tools/probe_length_bias.py` posts secrets to an env-controlled URL (historical evidence tool); `chunk_id` is path-interpolated into document URLs (safe for hash ids, unvalidated in general) | `tools/probe_length_bias.py`; `store.py` `feed`/`delete` | label non-benchmark evidence + allowlist host; validate chunk_id charset |
+| C11 | P3 | external-only | Generator uses `assert` for artifact consistency — stripped under `python -O` | `tools/gen_benchmark_tables.py` | explicit `raise SystemExit` |
+
+Host-side notes for adjudication: C1's exploit needs two same-named package
+dirs (today's corpus has none — `package-a`/`package-c`); C6 was considered
+host-side and initially dismissed (identical text ⇒ identical deterministic
+results), the external's audit-identity argument is the stronger reading;
+C8 is partially Q6-by-design. Numbers: unchanged by this diff (verified
+against the regenerated artifact); Yi Xin's personal re-run still pending.
+
 ## Part 2: Adjudication (Yi Xin, 2026-07-16 — transcribed by the implementer
 under instruction, per the Day 3 precedent; wording faithful to the ruling)
 
