@@ -86,6 +86,12 @@ results), the external's audit-identity argument is the stronger reading;
 C8 is partially Q6-by-design. Numbers: unchanged by this diff (verified
 against the regenerated artifact); Yi Xin's personal re-run still pending.
 
+**Convergence log** (third pass, Codex, 2026-07-16, on fix commit
+`8e33d8d`): C1/C2/C3/C4/C5/C6/C7/C11 all judged **CLOSED** (external
+independently verified `--check` passes, and that C11's guard survives
+`python -O`); **no new P0–P2 findings**. Verdict: **CONVERGED**. C8/C9/C10
+remain in the backlog per the Part 2 item 9 ruling.
+
 ## Part 2: Adjudication (Yi Xin, 2026-07-16 — transcribed by the implementer
 under instruction, per the Day 3 precedent; wording faithful to the ruling)
 
