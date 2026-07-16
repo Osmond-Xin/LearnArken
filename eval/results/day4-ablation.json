@@ -55,9 +55,9 @@
   },
   "p50_ms": {
     "bm25": 0.1,
-    "dense": 54.7,
-    "hybrid": 7.1,
-    "hybrid-rerank": 125.6
+    "dense": 56.5,
+    "hybrid": 5.8,
+    "hybrid-rerank": 123.3
   },
   "per_category_recall": {
     "bm25": {

@@ -161,9 +161,9 @@ Ranking metrics over **answerable n=67**; zero-hit rate over the **15 no-answer 
 | Mode | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate | p50 |
 | --- | --- | --- | --- | --- | --- | --- |
 | bm25 (in-process) | 0.83 | 0.88 | 0.74 | 0.77 | **0.40** | <1 ms |
-| dense (Vespa + Qwen3-8B) | **0.99** | **1.00** | **0.87** | **0.90** | 0.00 | 55 ms |
-| hybrid (RRF) | 0.93 | **1.00** | 0.85 | 0.88 | 0.00 | 7 ms |
-| hybrid + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 126 ms |
+| dense (Vespa + Qwen3-8B) | **0.99** | **1.00** | **0.87** | **0.90** | 0.00 | 56 ms |
+| hybrid (RRF) | 0.93 | **1.00** | 0.85 | 0.88 | 0.00 | 6 ms |
+| hybrid + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 123 ms |
 
 Per-category Recall@5 (answerable queries only; *italic* cells have n<3 and are indicative):
 
