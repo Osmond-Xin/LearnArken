@@ -129,7 +129,8 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
 [tutorials/04 高级检索](tutorials/04-advanced-retrieval.md)
 
 **做**:
-- [ ] 稠密检索:BGE 或 E5 embedding + Qdrant(docker compose)
+- [ ] 稠密检索:BGE 或 E5 embedding + Vespa(docker;2026-07-14 Day 3
+      会议裁决由 Qdrant 改选 Vespa,理由与取舍见 docs/discussions/day3.md D2)
 - [ ] RRF 融合(BM25 + dense)+ 交叉编码器重排(bge-reranker 类)
 - [ ] **消融表**:BM25 / dense / hybrid / hybrid+rerank 四行 ×
       Recall@10 / nDCG@10 / p50 延迟

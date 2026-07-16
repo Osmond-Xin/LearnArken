@@ -89,6 +89,31 @@ below this section as the corresponding nodes complete. Every number comes
 with a reproduction command — numbers that cannot be reproduced do not enter
 this README (invariant INV-5).
 
+### Retrieval benchmark — Day 3 (BM25 × chunking strategy)
+
+Scored against the **human-annotated** golden set
+(`eval/golden/day3.jsonl`, 32 queries: 27 answerable + 5 no-answer traps;
+relevance judged by Yi Xin — the retrieval-eval red line). Metric priority:
+Recall@k leads for RAG (tutorial 02 §4).
+
+| Strategy | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate |
+| --- | --- | --- | --- | --- | --- |
+| structure-aware | 0.93 | 0.93 | 0.80 | 0.83 | 0.40 |
+| recursive (control) | 0.85 | 0.89 | 0.79 | 0.80 | 0.40 |
+
+Structure-aware chunking leads on every ranking metric — the empirical form of
+tutorial 02's top optimization lever (chunking ≫ k1/b, which is left at
+library defaults). The **zero-hit rate** (fraction of the 5 out-of-corpus trap
+queries the retriever correctly returns nothing for) is only 0.40 for both:
+lexical BM25 alone cannot refuse well, which is exactly what the fail-closed
+answer logic (Day 5) and adversarial no-answer evaluation (Day 8) are for —
+reported honestly rather than hidden. Reproduce (versioned golden set,
+deterministic):
+
+```bash
+learnarken eval retrieval   # defaults to package-a + package-c, golden day3.jsonl
+```
+
 ## Roadmap (Honest Layering)
 
 - **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML
@@ -101,6 +126,13 @@ this README (invariant INV-5).
 - **Planned**: SPLADE, ColBERT, RDF/SPARQL knowledge graph, local vLLM serving,
   Rust extensions, GNN, formal verification — see
   [docs/project-design.md](docs/project-design.md)
+- **Planned — direct S1000D → graph-database mapping**: real S1000D already
+  defines structure and relationships, and industry approaches map the XML
+  straight into a graph database (ontology / property-graph), skipping text
+  chunking for the relational layer. This project uses traditional RAG
+  chunking instead, because of scope and data-access limits (no real S1000D
+  content, INV-1); revisited at the Day 4 checkpoint (docs/discussions/day3.md
+  D5)
 
 ## Repository Guide
 

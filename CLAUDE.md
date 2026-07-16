@@ -19,6 +19,24 @@ superior authority is [docs/constitution.md](docs/constitution.md)
   `docs/discussions/` (labeled, human-reviewed).
 - **Red team is read-only**: when acting as red team, output findings only;
   never change code.
+- **Red-team gate is automatic (mandatory)**: as soon as the day's
+  implementation is green (tests + lint pass) and **before** proposing a
+  commit or merge, the implementer MUST launch the cross-host
+  `coding-adversarial-review` on the day's diff and write the findings to
+  `docs/reviews/dayN.md` Part 1 — **without being asked**. The review is
+  routed to the non-implementing model (Codex when the host is Claude Code);
+  the implementer never self-reviews. Adjudication (Part 2: accept/reject +
+  rationale, and re-running any red-team number) is the human's, never
+  drafted by AI. This is step 4 of the daily cycle and does not wait for a
+  prompt. (Rule added 2026-07-14 after the Day 3 review had to be started
+  manually.)
+- **Same-day discussion memo (mandatory)**: every working discussion that
+  produces decisions MUST be distilled into `docs/discussions/dayN.md` the
+  same day, in the same session, immediately after the decisions are made —
+  not deferred to day-end. It is part of the day's deliverable checklist
+  (spec + discussions + red-team half + implementation + tests). AI-distilled,
+  labeled, pending human review. (Rule added 2026-07-14 after two late
+  filings.)
 
 ## Implementation Discipline
 
