@@ -3,6 +3,58 @@
 > **AI-generated** (Claude, implementer), 2026-07-16. Measured, reproducible;
 > awaiting Yi Xin's ruling on what to do about it (see "Decision needed").
 > Reproduce: `uv run python tools/probe_length_bias.py`
+>
+> **Root-cause verification added later the same day** (Yi Xin asked whether
+> this is a real model defect or our configuration, and whether adopting
+> LangChain would fix it) — see "Is it real, or our configuration?" below.
+> Verdict: **real, provider-side, and framework-independent.**
+
+## Is it real, or our configuration? (verified 2026-07-16)
+
+Three independent checks, all pointing the same way:
+
+### A. Wire-level: a LangChain-shaped request returns the *identical* vector
+
+LangChain's `MiniMaxEmbeddings` builds exactly the request we build — body
+`{"model", "type", "texts"}`, `type="db"` for `embed_documents` /
+`type="query"` for `embed_query`, `Authorization: Bearer` — per its published
+source. Replaying that byte-shape against our endpoint:
+
+| Request | Result |
+| --- | --- |
+| Stock LangChain shape (Bearer only, no `X-Proxy-Token`) | **HTTP 403 Forbidden** — stock LangChain cannot even authenticate to this proxy |
+| Same + `X-Proxy-Token` (what our client sends) | 200, and the returned vector matches our client's vector at **cosine = 1.000000** |
+
+So a LangChain refactor cannot change any number in this document: same bytes
+in, same vector out — and out of the box it cannot connect at all.
+
+### B. Control model: same texts, same math, no defect
+
+`BAAI/bge-small-en-v1.5` run locally (fastembed/ONNX) over the *same* strings
+and the *same* hand-written cosine:
+
+| Comparison | embo-01 | BGE-small |
+| --- | --- | --- |
+| query ↔ original 9-word sentence | 0.7583 | 0.8481 |
+| query ↔ same sentence repeated twice | 0.5763 (**collapses**) | 0.8568 (**stable**) |
+| query ↔ correct full chunk | 0.2903 | 0.7921 |
+| query ↔ irrelevant short chunk | 0.4502 (**inversion**) | 0.4660 (no inversion) |
+| mean rank of correct chunk, 4 probes, 35 chunks | 16.25 (db/query) / 8.25 (query/query) | **2.00** |
+
+The texts are fine, the math is fine — swap the model and the defect vanishes.
+
+### C. Literature: length bias is a known failure mode, not an exotic claim
+
+Documented phenomenon in embedding retrieval: models trained toward cosine
+objectives systematically favor short documents, and positional/length biases
+in text embeddings are actively studied (e.g. arxiv.org/pdf/2412.15241,
+"Quantifying Positional Biases in Text Embedding Models"). Our measurement is
+an instance of a known class, with an unusually strong magnitude.
+
+**Caveat recorded for honesty**: we cannot see behind the proxy, so "embo-01"
+means "whatever `MINIMAX_API_URL` serves under that model name". The finding
+binds to our provider configuration as a whole — which is the thing the
+ablation would have measured anyway.
 
 ## Summary
 

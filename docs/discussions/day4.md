@@ -264,6 +264,44 @@
   proposed a categorization of the existing 32; **Yi Xin confirms on merge** —
   a miscategorized query mis-reads the gate.
 
+## D11. Length bias verified as real; LangChain refactor evaluated and not warranted
+
+- **Context**: Yi Xin challenged the length-bias finding — is it a genuine
+  model defect or a configuration mistake on our side? — and asked whether the
+  project should adopt LangChain as its pipeline foundation, refactoring if
+  needed, on the hypothesis that a settings problem caused the phenomenon.
+  Directed a web-search verification.
+- **Verification** (three independent checks, 2026-07-16):
+  1. **Wire equivalence**: LangChain's `MiniMaxEmbeddings` builds the same
+     request we do (`{model, type, texts}`, db/query split, Bearer). Replayed
+     byte-for-byte: without `X-Proxy-Token` (stock LangChain) the proxy answers
+     **403** — it cannot even connect; with the token, the returned vector
+     equals ours at **cosine 1.000000**. A framework swap cannot change any
+     vector.
+  2. **Control model**: BGE-small-en-v1.5 locally, same texts, same cosine —
+     repetition stays stable (0.848→0.857 vs embo-01's 0.758→0.576), no
+     inversion, mean rank **2.00**/35 vs embo-01's 16.25. Texts and math are
+     exonerated; the model is the variable.
+  3. **Literature**: length bias in cosine-trained embedding retrieval is a
+     documented failure-mode class (e.g. arXiv 2412.15241).
+- **Verdict**: the defect is **real and provider-side** (with the honest caveat
+  that "embo-01" = whatever the proxy serves under that name); it is not a
+  settings problem, and the hypothesis motivating a LangChain refactor is
+  disproven by measurement.
+- **On LangChain as pipeline foundation** (AI analysis, decision remains open
+  to Yi Xin): recommend **no refactor**. (a) It cannot fix the observed
+  problem — wire-identical; (b) stock LangChain cannot authenticate to this
+  proxy at all (no custom-header hook in `MiniMaxEmbeddings` short of
+  subclassing); (c) the swap-point LangChain would provide already exists —
+  `embedding/minimax.py` is one module behind one function, and the control
+  experiment doubled as proof (fastembed slotted into the same cosine harness
+  in ~20 lines); (d) the project's style rule is minimal dependencies, and the
+  interview-value of "I measured my provider and understood the failure" is
+  higher than "I used a framework".
+- **Bonus**: the control experiment is de facto the "local model as ablation
+  control row" from the pending decision (docs/notes, option 3) — BGE-small
+  via fastembed (ONNX, no torch) measured mean rank 2.00 on the 4 probes.
+
 ## D3. Day 4 interim report is the labeled fallback
 
 - **Context**: the Day 4 report was generated this session via the `agy`
