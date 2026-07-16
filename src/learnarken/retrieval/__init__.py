@@ -1,16 +1,24 @@
-"""Retrieval entry points (Day 3, docs/specs/day3.md).
+"""Retrieval entry points (Day 3 BM25 → Day 4a modes).
 
-Builds an in-process BM25 index over a package's chunks and runs the golden-set
-evaluation comparing chunking strategies. No index persistence — the corpus is
-tiny (spec Out of Scope).
+Four modes over the same chunk set (docs/specs/day4.md):
+  bm25          in-process, offline (Day 3 path, unchanged)
+  dense         Vespa nearestNeighbor via the default embedding provider
+  hybrid        BM25 + dense fused by RRF (LangChain EnsembleRetriever)
+  hybrid-rerank hybrid candidates re-scored by a local cross-encoder
+
+Dense/hybrid modes need `learnarken index` to have fed Vespa with the same
+package + strategy first, and fail closed (INV-4) when Vespa/embeddings are
+unavailable — never a silent downgrade to bm25.
 """
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from learnarken.chunking import chunk_package
 from learnarken.chunking.base import Chunk, applies_to
+from learnarken.chunking.documents import from_document
 from learnarken.loader import MAX_FILE_BYTES
 from learnarken.package import NotAPackageError
 from learnarken.retrieval.bm25 import BM25Index, ScoredChunk, tokenize
@@ -22,12 +30,17 @@ from learnarken.retrieval.evaluate import (
     unresolved_anchors,
 )
 
+MODES = ("bm25", "dense", "hybrid", "hybrid-rerank")
+
 __all__ = [
     "BM25Index",
+    "MODES",
     "ScoredChunk",
     "tokenize",
     "search_package",
+    "index_package",
     "run_eval",
+    "run_ablation",
 ]
 
 
@@ -61,12 +74,59 @@ def search_package(
     k: int = 10,
     context: dict[str, str] | None = None,
     skip_bad: bool = False,
+    mode: str = "bm25",
 ) -> list[ScoredChunk]:
-    """Chunk, optionally 排除场合-filter, index, and search — one call, no state."""
+    """Chunk, optionally 排除场合-filter, and search under the chosen mode.
+
+    bm25 stays offline and filters *before* scoring (Day 3 semantics). The
+    Vespa-backed modes retrieve first and filter after — the engine holds the
+    already-fed corpus — so a filter can return fewer than k results; honest,
+    not padded. Default is bm25 so the bare CLI works with no services up
+    (deviation from the spec's AI-drafted `hybrid-rerank` default, noted there).
+    """
+    if mode not in MODES:
+        raise ValueError(f"unknown mode {mode!r}; choose from {MODES}")
     chunks = chunk_package(package_dir, strategy=strategy, skip_bad=skip_bad)
+    if mode == "bm25":
+        if context:
+            chunks = [c for c in chunks if applies_to(c, context)]
+        return BM25Index(chunks).search(query, k=k)
+
+    retriever = _mode_retriever(mode, chunks, k=k, strategy=strategy)
+    ranked = [from_document(d) for d in retriever.invoke(query)]
     if context:
-        chunks = [c for c in chunks if applies_to(c, context)]
-    return BM25Index(chunks).search(query, k=k)
+        ranked = [c for c in ranked if applies_to(c, context)]
+    # Fused/reranked orderings have no single comparable score — rank is the
+    # honest output (scores from different arms are incommensurable).
+    return [ScoredChunk(rank=i + 1, score=0.0, chunk=c) for i, c in enumerate(ranked[:k])]
+
+
+def _mode_retriever(mode: str, chunks: list[Chunk], k: int, strategy: str):
+    from learnarken.retrieval import hybrid as _hybrid
+    from learnarken.retrieval.dense import VespaDenseRetriever
+
+    if mode == "dense":
+        return VespaDenseRetriever(k=k, strategy=strategy)
+    if mode == "hybrid":
+        return _hybrid.hybrid_retriever(chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy)
+    return _hybrid.reranked_retriever(chunks, k=k, strategy=strategy)
+
+
+def index_package(
+    package_dirs: list[str | Path], strategy: str = "structure", skip_bad: bool = False
+) -> int:
+    """Chunk, embed with the default provider, and (up)feed Vespa. Idempotent."""
+    from learnarken import vespa
+    from learnarken.embedding.providers import get_embeddings
+
+    raw: list[Chunk] = []
+    for pkg in package_dirs:
+        raw.extend(chunk_package(pkg, strategy=strategy, skip_bad=skip_bad))
+    chunks = _dedupe_chunks(raw)
+    if not vespa.is_up():
+        vespa.deploy()
+    vectors = get_embeddings().embed_documents([c.text for c in chunks])
+    return vespa.feed(chunks, vectors)
 
 
 def run_eval(
@@ -119,4 +179,91 @@ def run_eval(
         "n_queries": len(golden),
         "packages": [str(p) for p in package_dirs],
         "results": results,
+    }
+
+
+def run_ablation(
+    package_dirs: list[str | Path],
+    golden_path: str | Path,
+    modes: tuple[str, ...] = MODES,
+    ks: tuple[int, ...] = (5, 10),
+    strategy: str = "structure",
+    categories: dict[str, str] | None = None,
+) -> dict:
+    """The Day 4a ablation: same chunks, same golden set, one row per mode.
+
+    Requires `index_package` to have fed Vespa with the same packages+strategy
+    (verified by document count — refuses to compare rows over mismatched
+    corpora). Reports overall metrics + p50 search latency per mode, and a
+    per-category Recall@5 breakdown when `categories` maps query_id → category.
+    Deterministic: retrieval only, no sampling (seed irrelevant, recorded by
+    the CLI for INV-5 form).
+    """
+    from learnarken import vespa
+
+    golden = load_golden(golden_path)
+    anchors = {a for q in golden for a in q.relevant}
+    resolved = resolve_anchors(package_dirs, anchors)
+    missing = unresolved_anchors(anchors, resolved)
+    if missing:
+        raise ValueError(f"{len(missing)} golden anchor(s) do not resolve: {sorted(missing)[:4]}")
+
+    raw: list[Chunk] = []
+    for pkg in package_dirs:
+        raw.extend(chunk_package(pkg, strategy=strategy))
+    chunks = _dedupe_chunks(raw)
+
+    needs_vespa = any(m != "bm25" for m in modes)
+    if needs_vespa:
+        fed = vespa.count()
+        if fed != len(chunks):
+            raise ValueError(
+                f"Vespa holds {fed} documents but the corpus chunks to {len(chunks)} — "
+                f"run `learnarken index` with the same packages/strategy first (fail closed: "
+                "rows over mismatched corpora are not comparable)"
+            )
+
+    results: dict[str, dict] = {}
+    latencies: dict[str, float] = {}
+    per_category: dict[str, dict[str, float]] = {}
+    top = max(ks)
+    for mode in modes:
+        if mode == "bm25":
+            index = BM25Index(chunks)
+            search = index.search
+        else:
+            retriever = _mode_retriever(mode, chunks, k=top, strategy=strategy)
+
+            def search(query: str, k: int, _r=retriever):
+                docs = _r.invoke(query)[:k]
+                return [
+                    ScoredChunk(rank=i + 1, score=0.0, chunk=from_document(d))
+                    for i, d in enumerate(docs)
+                ]
+
+        timings: list[float] = []
+        for q in golden:
+            t0 = time.perf_counter()
+            search(q.query, k=top)
+            timings.append(time.perf_counter() - t0)
+        latencies[mode] = round(sorted(timings)[len(timings) // 2] * 1000, 1)  # p50 ms
+
+        results[mode] = evaluate_strategy(chunks, search, golden, resolved, ks=ks)
+        if categories:
+            by_cat: dict[str, float] = {}
+            for cat in sorted(set(categories.values())):
+                subset = [q for q in golden if categories.get(q.query_id) == cat]
+                by_cat[cat] = evaluate_strategy(chunks, search, subset, resolved, ks=ks)[
+                    f"recall@{min(ks)}"
+                ]
+            per_category[mode] = by_cat
+
+    return {
+        "golden": str(golden_path),
+        "n_queries": len(golden),
+        "strategy": strategy,
+        "packages": [str(p) for p in package_dirs],
+        "results": results,
+        "p50_ms": latencies,
+        "per_category_recall": per_category,
     }

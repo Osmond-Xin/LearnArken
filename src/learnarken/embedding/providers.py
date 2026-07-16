@@ -17,7 +17,7 @@ bake-off (MiniMax / BGE-M3 / Qwen3-8B on the golden set) picks the winner —
 
 from __future__ import annotations
 
-from functools import cache
+from functools import cache, lru_cache
 from typing import TYPE_CHECKING
 
 from langchain_core.embeddings import Embeddings
@@ -88,3 +88,15 @@ def get_embeddings(provider: str | None = None) -> Embeddings:
     if name in _LOCAL_CONFIG:
         return _local(name)
     raise ValueError(f"unknown embedding provider {name!r}; choose from {sorted(DIMENSIONS)}")
+
+
+@lru_cache(maxsize=4096)
+def _cached_query_vector(provider: str, text: str) -> tuple[float, ...]:
+    return tuple(get_embeddings(provider).embed_query(text))
+
+
+def embed_query_cached(text: str, provider: str | None = None) -> list[float]:
+    """Query vector with memoization — sound because embeddings are
+    deterministic per (model, text); repeated queries (eval passes, CLI
+    retries) skip the model entirely."""
+    return list(_cached_query_vector(provider or DEFAULT_PROVIDER, text))

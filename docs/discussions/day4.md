@@ -390,6 +390,29 @@
   protection. Dev-time bypass: `validation-overrides.xml` with an expiry date
   (checked in, expires 2026-07-23).
 
+## D15. Ablation results: dense dominates at toy scale; the gates read differently than predicted
+
+- **Numbers** (82 queries, structure chunks, `learnarken eval ablation`):
+  bm25 R@5 0.821 / dense **0.985** / hybrid 0.910 / hybrid-rerank 0.970;
+  zero-hit rate bm25 0.40, all dense-bearing modes 0.00; p50 <1 / 53 / 56 /
+  214 ms. Per-category and the three honest footnotes (hybrid < dense; why
+  rerank raising R@5 does not violate the pre-committed self-check; latency
+  caveats) in docs/notes/day4-failure-cases.md.
+- **The plan's predicted failure case inverted**: dense (Qwen3-8B) did NOT
+  lose identifier lookups (0.857 vs BM25 0.714 R@5) — the textbook failure is
+  scale/model-dependent. The *real* dense failure is **inability to refuse**:
+  for the nonexistent `LA-29-4711-5`, BM25 correctly returns nothing, dense
+  confidently returns the parts catalog. That asymmetry (zero-hit 0.40 vs
+  0.00) is the documented reason the lexical arm stays.
+- **Day 4b gate reading** (spec decision 8): the paraphrase gap the SPLADE
+  gate watches is **closed by the new dense default** (paraphrase R@5: BM25
+  0.33 → dense 1.00); identifier/fine-grained is not losing either. On these
+  numbers **neither SPLADE nor ColBERT is justified — the gate stays shut**,
+  pending Yi Xin's adjudication (and the red team's attack on the eval).
+- **Chunking table completed** (Q5): semantic row R@5 0.815 / MRR 0.741 —
+  structure-aware (0.926) still wins; retrieval ablation ran on structure, as
+  pre-declared.
+
 ## D3. Day 4 interim report is the labeled fallback
 
 - **Context**: the Day 4 report was generated this session via the `agy`

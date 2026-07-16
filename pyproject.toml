@@ -10,6 +10,7 @@ authors = [{ name = "Yi Xin" }]
 # drift under unlocked installs (red-team adjudication 2026-07-14, #13).
 dependencies = [
     "defusedxml>=0.7,<1",
+    "langchain-classic>=1.0.8",
     "langchain-community>=0.4.2",
     "langchain-core>=1.4.9",
     "langchain-huggingface>=1.2.2",

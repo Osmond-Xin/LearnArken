@@ -114,6 +114,64 @@ deterministic):
 learnarken eval retrieval   # defaults to package-a + package-c, golden day3.jsonl
 ```
 
+Day 4 adds the **semantic** strategy (embedding-based breakpoints, chunked by
+the default provider): Recall@5 0.81 / MRR 0.74 / nDCG@10 0.75 on the same
+golden set — structure-aware still wins, so the Day 4 retrieval ablation runs
+on structure chunks (`learnarken eval retrieval --strategy semantic`).
+
+### Embedding-provider bake-off — Day 4 (dense path)
+
+Three providers behind one LangChain `Embeddings` interface, exact-cosine
+ranked, scored by the same harness on the Day 4 golden set (82 queries: the
+32 human-judged Day 3 queries + 50 AI-drafted candidates pending review —
+the human-32 column shows the ordering is stable across provenance).
+
+| Provider | Recall@5 | Recall@10 | MRR | nDCG@10 | Recall@5 (human-32) |
+| --- | --- | --- | --- | --- | --- |
+| MiniMax embo-01 (remote) | 0.50 | 0.68 | 0.36 | 0.43 | 0.46 |
+| BGE-M3 (local) | 0.91 | 0.97 | 0.83 | 0.87 | 0.93 |
+| **Qwen3-Embedding-8B (local)** | **0.99** | **1.00** | **0.87** | **0.90** | **0.96** |
+
+Qwen3-8B wins and is the default dense provider. MiniMax's row is not noise:
+its embeddings carry a measured **length bias strong enough to invert
+relevance** (adding *relevant* words to a chunk lowers its similarity; an
+irrelevant short chunk outscores the correct long one) — root-caused against
+a wire-identical LangChain request and a healthy local control, see
+[docs/notes/day4-embedding-length-bias.md](docs/notes/day4-embedding-length-bias.md).
+Reproduce: `uv run python tools/dense_bakeoff.py`.
+
+### Retrieval-mode ablation — Day 4 (BM25 × dense × hybrid × rerank)
+
+Same 82-query golden set, structure chunks, exact `nearestNeighbor` (no ANN
+confound at 43 chunks), RRF fusion via LangChain `EnsembleRetriever` (k=60),
+rerank via `bge-reranker-v2-m3` over 20 candidates:
+
+| Mode | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate | p50 |
+| --- | --- | --- | --- | --- | --- | --- |
+| bm25 (in-process) | 0.82 | 0.88 | 0.74 | 0.77 | **0.40** | <1 ms |
+| dense (Vespa + Qwen3-8B) | **0.99** | **1.00** | **0.87** | **0.90** | 0.00 | 53 ms |
+| hybrid (RRF) | 0.91 | 0.97 | 0.84 | 0.87 | 0.00 | 56 ms |
+| hybrid + rerank | 0.97 | 0.97 | 0.86 | 0.89 | 0.00 | 214 ms |
+
+Honest readings (details + per-category table:
+[docs/notes/day4-failure-cases.md](docs/notes/day4-failure-cases.md)):
+
+- **Dense wins every ranking metric at this scale** — an 8B embedder over 43
+  chunks even resolves identifier lookups (0.86 vs BM25's 0.71), so the
+  textbook "dense loses on identifiers" did not materialize here.
+- **But dense can never refuse**: for a *nonexistent* part number one digit
+  from a real one (`LA-29-4711-5`), BM25's identifier-preserving tokenizer
+  correctly returns nothing while dense confidently returns the parts catalog.
+  Zero-hit 0.40 vs 0.00 is why the lexical arm stays in the architecture.
+- **Hybrid scoring below pure dense is reported, not hidden**: when one arm
+  dominates, RRF lets the weaker arm's noise displace top hits — fusion buys
+  refusal behavior and exact matching here, not a ranking lift.
+- p50 latency is toy-scale (dominated by local query encoding), not a serving
+  claim.
+
+Reproduce: `learnarken index samples/package-a samples/package-c` then
+`learnarken eval ablation` (deterministic; no sampling).
+
 ## Roadmap (Honest Layering)
 
 - **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML
