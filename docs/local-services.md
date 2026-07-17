@@ -46,8 +46,11 @@ curl -s http://localhost:19071/state/v1/health   # -> {"status":{"code":"up"}}
 | Credentials (local dev) | user `neo4j`, password `learnarken` |
 
 ```bash
-# start (already done on 2026-07-14)
-docker run -d --name learnarken-neo4j -p 7474:7474 -p 7687:7687 \
+# start (recreated 2026-07-16 loopback-only: Day 5 injects graph facts into
+# the LLM prompt, so an open Neo4j is a prompt-poisoning surface — red-team
+# day5 #7)
+docker run -d --name learnarken-neo4j \
+  -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \
   -e NEO4J_AUTH=neo4j/learnarken neo4j:latest
 
 docker start learnarken-neo4j
@@ -57,9 +60,29 @@ docker stop  learnarken-neo4j
 docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1 AS ok;'
 ```
 
-> The `learnarken` password is a throwaway local-dev credential, safe to
-> keep in this doc. If Neo4j is ever exposed beyond localhost, move it to
-> `.env` and pass `NEO4J_AUTH` from there.
+> Credentials are read from the repo-root `.env` (`NEO4J_USER` /
+> `NEO4J_PASSWORD`, see `.env.example`), falling back to the documented
+> `neo4j/learnarken` dev pair. The ports are loopback-bound because Neo4j has
+> no network auth beyond that password; treat the graph as writable-by-anyone
+> who reaches the port.
+
+## MiniMax API — chat (Day 5 answer generation, ACTIVE)
+
+> Day 5 ruling (docs/specs/day5.md decision 2): **MiniMax-M3 is the answer
+> LLM**. The Day 4 adjudication retired MiniMax as an *embedding* provider
+> only; chat/generation was not covered by that ruling.
+
+Config: the same four `MINIMAX_*` variables below, in the **repo-root**
+`.env` (git-ignored). The loader (`src/learnarken/config.py`) is hardened
+per red-team day4 #7: repo-root only (never cwd), `MINIMAX_*` allowlist,
+https enforced.
+
+**Chat endpoint facts** (live probe 2026-07-16, spec "Probe findings"):
+OpenAI-compatible `/chat/completions`; success = HTTP 200 **and**
+`base_resp.status_code == 0`; auth = Bearer + `X-Proxy-Token`. **M3 always
+prefixes `content` with a `<think>…</think>` block**, and on longer prompts
+wraps the JSON in a ```json fence even with `response_format: json_object` —
+the client strips both before parsing.
 
 ## MiniMax API (embeddings — RETIRED 2026-07-16)
 

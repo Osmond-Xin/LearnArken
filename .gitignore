@@ -29,3 +29,6 @@ dist/
 .idea/
 .vscode/
 .vespa-manifest.json
+
+# Day 5 answer traces (per-query artifacts, reproducible from the corpus)
+eval/traces/

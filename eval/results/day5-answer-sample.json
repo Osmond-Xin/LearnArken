@@ -1,0 +1,324 @@
+{
+ "golden": "eval/golden/day4.jsonl",
+ "seed": 42,
+ "summary": {
+  "n_sampled": 20,
+  "answerable_sampled": 16,
+  "traps_sampled": 4,
+  "answerable_success": 0.875,
+  "false_refusal_rate": 0.125,
+  "trap_refusal_rate": 1.0,
+  "citation_coverage_when_answered": 1.0,
+  "note": "coverage != correctness; supporting_quote substring is the machine groundedness floor; semantic groundedness review is a human step",
+  "human_review": "pending (Yi Xin, groundedness of the answered rows)"
+ },
+ "rows": [
+  {
+   "query_id": "Q015",
+   "question": "hydraulic system low pressure troubleshooting reservoir level",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "During low system pressure fault isolation on the hydraulic power system, check the reservoir fluid level. If the level is below MIN, service the reservoir and then repeat the pressure check.",
+   "citations": [
+    "2397d957c244b9a7"
+   ],
+   "golden_relevant_chunk_ids": [
+    "2397d957c244b9a7"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T233927-4c732275"
+  },
+  {
+   "query_id": "Q004",
+   "question": "inspect the main landing gear shock strut for leakage",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Examine the main gear shock strut for fluid leakage and verify the correct extension, with visible chrome measuring 55-65 mm.",
+   "citations": [
+    "562e128cef478562"
+   ],
+   "golden_relevant_chunk_ids": [
+    "562e128cef478562"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T233938-a9b29fe2"
+  },
+  {
+   "query_id": "C109",
+   "question": "how many fasteners hold the unit onto the drive housing?",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Four (4) mounting bolts hold the hydraulic pump onto the accessory gearbox pad (drive housing).",
+   "citations": [
+    "c53ec6cb48353e3f",
+    "ba1425d2550da5a0",
+    "f4c1e17fc6bd589a"
+   ],
+   "golden_relevant_chunk_ids": [
+    "ba1425d2550da5a0",
+    "c53ec6cb48353e3f"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T233944-fb879397"
+  },
+  {
+   "query_id": "C105",
+   "question": "why must the unit be primed before the first motor run?",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "The unit must be primed before the first motor run because the pump must not be operated dry; filling the pump case with clean hydraulic fluid ensures the pump operates with fluid and is prevented from running dry.",
+   "citations": [
+    "f5e8d89384ea0525"
+   ],
+   "golden_relevant_chunk_ids": [
+    "f5e8d89384ea0525"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T233950-efc180aa"
+  },
+  {
+   "query_id": "C147",
+   "question": "catalog sequence number 29-10-00-02",
+   "expected": "answer",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "golden_relevant_chunk_ids": [
+    "f4c1e17fc6bd589a"
+   ],
+   "citations_hit_golden": null,
+   "trace_id": "20260716T233959-156d7ed6"
+  },
+  {
+   "query_id": "Q009",
+   "question": "part number LA-29-4711-1",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "LA-29-4711-1 is the part number for the engine-driven hydraulic pump used in the LA100 aircraft's hydraulic power system.",
+   "citations": [
+    "f4c1e17fc6bd589a"
+   ],
+   "golden_relevant_chunk_ids": [
+    "f4c1e17fc6bd589a"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234004-fa7ab2c8"
+  },
+  {
+   "query_id": "C128",
+   "question": "twin-engine light utility training airframe",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "The LA100 aircraft.",
+   "citations": [
+    "ffe627967b173a63"
+   ],
+   "golden_relevant_chunk_ids": [
+    "ffe627967b173a63"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234011-5ae31c14"
+  },
+  {
+   "query_id": "Q007",
+   "question": "DMC-LA100-A-29-10-00-00A-941A-D",
+   "expected": "answer",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "golden_relevant_chunk_ids": [
+    "f4c1e17fc6bd589a"
+   ],
+   "citations_hit_golden": null,
+   "trace_id": "20260716T234018-09dd5092"
+  },
+  {
+   "query_id": "C124",
+   "question": "inspect retraction actuator and weight-on-wheels switch",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Inspect the retraction actuator and weight-on-wheels switch, as called for in the Main landing gear fault-isolation procedure for a gear that does not retract.",
+   "citations": [
+    "660630f854754032"
+   ],
+   "golden_relevant_chunk_ids": [
+    "660630f854754032"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234023-2222b782"
+  },
+  {
+   "query_id": "C141",
+   "question": "gear will not retract and pressure is low - which procedure comes first?",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "The hydraulic low-pressure fault isolation procedure comes first. When the gear does not retract and hydraulic system pressure is below 2400 psi, the low-pressure fault isolation must be performed before continuing with the landing gear retraction fault isolation.",
+   "citations": [
+    "7b4c62ee059cf013"
+   ],
+   "golden_relevant_chunk_ids": [
+    "7b4c62ee059cf013"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234028-1825e47e"
+  },
+  {
+   "query_id": "C108",
+   "question": "did somebody leave the locking devices installed before departure?",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Yes. A post-flight finding indicated that the ground safety pins were not removed before flight.",
+   "citations": [
+    "a346f9bcf7655f90"
+   ],
+   "golden_relevant_chunk_ids": [
+    "a346f9bcf7655f90"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234034-5c121267"
+  },
+  {
+   "query_id": "Q006",
+   "question": "disconnect battery terminals order negative positive",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Disconnect the negative terminal first, then the positive terminal. Both terminals should be capped after disconnection.",
+   "citations": [
+    "003507c0bea61813",
+    "1d67556565477686"
+   ],
+   "golden_relevant_chunk_ids": [
+    "003507c0bea61813"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234039-149c23a5"
+  },
+  {
+   "query_id": "C111",
+   "question": "is the cell still live after the aircraft is shut down?",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Yes, the cell remains live after the aircraft is shut down. The battery terminals can still supply high current even with aircraft power off, which is why the negative terminal must be disconnected first and tools kept clear of the positive terminal during maintenance.",
+   "citations": [
+    "1d67556565477686"
+   ],
+   "golden_relevant_chunk_ids": [
+    "1d67556565477686"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234043-20408620"
+  },
+  {
+   "query_id": "C101",
+   "question": "how far should the polished cylinder stick out of the undercarriage oleo?",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "The polished (chrome) cylinder should extend 55-65 mm visibly out of the main landing gear shock strut (oleo).",
+   "citations": [
+    "562e128cef478562"
+   ],
+   "golden_relevant_chunk_ids": [
+    "562e128cef478562"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234050-23d14d3d"
+  },
+  {
+   "query_id": "Q003",
+   "question": "how to torque the pump supply and pressure line fittings",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "Connect the supply and pressure lines and torque the fittings to 18 Nm.",
+   "citations": [
+    "ff9bc2ffa0610161"
+   ],
+   "golden_relevant_chunk_ids": [
+    "ff9bc2ffa0610161"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234056-8a012a01"
+  },
+  {
+   "query_id": "Q002",
+   "question": "steps to install the hydraulic pump on the accessory gearbox",
+   "expected": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer": "The steps to install the hydraulic pump on the accessory gearbox are: (1) Install the new gasket on the accessory gearbox pad. (2) Position the pump on the pad and install the four mounting bolts. (3) Torque the bolts to 25 Nm in a cross pattern. (4) Fill the pump case with clean hydraulic fluid before the first engine run (do not operate the pump dry).",
+   "citations": [
+    "226f7587a094d09e",
+    "ba1425d2550da5a0",
+    "f5e8d89384ea0525"
+   ],
+   "golden_relevant_chunk_ids": [
+    "226f7587a094d09e",
+    "ba1425d2550da5a0"
+   ],
+   "citations_hit_golden": true,
+   "trace_id": "20260716T234059-d542fef2"
+  },
+  {
+   "query_id": "Q021",
+   "question": "cabin pressurization controller calibration schedule",
+   "expected": "refusal",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "golden_relevant_chunk_ids": [],
+   "citations_hit_golden": null,
+   "trace_id": "20260716T234105-c0507c8c"
+  },
+  {
+   "query_id": "Q023",
+   "question": "de-icing boot inspection intervals",
+   "expected": "refusal",
+   "refused": true,
+   "refusal_gate": "threshold",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "golden_relevant_chunk_ids": [],
+   "citations_hit_golden": null,
+   "trace_id": "20260716T234109-833a0daa"
+  },
+  {
+   "query_id": "C149",
+   "question": "fuel quantity indication system fault isolation",
+   "expected": "refusal",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "golden_relevant_chunk_ids": [],
+   "citations_hit_golden": null,
+   "trace_id": "20260716T234109-ed4bab2a"
+  },
+  {
+   "query_id": "C116",
+   "question": "ICN-LA100-29-001-02",
+   "expected": "refusal",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "golden_relevant_chunk_ids": [],
+   "citations_hit_golden": null,
+   "trace_id": "20260716T234113-b8f4dacb"
+  }
+ ]
+}
