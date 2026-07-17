@@ -1,8 +1,8 @@
 # 04 · 选型说明：候选、决定、理由、出处
 
-> **AI-drafted，待人审**。本文只汇总**已经做出**的选型决策；每条给出决策出处
-> （spec / discussion / review 裁决）。新决策不在这里做——在讨论里做、
-> 在这里登记。
+> **AI-drafted，待人审**。快照：2026-07-17（含 Day 5/6 选型）。本文只汇总
+> **已经做出**的选型决策；每条给出决策出处（spec / discussion / review 裁决）。
+> 新决策不在这里做——在讨论里做、在这里登记。
 
 ## 1. 语言与工程基座（Day 1）
 
@@ -49,22 +49,49 @@
 | BGE-M3 保留（Day 4b 供应者） | 移除 | 它的独特价值在 dense 之外：sparse 权重（SPLADE 判据）与 ColBERT 多向量（late-interaction 判据），Vespa 是唯一全支持三表征的引擎 | D12 |
 | ⚠ 风险登记：langchain-community 日落 | — | BM25Retriever 所在包已弃用维护；领域层包装使迁移成本约半天，等独立包出现再迁 | D13 |
 
+## 4.6 生成层选型（Day 5，v0.5.0）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **答案 LLM = MiniMax-M3 chat** | Claude API（原执行计划） | Yi Xin 裁决改用 M3;配置走既有 `MINIMAX_*`。注意边界:Day 4 移除的是 MiniMax *embedding*,不覆盖 chat/生成 | [specs/day5 决策2](../specs/day5.md) |
+| **严格二分拒答**（带引用回答 xor 占位符） | 分级低置信带 | INV-4 洁净 + 缩小 Day 8 攻击面;深调研的 graceful-degradation 备选被否 | specs/day5 Q2 |
+| **图集成 = 索引时同步 + 接口③注入** | 图邻居检索扩展 | DM 节点 + dmRef/ICN 边幂等 upsert;检索 DM 的图谱事实作结构化列表进 prompt;多跳留 Day 7/9 | [ADR-0002](../adr/0002-minimal-graph-query-slice.md)、specs/day5 Q1 |
+| **拒答阈值 = 实测 artifact** | 手挑常数 | 从 golden 分数分布测出(INV-5),加载时校验有限且 ∈[0,1](红队 day5 #6) | specs/day5 |
+| **答案固定英文** | 跟随问题语言 | 与对外产物一致;证据语料是英文合成 XML,避免跨语引用对齐噪声 | specs/day5 Q3 |
+
+## 4.7 服务化与 Demo 选型（Day 6，v0.6.0）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **SSE 流式 + 事后召回**（exit c） | (a) 不流式 / (b) 只推进度事件 | Yi Xin 裁决:流式提升体验,**流本身可召回**——生成完无有效引用即回撤;INV-4 约束最终结果,流式文本显式标「未确证」 | [discussions/day6 D1](../discussions/day6.md) |
+| **FastAPI + Streamlit 哑客户端** | 单体 Streamlit（含 AI 逻辑） | 前端零 AI 操作、只 HTTP;保证放结构里不放约定里——测试强制 UI 不 import learnarken | specs/day6 决策1/2 |
+| **路由 `def` 而非 `async def`** | 全栈 async 重构 | 同步栈(urllib/ST/reranker)写进 async 会堵事件循环;`def` 自动进线程池是正解 | 扫描 §已知的未知2 |
+| **每请求重验语料,不做 lifespan 缓存** | 启动加载一次缓存 | demo 语料小,正确性压过延迟;上传即刻可查、manifest 检查诚实;缓存化牵出 index epoch(#8) | specs/day6 |
+| **CSRF = Origin/Referer 门** | demo token / 自定义头 | 无需改客户端/测试;server 端客户端无 Origin 头放行,浏览器跨源带外源头 403 | [reviews/day6 #4](../reviews/day6.md) |
+| **上传事务化 = staging + 原子换入** | 直接写 active | active 在校验且索引都过前不动;重传失败保住旧的有效模块(红队 #1) | reviews/day6 #1 |
+
 ## 5. 有意不做的（负选型）
 
 | 不做 | 理由 | 重新评估点 |
 | --- | --- | --- |
 | SPLADE / ColBERT 实现 | 切片外（Planned）；Vespa 选型已保留 ColBERT 通路 | 切片完成后 |
-| RDF/SPARQL 全量知识图谱 | 切片外；但**最小图查询**可能拉回 | **Day 4 收口复评点**（execution-plan 🔁） |
-| S1000D → 图数据库直接映射 | 业界做法（跳过文本分块），受限于 INV-1 无真实数据，本项目走传统 RAG 分块 | discussions/day3 D5；切片后期有余量时 |
-| 索引持久化 | 语料极小 | Day 4 spec 问题：BM25 是否搬进 Vespa 统一混合检索 |
+| RDF/SPARQL 全量知识图谱 | 切片外；**最小图查询已于 Day 5 拉入**(ADR-0002),多跳依赖查询留 Day 9 | Day 9 |
+| S1000D → 图数据库直接映射 | 业界做法（跳过文本分块），受限于 INV-1 无真实数据，本项目走传统 RAG 分块 | discussions/day3 D5 |
+| 语义 groundedness（引用蕴含判定） | 当前引用确证只卡逐字子串必要条件 | **Day 8 对抗评估** |
+| index epoch / content-hash manifest | 语料小、每请求重验够用 | 缓存化或多写并发时（红队 #8） |
+| Demo 公网化(鉴权/限流/JWT/熔断) | loopback 单用户前提下超范围 | 真要对外部署时 |
 | vLLM 本地 serving、Rust 扩展、GNN、形式化验证 | 切片外 Roadmap | 切片完成后 |
 
 ## 6. 决策模式备忘
 
-三天下来的选型决策呈现一个稳定模式，后续变更时应沿用：
+六天下来的选型决策呈现一个稳定模式，后续变更时应沿用：
 
-1. **人决策、AI 供选项**：Vespa 一案 AI 推荐 Qdrant 被否——决策权在人，
-   且理由（原生 late-interaction vs 附加功能）被完整留痕；
+1. **人决策、AI 供选项**：Vespa 一案 AI 推荐 Qdrant 被否；Day 6 的 SSE×fail-closed
+   三选项(不流式/进度事件/召回)也由 Yi Xin 裁——决策权在人，理由完整留痕；
 2. **前瞻决策显式登记**：Day 4 才用的东西（Vespa/Neo4j/MiniMax）在 Day 3
    决定并写进 discussions + local-services，避免"到时候再说"造成的隐性返工；
-3. **每个选型带否决候选**：没有被拒绝的候选就不算选型，只是默认。
+3. **每个选型带否决候选**：没有被拒绝的候选就不算选型，只是默认；
+4. **测量推翻直觉要留痕**：MiniMax 因实测长度偏置被换掉、拒答门在玩具规模弱,
+   都诚实登记——"我测出缺陷并换掉/标注它"是比隐藏更强的故事;
+5. **红队发现回填选型**：Day 6 的 CSRF 门、上传事务化是两轮红队裁决的产物,
+   决策出处指向 reviews/day6——评审不是走过场,是选型的一部分。
