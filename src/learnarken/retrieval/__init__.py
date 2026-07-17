@@ -197,6 +197,12 @@ def index_package(
         vespa.deploy()
     vectors = get_embeddings().embed_documents([c.text for c in chunks])
     fed = vespa.feed(chunks, vectors, [owner[c.chunk_id] for c in chunks])
+    # Graph sync (Day 5 decision 6, spec Q1): the dependency graph is part of
+    # the index, fed from the same chunks — Neo4j down fails the index run
+    # (fail closed) rather than leaving vector and graph views divergent.
+    from learnarken import graph
+
+    graph.sync(chunks, owner)
     MANIFEST_PATH.write_text(
         _json.dumps(
             {

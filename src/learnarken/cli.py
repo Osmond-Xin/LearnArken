@@ -447,6 +447,52 @@ def _cmd_eval_ablation(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_query(args: argparse.Namespace) -> int:
+    """Exit codes: 0 = answered; 3 = refused (placeholder); 1 = fail-closed
+    error (services/LLM/config unavailable — never a degraded answer);
+    2 = not a package."""
+    from learnarken.answer import answer_question
+
+    try:
+        result = answer_question(
+            args.question, package_dirs=args.package, k=args.top_k, mode=args.mode
+        )
+    except NotAPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        if type(exc).__name__ in (
+            "VespaError",
+            "GraphError",
+            "LLMError",
+            "ConfigError",
+            "EmbeddingError",
+            "ValueError",
+            "PartialPackageError",
+        ):
+            print(f"error (fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+            return 1
+        raise
+    if args.json:
+        print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+        return 3 if result.refused else 0
+    if result.refused:
+        print(_sanitize(result.answer_text))
+        print(f"\n  (refused · gate={result.refusal_gate} · trace={result.trace_id})")
+        return 3
+    print(_sanitize(result.answer_text))
+    lines = ["", f"  {'CHUNK_ID':<12} {'DMC':<42} XPATH"]
+    lines.append("  " + "-" * 100)
+    for c in result.citations:
+        lines.append(f"  {c.chunk_id:<12} {c.dmc:<42} {c.source_path}")
+    for f in result.graph_facts:
+        refs = ", ".join(f.outbound_refs) or "—"
+        lines.append(f"  graph: {f.dmc} → refs: {refs}")
+    lines.append(f"\n  model={result.model} · trace=eval/traces/{result.trace_id}.json")
+    print("\n".join(_sanitize(line) for line in lines))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="learnarken")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -522,6 +568,30 @@ def main(argv: list[str] | None = None) -> int:
     )
     search_parser.add_argument("--json", action="store_true", help="output JSON")
     search_parser.set_defaults(func=_cmd_search)
+
+    query_parser = subparsers.add_parser(
+        "query", help="grounded question answering: cited answer or refusal"
+    )
+    query_parser.add_argument("question", help="the question, as free text")
+    query_parser.add_argument(
+        "--package",
+        nargs="+",
+        default=None,
+        help="package directories (default: samples/package-a + package-c — must "
+        "match what `learnarken index` fed)",
+    )
+    query_parser.add_argument(
+        "-k", "--top-k", type=_positive_int, default=5, help="evidence chunks for the LLM"
+    )
+    query_parser.add_argument(
+        "--mode",
+        choices=list(MODES),
+        default="hybrid-rerank",
+        help="candidate retrieval mode (Q4 ruling: hybrid-rerank default); the "
+        "refusal-threshold rerank pass always runs",
+    )
+    query_parser.add_argument("--json", action="store_true", help="output the answer object")
+    query_parser.set_defaults(func=_cmd_query)
 
     eval_parser = subparsers.add_parser("eval", help="retrieval evaluation")
     index_parser = subparsers.add_parser(

@@ -82,6 +82,21 @@ def _reranker(top_n: int) -> CrossEncoderReranker:
     return reranker
 
 
+def rerank_scored(query: str, documents: list, k: int = 10) -> list[tuple[object, float]]:
+    """Cross-encoder scores for (query, doc) pairs, best first.
+
+    The answer layer (Day 5) needs the raw scores — the refusal-threshold
+    gate reads the top-1 score — which `CrossEncoderReranker` discards, so
+    this scores through the same cached model directly.
+    """
+    if not documents:
+        return []
+    model = _reranker(top_n=k).model
+    scores = model.score([(query, d.page_content) for d in documents])
+    ranked = sorted(zip(documents, scores, strict=True), key=lambda pair: -pair[1])
+    return [(d, float(s)) for d, s in ranked[:k]]
+
+
 def reranked_retriever(
     chunks: list[Chunk],
     k: int = 10,
