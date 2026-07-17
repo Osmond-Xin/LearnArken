@@ -200,6 +200,34 @@ Reproduce: `learnarken index samples/package-a samples/package-c` then
 `uv run python tools/gen_benchmark_tables.py` (tables are generated from the
 artifact — hand-editing them is how red-team finding day4 #1 happened).
 
+### Grounded QA — Day 5 (cited answers or refusal, nothing in between)
+
+`learnarken query "<question>"` answers over the manifest-verified corpus
+with **MiniMax-M3**, or refuses with a fixed placeholder — strict two-outcome
+(INV-4). Every claim is traceable: citations carry **chunk ID + DMC + XPath**,
+backfilled from chunk metadata by the system (the LLM only ever emits chunk
+ids — citation-drift defense). Three fail-closed gates, each logged in a
+five-span answer trace (`eval/traces/<trace_id>.json`):
+
+1. **threshold** — reranker top-1 below the measured zero-false-refusal
+   threshold (`eval/results/day5-refusal-threshold.json`; the distributions
+   overlap at this scale, so this gate is a cost guard, not the main defense);
+2. **LLM** — structured output `is_answerable: false`;
+3. **citation validation** — any cited id outside the retrieved evidence set
+   refuses, even if the prose looks right.
+
+Retrieval combines the Vespa vector store with the **Neo4j dependency graph**
+(synced idempotently at `learnarken index`; DM→DM dmRefs and DM→ICN edges are
+injected as structured context — tutorial 06 §9 interface ③).
+
+Reproduce: `learnarken index samples/package-a samples/package-c` then
+`learnarken query "How do I remove the hydraulic pump?"` (needs the local
+services + `MINIMAX_*` in the repo-root `.env`, see
+[docs/local-services.md](docs/local-services.md)); quality sample:
+`uv run python tools/answer_sample_eval.py` →
+`eval/results/day5-answer-sample.json` (20 fixed-seed golden queries,
+citation coverage + refusal accuracy, human groundedness review pending).
+
 ## Roadmap (Honest Layering)
 
 - **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML

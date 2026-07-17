@@ -61,6 +61,24 @@ docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1 AS ok
 > keep in this doc. If Neo4j is ever exposed beyond localhost, move it to
 > `.env` and pass `NEO4J_AUTH` from there.
 
+## MiniMax API — chat (Day 5 answer generation, ACTIVE)
+
+> Day 5 ruling (docs/specs/day5.md decision 2): **MiniMax-M3 is the answer
+> LLM**. The Day 4 adjudication retired MiniMax as an *embedding* provider
+> only; chat/generation was not covered by that ruling.
+
+Config: the same four `MINIMAX_*` variables below, in the **repo-root**
+`.env` (git-ignored). The loader (`src/learnarken/config.py`) is hardened
+per red-team day4 #7: repo-root only (never cwd), `MINIMAX_*` allowlist,
+https enforced.
+
+**Chat endpoint facts** (live probe 2026-07-16, spec "Probe findings"):
+OpenAI-compatible `/chat/completions`; success = HTTP 200 **and**
+`base_resp.status_code == 0`; auth = Bearer + `X-Proxy-Token`. **M3 always
+prefixes `content` with a `<think>…</think>` block**, and on longer prompts
+wraps the JSON in a ```json fence even with `response_format: json_object` —
+the client strips both before parsing.
+
 ## MiniMax API (embeddings — RETIRED 2026-07-16)
 
 > **Retired from the architecture** by the Day 4 adjudication
