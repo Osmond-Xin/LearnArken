@@ -19,7 +19,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "During low system pressure fault isolation on the hydraulic power system, check the reservoir fluid level. If the level is below MIN, service the reservoir and then repeat the pressure check.",
+   "answer": "During hydraulic system low pressure troubleshooting, check the reservoir fluid level. If it is below MIN, service the reservoir and then repeat the pressure check.",
    "citations": [
     "2397d957c244b9a7"
    ],
@@ -27,7 +27,7 @@
     "2397d957c244b9a7"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T233927-4c732275"
+   "trace_id": "20260717T092935-d7f500bd"
   },
   {
    "query_id": "Q004",
@@ -35,7 +35,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Examine the main gear shock strut for fluid leakage and verify the correct extension, with visible chrome measuring 55-65 mm.",
+   "answer": "Examine the main gear shock strut for fluid leakage and confirm correct extension, with visible chrome measuring 55-65 mm.",
    "citations": [
     "562e128cef478562"
    ],
@@ -43,7 +43,7 @@
     "562e128cef478562"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T233938-a9b29fe2"
+   "trace_id": "20260717T092946-8557e758"
   },
   {
    "query_id": "C109",
@@ -62,7 +62,7 @@
     "c53ec6cb48353e3f"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T233944-fb879397"
+   "trace_id": "20260717T092949-958d5e0c"
   },
   {
    "query_id": "C105",
@@ -70,7 +70,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The unit must be primed before the first motor run because the pump must not be operated dry; filling the pump case with clean hydraulic fluid ensures the pump operates with fluid and is prevented from running dry.",
+   "answer": "The pump case must be filled with clean hydraulic fluid before the first engine run because the pump must not be operated dry.",
    "citations": [
     "f5e8d89384ea0525"
    ],
@@ -78,7 +78,7 @@
     "f5e8d89384ea0525"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T233950-efc180aa"
+   "trace_id": "20260717T092954-65a1d7ca"
   },
   {
    "query_id": "C147",
@@ -92,7 +92,7 @@
     "f4c1e17fc6bd589a"
    ],
    "citations_hit_golden": null,
-   "trace_id": "20260716T233959-156d7ed6"
+   "trace_id": "20260717T093000-2cda7a8f"
   },
   {
    "query_id": "Q009",
@@ -100,7 +100,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "LA-29-4711-1 is the part number for the engine-driven hydraulic pump used in the LA100 aircraft's hydraulic power system.",
+   "answer": "LA-29-4711-1 is the part number for the hydraulic pump, engine-driven (quantity 1) used in the hydraulic pump installation.",
    "citations": [
     "f4c1e17fc6bd589a"
    ],
@@ -108,7 +108,7 @@
     "f4c1e17fc6bd589a"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234004-fa7ab2c8"
+   "trace_id": "20260717T093006-d8fc261f"
   },
   {
    "query_id": "C128",
@@ -116,7 +116,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The LA100 aircraft.",
+   "answer": "The LA100 is a twin-engine light utility aircraft used as the training airframe.",
    "citations": [
     "ffe627967b173a63"
    ],
@@ -124,7 +124,7 @@
     "ffe627967b173a63"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234011-5ae31c14"
+   "trace_id": "20260717T093011-71955be9"
   },
   {
    "query_id": "Q007",
@@ -138,7 +138,7 @@
     "f4c1e17fc6bd589a"
    ],
    "citations_hit_golden": null,
-   "trace_id": "20260716T234018-09dd5092"
+   "trace_id": "20260717T093014-f75319e0"
   },
   {
    "query_id": "C124",
@@ -146,7 +146,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Inspect the retraction actuator and weight-on-wheels switch, as called for in the Main landing gear fault-isolation procedure for a gear that does not retract.",
+   "answer": "Per the main landing gear fault-isolation procedure for 'gear does not retract', the inspection task is: inspect the retraction actuator and weight-on-wheels switch.",
    "citations": [
     "660630f854754032"
    ],
@@ -154,7 +154,7 @@
     "660630f854754032"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234023-2222b782"
+   "trace_id": "20260717T093024-99f89210"
   },
   {
    "query_id": "C141",
@@ -162,7 +162,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The hydraulic low-pressure fault isolation procedure comes first. When the gear does not retract and hydraulic system pressure is below 2400 psi, the low-pressure fault isolation must be performed before continuing with the landing gear retraction fault isolation.",
+   "answer": "The hydraulic low-pressure fault isolation procedure comes first.",
    "citations": [
     "7b4c62ee059cf013"
    ],
@@ -170,7 +170,7 @@
     "7b4c62ee059cf013"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234028-1825e47e"
+   "trace_id": "20260717T093029-f3458c05"
   },
   {
    "query_id": "C108",
@@ -178,7 +178,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Yes. A post-flight finding indicated that the ground safety pins were not removed before flight.",
+   "answer": "Yes. The fault-isolation procedure for a main landing gear that does not retract lists, as a post-flight finding, that the ground safety pins (locking devices) were not removed before flight.",
    "citations": [
     "a346f9bcf7655f90"
    ],
@@ -186,7 +186,7 @@
     "a346f9bcf7655f90"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234034-5c121267"
+   "trace_id": "20260717T093033-0386e307"
   },
   {
    "query_id": "Q006",
@@ -194,7 +194,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Disconnect the negative terminal first, then the positive terminal. Both terminals should be capped after disconnection.",
+   "answer": "Disconnect the negative terminal first, then the positive terminal.",
    "citations": [
     "003507c0bea61813",
     "1d67556565477686"
@@ -203,7 +203,7 @@
     "003507c0bea61813"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234039-149c23a5"
+   "trace_id": "20260717T093039-2c4cde24"
   },
   {
    "query_id": "C111",
@@ -211,7 +211,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Yes, the cell remains live after the aircraft is shut down. The battery terminals can still supply high current even with aircraft power off, which is why the negative terminal must be disconnected first and tools kept clear of the positive terminal during maintenance.",
+   "answer": "Yes, the battery remains live after the aircraft is shut down. The battery terminals can supply high current even with aircraft power off, which is why maintenance procedures require the negative terminal to be disconnected first and tools to be kept clear of the positive terminal.",
    "citations": [
     "1d67556565477686"
    ],
@@ -219,7 +219,7 @@
     "1d67556565477686"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234043-20408620"
+   "trace_id": "20260717T093043-4b0c2597"
   },
   {
    "query_id": "C101",
@@ -227,7 +227,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The polished (chrome) cylinder should extend 55-65 mm visibly out of the main landing gear shock strut (oleo).",
+   "answer": "The polished cylinder should stick out of the undercarriage oleo (main gear shock strut) by 55-65 mm of visible chrome.",
    "citations": [
     "562e128cef478562"
    ],
@@ -235,7 +235,7 @@
     "562e128cef478562"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234050-23d14d3d"
+   "trace_id": "20260717T093047-9905aff6"
   },
   {
    "query_id": "Q003",
@@ -251,7 +251,7 @@
     "ff9bc2ffa0610161"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234056-8a012a01"
+   "trace_id": "20260717T093052-6b87004b"
   },
   {
    "query_id": "Q002",
@@ -259,7 +259,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The steps to install the hydraulic pump on the accessory gearbox are: (1) Install the new gasket on the accessory gearbox pad. (2) Position the pump on the pad and install the four mounting bolts. (3) Torque the bolts to 25 Nm in a cross pattern. (4) Fill the pump case with clean hydraulic fluid before the first engine run (do not operate the pump dry).",
+   "answer": "The steps to install the hydraulic pump on the accessory gearbox are: (1) Install the new gasket on the accessory gearbox pad; (2) Position the pump on the pad and install the four mounting bolts; (3) Torque the bolts to 25 Nm in a cross pattern; (4) Fill the pump case with clean hydraulic fluid before the first engine run (do not operate the pump dry).",
    "citations": [
     "226f7587a094d09e",
     "ba1425d2550da5a0",
@@ -270,7 +270,7 @@
     "ba1425d2550da5a0"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T234059-d542fef2"
+   "trace_id": "20260717T093055-183a4c82"
   },
   {
    "query_id": "Q021",
@@ -282,7 +282,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T234105-c0507c8c"
+   "trace_id": "20260717T093100-688b9c29"
   },
   {
    "query_id": "Q023",
@@ -294,7 +294,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T234109-833a0daa"
+   "trace_id": "20260717T093107-262d7847"
   },
   {
    "query_id": "C149",
@@ -306,7 +306,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T234109-ed4bab2a"
+   "trace_id": "20260717T093108-87ea4470"
   },
   {
    "query_id": "C116",
@@ -318,7 +318,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T234113-b8f4dacb"
+   "trace_id": "20260717T093111-46e30bc0"
   }
  ]
 }
