@@ -81,3 +81,33 @@ Rulings, finding by finding:
    (site-install path robustness), **#11** (Unicode bidi stripping).
 
 Number re-runs (threshold, sample eval) are Yi Xin's before merge.
+
+### Convergence log (post-fix red-team passes)
+
+- **Pass 1** (Codex, on the #1–#7 fix commit): #2/#3/#4/#5/#6/#7 **CLOSED**;
+  **#1 NOT_CLOSED** — the `supporting_quote` check was bypassable: `""` and
+  whitespace substring-match any chunk, 1-char/common quotes are trivial, and
+  `setdefault` skipped validating a duplicate `chunk_id`'s second quote.
+  Verdict NOT_CONVERGED. Fixed in `fb7e167`: every raw citation validated
+  (id ∈ retrieved set + ≥12 normalized chars + verbatim containment), de-dup
+  only after all pass; three regression tests added; live golden 5/5
+  unaffected.
+- **Pass 2** (on `fb7e167`): **NEW FINDINGS: none.** The reviewer holds #1
+  NOT_CLOSED on one residual: a ≥12-char boilerplate span present in *every*
+  retrieved chunk still substring-matches and could accompany an unsupported
+  answer. This is the substring floor's inherent limit — verbatim containment
+  is a *necessary, not sufficient* condition for entailment; no substring
+  rule can certify that a quote semantically supports a claim. That gap is
+  exactly what Part 2 ruling #2 assigned to Day 8 (semantic entailment /
+  claim-level alignment). **Escalated to Yi Xin** as a scope decision, not a
+  code defect: hold the substring floor + Day 8 for semantics, or add a
+  cheap extra necessary-condition now (reject a quote that appears in *all*
+  retrieved chunks — kills the specific boilerplate bypass without pretending
+  to solve entailment).
+  **Ruling (Yi Xin): add the cheap defense, semantics to Day 8.** Done: a
+  quote present in every retrieved chunk is rejected as non-discriminating
+  (regression-tested); live golden 5/5 unaffected. Semantic entailment
+  (NLI / LLM-judge) remains the Day 8 adversarial-eval deliverable — the
+  substring + boilerplate rules are the documented machine floor, not a
+  groundedness proof.
+- **Pass 3**: recorded below once complete.

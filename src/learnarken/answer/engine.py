@@ -186,15 +186,23 @@ def answer_question(
     # Validate EVERY citation (not just the first per chunk — red-team day5 #1
     # convergence): the id must be in the retrieved set, and the quote must be
     # a substantial verbatim span of that chunk. Empty/short quotes trivially
-    # substring-match and are rejected before the containment test.
+    # substring-match and are rejected before the containment test. A quote
+    # present in EVERY retrieved chunk is boilerplate that discriminates
+    # nothing — also rejected (day5 #1 convergence pass 2). These are all
+    # *necessary* conditions; semantic entailment is Day 8.
+    normalized_evidence = {cid: _normalize(c.text) for cid, c in by_id.items()}
     bad: list[str] = []
     for c in citations_raw:
         cid, quote = c["chunk_id"], c["supporting_quote"]
         normalized = _normalize(quote)
+        boilerplate = len(by_id) > 1 and all(
+            normalized in text for text in normalized_evidence.values()
+        )
         if (
             cid not in evidence_ids
             or len(normalized) < MIN_QUOTE_CHARS
-            or normalized not in _normalize(by_id[cid].text)
+            or normalized not in normalized_evidence[cid]
+            or boilerplate
         ):
             bad.append(cid)
     if bad or not citations_raw or not parsed["answer"].strip():

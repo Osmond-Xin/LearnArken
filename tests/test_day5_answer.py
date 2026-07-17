@@ -295,6 +295,40 @@ class TestAnswerGates:
         )
         assert result.refused and result.refusal_gate == "citation-validation"
 
+    def test_boilerplate_quote_in_every_chunk_fails_closed(self, monkeypatch, wired):
+        # convergence pass 2: a >=12-char span present in ALL retrieved chunks
+        # discriminates nothing — reject it even though it substring-matches.
+        chunks = [
+            _chunk("c1", "WARNING: disconnect power first. Then release pressure."),
+            _chunk("c2", "WARNING: disconnect power first. Then remove the bolts."),
+        ]
+        monkeypatch.setattr(engine, "chunk_package", lambda pkg, strategy: list(chunks))
+        monkeypatch.setattr(
+            engine,
+            "_candidates",
+            lambda question, c, mode: [
+                Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id})
+                for ch in chunks
+            ],
+        )
+        import learnarken.retrieval.hybrid as hybrid
+        from learnarken.chunking.documents import to_document
+
+        monkeypatch.setattr(
+            hybrid,
+            "rerank_scored",
+            lambda q, d, k=10: [(to_document(ch), 0.9 - i * 0.1) for i, ch in enumerate(chunks)],
+        )
+        fake, result = self._run(
+            monkeypatch,
+            {
+                "is_answerable": True,
+                "answer": "Invented claim.",
+                "citations": [self._cite("c1", "WARNING: disconnect power first.")],
+            },
+        )
+        assert result.refused and result.refusal_gate == "citation-validation"
+
     def test_empty_citations_on_claimed_answer_fails_closed(self, monkeypatch, wired):
         fake, result = self._run(
             monkeypatch, {"is_answerable": True, "answer": "Trust me.", "citations": []}
