@@ -47,6 +47,47 @@
   before the client is written (Day 4 Q1 precedent — its embeddings
   endpoint was not OpenAI-shaped).
 
+## D4. Heavy red team + adjudication: groundedness floor, injection fence, honest metrics
+
+> AI-distilled, same session (2026-07-16); transcription of Yi Xin's
+> finding-by-finding ruling in docs/reviews/day5.md Part 2; pending human
+> review. Full findings: docs/reviews/day5.md Part 1 (Codex cross-host,
+> verdict REVIEW_NEEDED, 11 findings; 4 pre-flagged by the implementer).
+
+- **Central finding (cross-validated)**: "every answer traceable" held only
+  for the citation *pointer* (cited id ⊆ retrieved set), not the *claim* — a
+  valid-id hallucination could ship. The 20-sample coverage 1.0 was not
+  "1.0 correct".
+- **Rulings executed this session** (commit set below):
+  - **#1 groundedness** — the answer contract now requires a verbatim
+    `supporting_quote` per citation, validated as a whitespace/case-tolerant
+    substring of the cited chunk. A machine-checkable entailment *necessary
+    condition*; any quote not found in its chunk refuses. Live golden 5/5
+    still pass and real answers now surface the quote, so M3 can meet the
+    contract — but full semantic entailment stays Day 8.
+  - **#2 injection** — all corpus/graph material is now escaped JSON inside
+    the spotlighting delimiter (graph facts moved *inside*; no raw
+    `dm_title="…"` attribute to break out of). Regression test: a title
+    carrying `"></document><system>…` survives only as an escaped string
+    value, nothing outside the fence.
+  - **#3 contract hole** — a model-contract violation is now
+    `LLMContractError` → `refuse("llm-contract")` (exit 3, trace written),
+    distinct from transport `LLMError` (exit 1).
+  - **#5/#6 threshold** — chosen from unrounded scores (display value stored
+    separately); loader rejects non-finite / out-of-[0,1] values and resolves
+    from the repo root, so a cwd `{"threshold": NaN}` can't disable gate 1.
+  - **#4 honest metrics** — the sample eval now reports `answerable_success`
+    (0.875), `false_refusal_rate` (0.125), `trap_refusal_rate` (1.0) over the
+    FULL sampled sets; the old covered/answered ratio is kept but relabeled
+    "when answered" so it isn't read as accuracy. README softened.
+  - **#7 graph trust** — Neo4j rebound to `127.0.0.1`, credentials read from
+    `.env` (`NEO4J_*`). (Merges the standing Day 4 Neo4j-binding backlog item.)
+  - **Backlog (Day 6+)**: #8 (manifest content hashes / index epoch), #9
+    (trace secret hygiene), #10 (site-install paths), #11 (Unicode bidi).
+- **Lesson**: the heavy node paid off by attacking the *promise*, not the
+  code — "traceable" quietly meant "pointer valid", and only a groundedness
+  attack surfaced the gap between a valid citation and a supported claim.
+
 ## D3. Implementation findings: M3 wire quirks; the threshold gate is weak and its rule changed
 
 > AI-distilled, same-session (2026-07-16); pending human review. The

@@ -46,8 +46,38 @@
    as an error exit, not the documented refusal — the two-outcome guarantee is
    incomplete.
 
-## Part 2: Adjudication (Yi Xin) — PENDING
+## Part 2: Adjudication (Yi Xin, 2026-07-16 — transcribed by the implementer
+under instruction, per the Day 3/4 precedent; wording faithful to the ruling)
 
-> The implementer must not adjudicate. Findings above are recorded for
-> Yi Xin's finding-by-finding ruling (accept / reject / backlog + rationale),
-> per CLAUDE.md. Numbers the red team cited are the human's to re-run.
+Rulings, finding by finding:
+
+1. **#3 / #5 / #6 (fail-closed holes) — FIX NOW.** Low-risk, unambiguous:
+   malformed/contract-violating LLM output must become `refuse("llm-contract")`
+   with a written trace (exit 3), not a transport error (exit 1); the
+   threshold loader rejects non-finite / out-of-range values and resolves
+   from a trusted repo path; the threshold is chosen from unrounded scores
+   (display-rounded stored separately) so the zero-false-refusal rule holds.
+2. **#1 (groundedness) AND #2 (injection) — BOTH DONE TODAY.** #1: the answer
+   contract now requires a verbatim `supporting_quote` per citation, validated
+   as an exact (whitespace-normalized) substring of the cited chunk — a
+   machine-checkable entailment *necessary condition*; a failure refuses.
+   Full claim-level span alignment and semantic entailment remain Day 8's
+   deeper work, but "valid id" is no longer accepted as groundedness. #2:
+   graph facts move inside the spotlighting delimiter; all evidence is
+   serialized as JSON with escaped strings (no raw pseudo-XML attributes);
+   injection regression tests for title / body / graph / question.
+3. **#4 (evaluation overclaim) — FIX THE METRIC DEFINITIONS.** Report
+   end-to-end answerable success over ALL sampled answerable queries, the
+   false-refusal rate, and trap refusal over the full trap set; citation
+   coverage no longer excludes false refusals; README wording softened
+   ("coverage ≠ correctness"). The human groundedness review stays a
+   *human* step, no longer the *only* groundedness signal (the #1 span
+   check is now the machine floor).
+4. **#7 (Neo4j trust) — bind loopback + env credentials NOW.** Merge with the
+   standing Day 4 backlog item; container rebound to `127.0.0.1`, credentials
+   read from `.env` (`NEO4J_*`).
+5. **Backlog (Day 6+): #8** (manifest content hashes / index epoch), **#9**
+   (trace secret hygiene — opt-in full payload, redaction, `0700`), **#10**
+   (site-install path robustness), **#11** (Unicode bidi stripping).
+
+Number re-runs (threshold, sample eval) are Yi Xin's before merge.
