@@ -58,6 +58,17 @@ queries** (graph sync included) — tagged `v0.5.0`.
 - **Q4 — `query` runs on `hybrid-rerank`** (the reranker score doubles as
   the refusal-threshold signal), `--mode` override retained.
 
+## Probe findings — [MEASURED against the live chat endpoint, 2026-07-16]
+
+| | |
+| --- | --- |
+| Shape | **OpenAI-compatible** `/chat/completions` (`choices[0].message.content`) — unlike the retired embeddings endpoint, which was MiniMax-native |
+| Success signal | HTTP 200 **and** `base_resp.status_code == 0` (both checked) |
+| Auth | `Authorization: Bearer` **and** `X-Proxy-Token`, as documented |
+| Reasoning | **M3 always emits a `<think>…</think>` prefix in `content`** — even at temperature 0 and with `response_format` set; there is no separate reasoning field (`message` keys: content, role). The client MUST strip it before parsing |
+| Structured output | `response_format: {"type": "json_object"}` accepted; post-`</think>` content is clean parseable JSON (verified) |
+| Usage | `usage.completion_tokens_details.reasoning_tokens` reported — recorded in traces |
+
 ## Interfaces — [AI-drafted, pending approval]
 
 - `learnarken query "<question>" [--package … --k 5 --mode hybrid-rerank
