@@ -485,6 +485,7 @@ def _cmd_query(args: argparse.Namespace) -> int:
     lines.append("  " + "-" * 100)
     for c in result.citations:
         lines.append(f"  {c.chunk_id:<12} {c.dmc:<42} {c.source_path}")
+        lines.append(f'    ↳ "{_preview(c.supporting_quote, 88)}"')
     for f in result.graph_facts:
         refs = ", ".join(f.outbound_refs) or "—"
         lines.append(f"  graph: {f.dmc} → refs: {refs}")

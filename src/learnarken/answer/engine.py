@@ -9,17 +9,21 @@ the next, each logged in the trace):
    short-circuit; the LLM is never called.
 2. **llm / llm-contract** — the model says `is_answerable: false`, or its
    output violates the JSON contract.
-3. **citation-validation** — any cited id outside the retrieved set (or an
-   empty citation list on a claimed answer) refuses: a well-formed answer
-   with unverifiable provenance is worthless in this domain (INV-4).
+3. **citation-validation** — each citation must name a retrieved chunk AND
+   carry a `supporting_quote` that is a verbatim (whitespace/case-tolerant)
+   span of that chunk. A valid id with an unfindable quote refuses: a
+   well-formed answer with unverifiable provenance is worthless here (INV-4,
+   red-team day5 #1 — a valid pointer is not groundedness).
 
 DMC/XPath are backfilled from chunk metadata by this module — the LLM only
-ever emits chunk ids (citation-drift defense, DR report 陷阱一).
+ever emits chunk ids + quotes (citation-drift defense, DR report 陷阱一).
 """
 
 from __future__ import annotations
 
 import json
+import math
+import re
 import time
 from pathlib import Path
 
@@ -30,26 +34,45 @@ from learnarken.answer.trace import new_trace_id, write_trace
 from learnarken.chunking import chunk_package
 from learnarken.chunking.base import Chunk
 from learnarken.chunking.documents import from_document, to_document
-from learnarken.llm import chat_json
+from learnarken.config import REPO_ROOT
+from learnarken.llm import LLMContractError, chat_json
 from learnarken.retrieval import MODES, _dedupe_chunks, verify_corpus
 from learnarken.retrieval.bm25 import BM25Index
 
 PLACEHOLDER = "I don't know — no answer was found in the indexed corpus."
 DEFAULT_PACKAGES = ("samples/package-a", "samples/package-c")
-THRESHOLD_ARTIFACT = Path("eval/results/day5-refusal-threshold.json")
+# Resolve from the repo root, not cwd — a poisoned artifact in the working
+# directory must not be able to disable the gate (red-team day5 #6).
+THRESHOLD_ARTIFACT = REPO_ROOT / "eval/results/day5-refusal-threshold.json"
 CANDIDATE_K = 20  # pre-rerank candidate depth, matching the retrieval layer
 ANSWER_K = 5  # evidence chunks handed to the LLM (curated evidence, not stuffing)
 
 
 def load_threshold(path: Path = THRESHOLD_ARTIFACT) -> float:
-    """The refusal threshold is measured, never hand-picked (INV-5)."""
+    """The refusal threshold is measured (INV-5) and validated on load.
+
+    A non-finite or out-of-range value would silently disable gate 1
+    (`score < NaN` is always false) — reject it rather than trust the file
+    (red-team day5 #6). The reranker emits sigmoid scores in [0, 1].
+    """
     if not path.is_file():
         raise ValueError(
             f"no refusal-threshold artifact at {path} — run "
             "`uv run python tools/measure_refusal_threshold.py` first (fail closed)"
         )
     artifact = json.loads(path.read_text(encoding="utf-8"))
-    return float(artifact["threshold"])
+    threshold = float(artifact["threshold"])
+    if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+        raise ValueError(
+            f"refusal threshold {threshold!r} is not a finite [0,1] value (fail closed)"
+        )
+    return threshold
+
+
+def _normalize(text: str) -> str:
+    """Whitespace-collapsed, case-folded — the substring test tolerates
+    reflowed spacing/newlines but not invented content (red-team day5 #1)."""
+    return re.sub(r"\s+", " ", text).strip().casefold()
 
 
 def _candidates(question: str, chunks: list[Chunk], mode: str) -> list:
@@ -124,7 +147,15 @@ def answer_question(
     spans["graph"] = {"facts": [f.model_dump() for f in facts]}
 
     delimiter = make_delimiter()
-    result = chat_json(build_system(delimiter), build_user(question, evidence, facts, delimiter))
+    try:
+        result = chat_json(
+            build_system(delimiter), build_user(question, evidence, facts, delimiter)
+        )
+    except LLMContractError as exc:
+        # The service answered but broke the JSON contract — a refusal, not a
+        # transport error (red-team day5 #3): traced, exit 3, not exit 1.
+        spans["llm"] = {"contract_error": str(exc)}
+        return refuse("llm-contract", {"error": str(exc)})
     spans["llm"] = {
         "request_payload": result.request_payload,
         "model": result.model,
@@ -133,22 +164,47 @@ def answer_question(
     spans["generation"] = {"raw_content": result.raw_content, "parsed": result.parsed}
 
     parsed = result.parsed
+    citations_raw = parsed.get("citations")
     if not (
         isinstance(parsed.get("is_answerable"), bool)
         and isinstance(parsed.get("answer"), str)
-        and isinstance(parsed.get("citations"), list)
-        and all(isinstance(c, str) for c in parsed["citations"])
+        and isinstance(citations_raw, list)
+        and all(
+            isinstance(c, dict)
+            and isinstance(c.get("chunk_id"), str)
+            and isinstance(c.get("supporting_quote"), str)
+            for c in citations_raw
+        )
     ):
         return refuse("llm-contract", {"keys": sorted(parsed)})
     if not parsed["is_answerable"]:
         return refuse("llm")
-    cited = list(dict.fromkeys(parsed["citations"]))
-    invalid = [c for c in cited if c not in evidence_ids]
-    if invalid or not cited or not parsed["answer"].strip():
-        return refuse("citation-validation", {"invalid_citations": invalid})
+
+    # Validate every citation: id in the retrieved set AND the supporting quote
+    # is a verbatim span of that chunk (groundedness floor — red-team day5 #1).
+    seen: dict[str, str] = {}
+    for c in citations_raw:
+        seen.setdefault(c["chunk_id"], c["supporting_quote"])
+    invalid_ids = [cid for cid in seen if cid not in evidence_ids]
+    ungrounded = [
+        cid
+        for cid, quote in seen.items()
+        if cid in evidence_ids and _normalize(quote) not in _normalize(by_id[cid].text)
+    ]
+    if invalid_ids or ungrounded or not seen or not parsed["answer"].strip():
+        return refuse(
+            "citation-validation",
+            {"invalid_citations": invalid_ids, "ungrounded_citations": ungrounded},
+        )
 
     citations = [
-        Citation(chunk_id=c, dmc=by_id[c].dmc, source_path=by_id[c].source_path) for c in cited
+        Citation(
+            chunk_id=cid,
+            dmc=by_id[cid].dmc,
+            source_path=by_id[cid].source_path,
+            supporting_quote=quote,
+        )
+        for cid, quote in seen.items()
     ]
     spans["outcome"] = {
         "refused": False,

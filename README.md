@@ -213,8 +213,11 @@ five-span answer trace (`eval/traces/<trace_id>.json`):
    threshold (`eval/results/day5-refusal-threshold.json`; the distributions
    overlap at this scale, so this gate is a cost guard, not the main defense);
 2. **LLM** — structured output `is_answerable: false`;
-3. **citation validation** — any cited id outside the retrieved evidence set
-   refuses, even if the prose looks right.
+3. **citation validation** — each citation must name a retrieved chunk AND
+   carry a verbatim `supporting_quote` that is a span of that chunk; a valid
+   pointer with an unfindable quote refuses (a valid citation is not
+   groundedness — red-team day5 #1). Semantic entailment beyond this
+   substring floor is Day 8's adversarial-eval work.
 
 Retrieval combines the Vespa vector store with the **Neo4j dependency graph**
 (synced idempotently at `learnarken index`; DM→DM dmRefs and DM→ICN edges are
@@ -225,8 +228,10 @@ Reproduce: `learnarken index samples/package-a samples/package-c` then
 services + `MINIMAX_*` in the repo-root `.env`, see
 [docs/local-services.md](docs/local-services.md)); quality sample:
 `uv run python tools/answer_sample_eval.py` →
-`eval/results/day5-answer-sample.json` (20 fixed-seed golden queries,
-citation coverage + refusal accuracy, human groundedness review pending).
+`eval/results/day5-answer-sample.json` (20 fixed-seed golden queries;
+metrics over the full sampled sets — answerable_success, false_refusal_rate,
+trap_refusal_rate — coverage ≠ correctness; human groundedness review of the
+answered rows pending).
 
 ## Roadmap (Honest Layering)
 

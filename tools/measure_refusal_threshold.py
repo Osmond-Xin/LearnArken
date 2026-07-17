@@ -39,6 +39,9 @@ ARTIFACT = Path("eval/results/day5-refusal-threshold.json")
 
 
 def choose_threshold(answerable: list[float], no_answer: list[float]) -> tuple[float, str]:
+    # Unrounded (red-team day5 #5): rounding min-up would falsely refuse the
+    # very query that set the threshold. The artifact stores the exact value;
+    # a display-rounded copy is written alongside it.
     threshold = min(answerable)
     caught = sum(1 for s in no_answer if s < threshold)
     return (
@@ -62,17 +65,18 @@ def main() -> int:
     for q in golden:
         ranked = rerank_scored(q.query, retriever.invoke(q.query), k=1)
         top1 = ranked[0][1] if ranked else float("-inf")
-        (answerable if q.relevant else no_answer)[q.query_id] = round(top1, 4)
+        (answerable if q.relevant else no_answer)[q.query_id] = top1  # unrounded (#5)
 
     threshold, rule = choose_threshold(list(answerable.values()), list(no_answer.values()))
     artifact = {
         "golden": GOLDEN,
         "packages": list(DEFAULT_PACKAGES),
         "reranker": {RERANKER_MODEL: RERANKER_REVISION},
-        "threshold": threshold,
+        "threshold": threshold,  # exact value the gate compares against
+        "threshold_display": round(threshold, 4),  # human-facing only
         "rule": rule,
-        "answerable_top1": dict(sorted(answerable.items())),
-        "no_answer_top1": dict(sorted(no_answer.items())),
+        "answerable_top1": {k: round(v, 6) for k, v in sorted(answerable.items())},
+        "no_answer_top1": {k: round(v, 6) for k, v in sorted(no_answer.items())},
     }
     ARTIFACT.write_text(json.dumps(artifact, indent=1), encoding="utf-8")
     print(

@@ -16,6 +16,7 @@ class Citation(BaseModel):
     chunk_id: str
     dmc: str
     source_path: str  # XPath (structure chunks) — the trace-back anchor
+    supporting_quote: str  # verbatim span from the chunk (groundedness floor, #1)
 
 
 class AnswerResult(BaseModel):

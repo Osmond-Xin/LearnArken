@@ -46,8 +46,11 @@ curl -s http://localhost:19071/state/v1/health   # -> {"status":{"code":"up"}}
 | Credentials (local dev) | user `neo4j`, password `learnarken` |
 
 ```bash
-# start (already done on 2026-07-14)
-docker run -d --name learnarken-neo4j -p 7474:7474 -p 7687:7687 \
+# start (recreated 2026-07-16 loopback-only: Day 5 injects graph facts into
+# the LLM prompt, so an open Neo4j is a prompt-poisoning surface — red-team
+# day5 #7)
+docker run -d --name learnarken-neo4j \
+  -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \
   -e NEO4J_AUTH=neo4j/learnarken neo4j:latest
 
 docker start learnarken-neo4j
@@ -57,9 +60,11 @@ docker stop  learnarken-neo4j
 docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1 AS ok;'
 ```
 
-> The `learnarken` password is a throwaway local-dev credential, safe to
-> keep in this doc. If Neo4j is ever exposed beyond localhost, move it to
-> `.env` and pass `NEO4J_AUTH` from there.
+> Credentials are read from the repo-root `.env` (`NEO4J_USER` /
+> `NEO4J_PASSWORD`, see `.env.example`), falling back to the documented
+> `neo4j/learnarken` dev pair. The ports are loopback-bound because Neo4j has
+> no network auth beyond that password; treat the graph as writable-by-anyone
+> who reaches the port.
 
 ## MiniMax API — chat (Day 5 answer generation, ACTIVE)
 

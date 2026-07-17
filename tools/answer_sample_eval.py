@@ -2,18 +2,23 @@
 groundedness, 20 samples for human review).
 
 Runs `answer_question` live on a fixed-seed sample of golden queries
-(answerable + no-answer traps), and writes an artifact with, per query: the
-question, the answer or refusal, the cited chunk ids, and whether the
-citations intersect the human-annotated relevant set. Summary metrics:
+(answerable + no-answer traps). Metrics are defined over the FULL sampled
+sets, not the answered subset (red-team day5 #4 — no denominator that hides
+false refusals):
 
-- **citation coverage** — of answered answerable queries, the fraction whose
-  citations intersect the golden relevant set;
-- **refusal accuracy** — traps refused / traps sampled;
-- **false refusals** — answerable queries that got the placeholder.
+- **answerable_success** — answered AND citations intersect the golden
+  relevant set, over ALL sampled answerable queries (false refusals count
+  against it);
+- **false_refusal_rate** — sampled answerable queries that got the
+  placeholder, over all sampled answerable;
+- **trap_refusal_rate** — traps refused, over ALL sampled traps;
+- **citation_coverage_when_answered** — the old covered/answered ratio, kept
+  but explicitly labeled "among answered only" so it is not read as accuracy.
 
-Groundedness (does the answer text actually follow from the cited chunks?)
-is the human half: Yi Xin reviews the 20 rows in the artifact (the trace ids
-link each row to its full five-span trace).
+The `supporting_quote` substring check (engine gate 3) is the machine
+groundedness floor; whether the answer *semantically* follows from the quotes
+is still the human step — Yi Xin reviews the rows (trace ids link each to its
+five-span trace). This artifact is evidence, not a merge gate by itself.
 
     uv run python tools/answer_sample_eval.py [--n 20] [--seed 42]
 """
@@ -88,14 +93,21 @@ def main() -> int:
         status = "REFUSED" if result.refused else ("HIT" if hit else "MISS")
         print(f"  {q.query_id:<6} expected={'answer' if q.relevant else 'refusal':<8} {status}")
 
+    n_answerable = len(sample) - min(n_traps, len(traps))
+    n_trap = min(n_traps, len(traps))
     summary = {
         "n_sampled": len(sample),
-        "answerable_sampled": len(sample) - min(n_traps, len(traps)),
-        "traps_sampled": min(n_traps, len(traps)),
-        "citation_coverage": round(covered / answered, 4) if answered else None,
-        "false_refusals": false_refusals,
-        "refusal_accuracy_on_traps": round(traps_refused / min(n_traps, len(traps)), 4),
-        "human_review": "pending (Yi Xin, 20-sample groundedness check)",
+        "answerable_sampled": n_answerable,
+        "traps_sampled": n_trap,
+        # End-to-end success over ALL answerable — false refusals count against it (#4).
+        "answerable_success": round(covered / n_answerable, 4) if n_answerable else None,
+        "false_refusal_rate": round(false_refusals / n_answerable, 4) if n_answerable else None,
+        "trap_refusal_rate": round(traps_refused / n_trap, 4) if n_trap else None,
+        # Kept for continuity but explicitly scoped so it isn't read as accuracy.
+        "citation_coverage_when_answered": round(covered / answered, 4) if answered else None,
+        "note": "coverage != correctness; supporting_quote substring is the machine "
+        "groundedness floor; semantic groundedness review is a human step",
+        "human_review": "pending (Yi Xin, groundedness of the answered rows)",
     }
     ARTIFACT.write_text(
         json.dumps(

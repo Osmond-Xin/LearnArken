@@ -5,10 +5,12 @@
   "n_sampled": 20,
   "answerable_sampled": 16,
   "traps_sampled": 4,
-  "citation_coverage": 1.0,
-  "false_refusals": 1,
-  "refusal_accuracy_on_traps": 1.0,
-  "human_review": "pending (Yi Xin, 20-sample groundedness check)"
+  "answerable_success": 0.875,
+  "false_refusal_rate": 0.125,
+  "trap_refusal_rate": 1.0,
+  "citation_coverage_when_answered": 1.0,
+  "note": "coverage != correctness; supporting_quote substring is the machine groundedness floor; semantic groundedness review is a human step",
+  "human_review": "pending (Yi Xin, groundedness of the answered rows)"
  },
  "rows": [
   {
@@ -17,7 +19,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "When troubleshooting low hydraulic system pressure, check the reservoir fluid level. If it is below MIN, service the reservoir and repeat the pressure check.",
+   "answer": "During low system pressure fault isolation on the hydraulic power system, check the reservoir fluid level. If the level is below MIN, service the reservoir and then repeat the pressure check.",
    "citations": [
     "2397d957c244b9a7"
    ],
@@ -25,7 +27,7 @@
     "2397d957c244b9a7"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230225-d54e0dd2"
+   "trace_id": "20260716T233927-4c732275"
   },
   {
    "query_id": "Q004",
@@ -33,7 +35,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Examine the main gear shock strut for fluid leakage and correct extension, with a visible chrome measurement of 55-65 mm.",
+   "answer": "Examine the main gear shock strut for fluid leakage and verify the correct extension, with visible chrome measuring 55-65 mm.",
    "citations": [
     "562e128cef478562"
    ],
@@ -41,7 +43,7 @@
     "562e128cef478562"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230247-11e3d2f2"
+   "trace_id": "20260716T233938-a9b29fe2"
   },
   {
    "query_id": "C109",
@@ -49,7 +51,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Four (4) mounting bolts hold the hydraulic pump (unit) onto the accessory gearbox pad (drive housing). The remove procedure specifies 'Remove the four mounting bolts and remove the pump from the accessory gearbox pad,' the install procedure specifies 'install the four mounting bolts,' and the illustrated parts data lists 4 BOLT, PUMP MOUNTING.",
+   "answer": "Four (4) mounting bolts hold the hydraulic pump onto the accessory gearbox pad (drive housing).",
    "citations": [
     "c53ec6cb48353e3f",
     "ba1425d2550da5a0",
@@ -60,7 +62,7 @@
     "c53ec6cb48353e3f"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230252-dce37497"
+   "trace_id": "20260716T233944-fb879397"
   },
   {
    "query_id": "C105",
@@ -68,7 +70,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The hydraulic pump must not be operated dry. The pump case must be filled with clean hydraulic fluid before the first engine run in order to prevent dry operation of the pump.",
+   "answer": "The unit must be primed before the first motor run because the pump must not be operated dry; filling the pump case with clean hydraulic fluid ensures the pump operates with fluid and is prevented from running dry.",
    "citations": [
     "f5e8d89384ea0525"
    ],
@@ -76,7 +78,7 @@
     "f5e8d89384ea0525"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230259-b888b0f4"
+   "trace_id": "20260716T233950-efc180aa"
   },
   {
    "query_id": "C147",
@@ -90,7 +92,7 @@
     "f4c1e17fc6bd589a"
    ],
    "citations_hit_golden": null,
-   "trace_id": "20260716T230308-c5ce8e4b"
+   "trace_id": "20260716T233959-156d7ed6"
   },
   {
    "query_id": "Q009",
@@ -98,7 +100,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "LA-29-4711-1 is the PUMP, HYDRAULIC, ENGINE-DRIVEN (quantity 1), identified in the hydraulic pump installation illustrated parts data.",
+   "answer": "LA-29-4711-1 is the part number for the engine-driven hydraulic pump used in the LA100 aircraft's hydraulic power system.",
    "citations": [
     "f4c1e17fc6bd589a"
    ],
@@ -106,7 +108,7 @@
     "f4c1e17fc6bd589a"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230318-baa5a8ec"
+   "trace_id": "20260716T234004-fa7ab2c8"
   },
   {
    "query_id": "C128",
@@ -114,7 +116,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The LA100 is a fictional twin-engine light utility aircraft used as the training airframe for this sample library.",
+   "answer": "The LA100 aircraft.",
    "citations": [
     "ffe627967b173a63"
    ],
@@ -122,25 +124,21 @@
     "ffe627967b173a63"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230325-83102b42"
+   "trace_id": "20260716T234011-5ae31c14"
   },
   {
    "query_id": "Q007",
    "question": "DMC-LA100-A-29-10-00-00A-941A-D",
    "expected": "answer",
-   "refused": false,
-   "refusal_gate": null,
-   "answer": "DMC-LA100-A-29-10-00-00A-941A-D is the Hydraulic pump — Illustrated parts data module for the LA100 aircraft. It contains hydraulic pump installation parts data, listing: PUMP, HYDRAULIC, ENGINE-DRIVEN (LA-29-4711-1); GASKET, PUMP MOUNTING PAD (LA-29-4711-9); and BOLT, PUMP MOUNTING (LA-29-0025-4), with quantities 1, 1, and 4 respectively. The module is associated with illustration ICN-LA100-29-001-01 and is referenced by the hydraulic pump removal/installation (DMC-LA100-A-29-10-00-00A-520A-A) and servicing (DMC-LA100-A-29-10-00-00A-720A-A) procedures.",
-   "citations": [
-    "f4c1e17fc6bd589a",
-    "a4c00793dd5e2ad1",
-    "4bb32c18d9f44eca"
-   ],
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
    "golden_relevant_chunk_ids": [
     "f4c1e17fc6bd589a"
    ],
-   "citations_hit_golden": true,
-   "trace_id": "20260716T230330-e2ce0a70"
+   "citations_hit_golden": null,
+   "trace_id": "20260716T234018-09dd5092"
   },
   {
    "query_id": "C124",
@@ -148,7 +146,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "As part of fault isolation for main landing gear that does not retract, the procedure calls to inspect the retraction actuator and weight-on-wheels switch, and to refer to the inspection procedures document for further details.",
+   "answer": "Inspect the retraction actuator and weight-on-wheels switch, as called for in the Main landing gear fault-isolation procedure for a gear that does not retract.",
    "citations": [
     "660630f854754032"
    ],
@@ -156,7 +154,7 @@
     "660630f854754032"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230339-2bf4d0d8"
+   "trace_id": "20260716T234023-2222b782"
   },
   {
    "query_id": "C141",
@@ -164,7 +162,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Perform the hydraulic low-pressure fault isolation first. The Main landing gear fault-isolation procedure (gear does not retract) instructs to check hydraulic system pressure and, if it is below 2400 psi, to do the hydraulic low-pressure fault isolation before continuing with the gear retraction fault isolation.",
+   "answer": "The hydraulic low-pressure fault isolation procedure comes first. When the gear does not retract and hydraulic system pressure is below 2400 psi, the low-pressure fault isolation must be performed before continuing with the landing gear retraction fault isolation.",
    "citations": [
     "7b4c62ee059cf013"
    ],
@@ -172,7 +170,7 @@
     "7b4c62ee059cf013"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230344-5cf37854"
+   "trace_id": "20260716T234028-1825e47e"
   },
   {
    "query_id": "C108",
@@ -180,7 +178,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Yes. A post-flight finding noted that the ground safety pins had not been removed before flight, meaning the locking devices were left installed prior to departure.",
+   "answer": "Yes. A post-flight finding indicated that the ground safety pins were not removed before flight.",
    "citations": [
     "a346f9bcf7655f90"
    ],
@@ -188,7 +186,7 @@
     "a346f9bcf7655f90"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230354-a8670a45"
+   "trace_id": "20260716T234034-5c121267"
   },
   {
    "query_id": "Q006",
@@ -196,7 +194,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Disconnect the negative terminal first, then the positive terminal. Cap both terminals after disconnection.",
+   "answer": "Disconnect the negative terminal first, then the positive terminal. Both terminals should be capped after disconnection.",
    "citations": [
     "003507c0bea61813",
     "1d67556565477686"
@@ -205,7 +203,7 @@
     "003507c0bea61813"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230403-fc2b1c65"
+   "trace_id": "20260716T234039-149c23a5"
   },
   {
    "query_id": "C111",
@@ -213,7 +211,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Yes, the battery cell can still be live after the aircraft is shut down. Battery terminals can supply high current even with aircraft power off.",
+   "answer": "Yes, the cell remains live after the aircraft is shut down. The battery terminals can still supply high current even with aircraft power off, which is why the negative terminal must be disconnected first and tools kept clear of the positive terminal during maintenance.",
    "citations": [
     "1d67556565477686"
    ],
@@ -221,7 +219,7 @@
     "1d67556565477686"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230409-4ede0e84"
+   "trace_id": "20260716T234043-20408620"
   },
   {
    "query_id": "C101",
@@ -229,7 +227,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "The polished cylinder should extend 55–65 mm (visible chrome) out of the main gear shock strut.",
+   "answer": "The polished (chrome) cylinder should extend 55-65 mm visibly out of the main landing gear shock strut (oleo).",
    "citations": [
     "562e128cef478562"
    ],
@@ -237,7 +235,7 @@
     "562e128cef478562"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230414-6b06a738"
+   "trace_id": "20260716T234050-23d14d3d"
   },
   {
    "query_id": "Q003",
@@ -245,7 +243,7 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Connect the supply and pressure lines, then torque the fittings to 18 Nm.",
+   "answer": "Connect the supply and pressure lines and torque the fittings to 18 Nm.",
    "citations": [
     "ff9bc2ffa0610161"
    ],
@@ -253,7 +251,7 @@
     "ff9bc2ffa0610161"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230420-09cdf314"
+   "trace_id": "20260716T234056-8a012a01"
   },
   {
    "query_id": "Q002",
@@ -261,19 +259,18 @@
    "expected": "answer",
    "refused": false,
    "refusal_gate": null,
-   "answer": "Based on the evidence provided, the steps to install the hydraulic pump on the accessory gearbox are:\n\n1. Install the new gasket on the accessory gearbox pad (refer to the parts data for the gasket part number).\n2. Position the pump on the accessory gearbox pad and install the four mounting bolts.\n3. Torque the four mounting bolts to 25 Nm in a cross pattern.\n4. Fill the pump case with clean hydraulic fluid before the first engine run (do not operate the pump dry).\n\nIllustrated parts data for the installation includes: 1 Hydraulic Pump (LA-29-4711-1), 1 Gasket, Pump Mounting Pad (LA-29-4711-9), and 4 Bolts, Pump Mounting (LA-29-0025-4).",
+   "answer": "The steps to install the hydraulic pump on the accessory gearbox are: (1) Install the new gasket on the accessory gearbox pad. (2) Position the pump on the pad and install the four mounting bolts. (3) Torque the bolts to 25 Nm in a cross pattern. (4) Fill the pump case with clean hydraulic fluid before the first engine run (do not operate the pump dry).",
    "citations": [
     "226f7587a094d09e",
     "ba1425d2550da5a0",
-    "f5e8d89384ea0525",
-    "f4c1e17fc6bd589a"
+    "f5e8d89384ea0525"
    ],
    "golden_relevant_chunk_ids": [
     "226f7587a094d09e",
     "ba1425d2550da5a0"
    ],
    "citations_hit_golden": true,
-   "trace_id": "20260716T230424-4791c949"
+   "trace_id": "20260716T234059-d542fef2"
   },
   {
    "query_id": "Q021",
@@ -285,7 +282,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T230433-a667637a"
+   "trace_id": "20260716T234105-c0507c8c"
   },
   {
    "query_id": "Q023",
@@ -297,7 +294,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T230438-37640b16"
+   "trace_id": "20260716T234109-833a0daa"
   },
   {
    "query_id": "C149",
@@ -309,7 +306,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T230438-908762a8"
+   "trace_id": "20260716T234109-ed4bab2a"
   },
   {
    "query_id": "C116",
@@ -321,7 +318,7 @@
    "citations": [],
    "golden_relevant_chunk_ids": [],
    "citations_hit_golden": null,
-   "trace_id": "20260716T230443-1b6fdb03"
+   "trace_id": "20260716T234113-b8f4dacb"
   }
  ]
 }

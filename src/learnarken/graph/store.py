@@ -27,9 +27,25 @@ from learnarken.chunking.base import Chunk
 
 logger = logging.getLogger("learnarken")
 
-BASE_URL = "http://localhost:7474"
+BASE_URL = "http://127.0.0.1:7474"  # loopback: Neo4j has no network auth here
 _TX_ENDPOINT = "/db/neo4j/tx/commit"
-_USER, _PASSWORD = "neo4j", "learnarken"  # local-dev throwaway (docs/local-services.md)
+
+
+def _credentials() -> tuple[str, str]:
+    """Neo4j credentials from the repo-root .env (red-team day5 #7), with the
+    documented local-dev pair as the fallback so a fresh checkout still runs."""
+    from learnarken.config import REPO_ROOT
+
+    env = REPO_ROOT / ".env"
+    user, password = "neo4j", "learnarken"
+    if env.is_file():
+        for line in env.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("NEO4J_USER="):
+                user = line.split("=", 1)[1].strip().strip('"').strip("'")
+            elif line.startswith("NEO4J_PASSWORD="):
+                password = line.split("=", 1)[1].strip().strip('"').strip("'")
+    return user, password
 
 
 class GraphError(RuntimeError):
@@ -47,7 +63,8 @@ class GraphFacts(BaseModel):
 
 
 def _request(path: str, payload: dict | None = None, timeout: int = 30) -> dict:
-    token = base64.b64encode(f"{_USER}:{_PASSWORD}".encode()).decode()
+    user, password = _credentials()
+    token = base64.b64encode(f"{user}:{password}".encode()).decode()
     request = urllib.request.Request(  # noqa: S310 — fixed localhost scheme
         BASE_URL + path,
         data=json.dumps(payload).encode() if payload is not None else None,

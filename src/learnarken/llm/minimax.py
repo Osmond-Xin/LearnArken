@@ -31,7 +31,13 @@ _BACKOFF_S = 2.0
 
 
 class LLMError(RuntimeError):
-    """The LLM call failed or returned an unusable response. Fail closed."""
+    """Transport failure: unreachable, HTTP error, upstream status. Exit 1."""
+
+
+class LLMContractError(LLMError):
+    """The model replied but violated the JSON contract (unparseable / wrong
+    shape). This is a *refusal* condition, not a transport error — the answer
+    layer maps it to `refuse("llm-contract")`, exit 3 (red-team day5 #3)."""
 
 
 @dataclass
@@ -107,17 +113,19 @@ def chat_json(
     status = body.get("base_resp", {}).get("status_code")
     if status != 0:
         raise LLMError(f"MiniMax base_resp.status_code={status}: {body.get('base_resp')}")
+    # From here down the service answered; a bad shape/JSON is a *contract*
+    # violation (refusal), not a transport error (red-team day5 #3).
     try:
         content = body["choices"][0]["message"]["content"]
     except (KeyError, IndexError) as exc:
-        raise LLMError(f"unexpected response shape: keys={sorted(body)}") from exc
+        raise LLMContractError(f"unexpected response shape: keys={sorted(body)}") from exc
     stripped = _strip_think(content)
     try:
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
-        raise LLMError(f"post-think content is not JSON: {stripped[:120]!r}") from exc
+        raise LLMContractError(f"post-think content is not JSON: {stripped[:120]!r}") from exc
     if not isinstance(parsed, dict):
-        raise LLMError(f"expected a JSON object, got {type(parsed).__name__}")
+        raise LLMContractError(f"expected a JSON object, got {type(parsed).__name__}")
     return ChatResult(
         parsed=parsed,
         raw_content=content,
