@@ -46,6 +46,9 @@ DEFAULT_PACKAGES = ("samples/package-a", "samples/package-c")
 THRESHOLD_ARTIFACT = REPO_ROOT / "eval/results/day5-refusal-threshold.json"
 CANDIDATE_K = 20  # pre-rerank candidate depth, matching the retrieval layer
 ANSWER_K = 5  # evidence chunks handed to the LLM (curated evidence, not stuffing)
+# A supporting quote must be substantial: an empty/one-word span trivially
+# substring-matches any chunk and proves nothing (red-team day5 #1 convergence).
+MIN_QUOTE_CHARS = 12
 
 
 def load_threshold(path: Path = THRESHOLD_ARTIFACT) -> float:
@@ -180,23 +183,27 @@ def answer_question(
     if not parsed["is_answerable"]:
         return refuse("llm")
 
-    # Validate every citation: id in the retrieved set AND the supporting quote
-    # is a verbatim span of that chunk (groundedness floor — red-team day5 #1).
+    # Validate EVERY citation (not just the first per chunk — red-team day5 #1
+    # convergence): the id must be in the retrieved set, and the quote must be
+    # a substantial verbatim span of that chunk. Empty/short quotes trivially
+    # substring-match and are rejected before the containment test.
+    bad: list[str] = []
+    for c in citations_raw:
+        cid, quote = c["chunk_id"], c["supporting_quote"]
+        normalized = _normalize(quote)
+        if (
+            cid not in evidence_ids
+            or len(normalized) < MIN_QUOTE_CHARS
+            or normalized not in _normalize(by_id[cid].text)
+        ):
+            bad.append(cid)
+    if bad or not citations_raw or not parsed["answer"].strip():
+        return refuse("citation-validation", {"invalid_or_ungrounded": bad})
+
+    # All quotes validated; de-dup by chunk id (keep the first) for display.
     seen: dict[str, str] = {}
     for c in citations_raw:
         seen.setdefault(c["chunk_id"], c["supporting_quote"])
-    invalid_ids = [cid for cid in seen if cid not in evidence_ids]
-    ungrounded = [
-        cid
-        for cid, quote in seen.items()
-        if cid in evidence_ids and _normalize(quote) not in _normalize(by_id[cid].text)
-    ]
-    if invalid_ids or ungrounded or not seen or not parsed["answer"].strip():
-        return refuse(
-            "citation-validation",
-            {"invalid_citations": invalid_ids, "ungrounded_citations": ungrounded},
-        )
-
     citations = [
         Citation(
             chunk_id=cid,

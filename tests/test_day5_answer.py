@@ -263,6 +263,38 @@ class TestAnswerGates:
         )
         assert result.refused and result.refusal_gate == "citation-validation"
 
+    def test_empty_quote_fails_closed(self, monkeypatch, wired):
+        # convergence: "" is a substring of everything — must not pass.
+        fake, result = self._run(
+            monkeypatch,
+            {"is_answerable": True, "answer": "x.", "citations": [self._cite("c1", "")]},
+        )
+        assert result.refused and result.refusal_gate == "citation-validation"
+
+    def test_trivial_short_quote_fails_closed(self, monkeypatch, wired):
+        # convergence: a one-word/common quote proves nothing.
+        fake, result = self._run(
+            monkeypatch,
+            {"is_answerable": True, "answer": "x.", "citations": [self._cite("c1", "the")]},
+        )
+        assert result.refused and result.refusal_gate == "citation-validation"
+
+    def test_second_quote_on_same_chunk_is_also_validated(self, monkeypatch, wired):
+        # convergence: setdefault must not skip validating a duplicate chunk_id's
+        # second quote — a valid first + ungrounded second must still refuse.
+        fake, result = self._run(
+            monkeypatch,
+            {
+                "is_answerable": True,
+                "answer": "x.",
+                "citations": [
+                    self._cite("c1", "Release the pressure."),
+                    self._cite("c1", "Invented torque value of 900 Nm."),
+                ],
+            },
+        )
+        assert result.refused and result.refusal_gate == "citation-validation"
+
     def test_empty_citations_on_claimed_answer_fails_closed(self, monkeypatch, wired):
         fake, result = self._run(
             monkeypatch, {"is_answerable": True, "answer": "Trust me.", "citations": []}
