@@ -1,6 +1,12 @@
 # ADR-0002: Minimal RDF/SPARQL dependency-graph query pulled into scope (Day 9)
 
-- Status: accepted
+- Status: accepted — **amended 2026-07-16 (same day, Day 5 opening ruling)**:
+  the *first half* of the slice moves forward to **Day 5** — index-time graph
+  sync into Neo4j (DM nodes, dmRef/ICN edges) + tutorial 06 §9 interface ③
+  (graph facts injected as structured context in `query`). The *dependency
+  query class* ("which procedures are affected if DM X is superseded?",
+  interface ①-style) **stays at Day 9** as originally decided. See
+  docs/specs/day5.md Q1 and docs/discussions/day5.md D2.
 - Date: 2026-07-16
 - Deciders: Yi Xin (decision), Claude implementer (drafting — **AI-drafted
   record of a human ruling**; see docs/discussions/day4.md D18)

@@ -177,7 +177,9 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
 [tutorials/07 LLM 原理](tutorials/07-llm-fundamentals.md)
 
 **做**:
-- [ ] Claude API 回答生成:结构化 prompt、引用标注(chunk id → 原文出处)
+- [ ] ~~Claude API~~ **MiniMax-M3** 回答生成(2026-07-16 Day 5 开题裁决,
+      见 specs/day5.md 决策 2):结构化 prompt、引用标注(chunk id → 原文出处)
+- [ ] 图谱同步 + 接口③上下文注入(ADR-0002 修订:图切片前半提前到本日)
 - [ ] 拒答逻辑:证据不足时 fail-closed,不编造
 - [ ] answer trace JSON:query → 检索结果 → prompt → 回答 → 引用,全链路落盘
 - [ ] 回答质量小评估:citation coverage + groundedness,**人工抽查 20 例**
@@ -239,10 +241,9 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
       (governed-AI 行业即用此语;求职材料同步用词,见私档),并注明与
       ML 传统含义(分布偏移检测)的区别
 - [ ] 根目录 `llms.txt`:给 AI agent 的仓库导览(是什么、证据在哪、怎么复跑)
-- [ ] **最小依赖图查询切片**(Day 4 复评点拉回,ADR-0002):chunk 已带的
-      dmRefs/ICN 钩子入 Neo4j,回答一类依赖查询(如"DM X 被废弃影响哪些
-      程序"),按 tutorial 06 §9 的组合接口之一与检索并联;当日超时则按
-      INV-8 滑点规则优先裁剪为设计稿
+- [ ] **依赖图查询**(ADR-0002,已修订):图同步与接口③注入已提前到
+      Day 5;本日补齐**依赖查询类**(如"DM X 被废弃影响哪些程序",
+      接口①方向);当日超时则按 INV-8 滑点规则优先裁剪为设计稿
 - [ ] 复盘 specs/reviews/journal 全目录,补齐缺漏
 
 **证**:一个陌生 AI agent 只读 `llms.txt` + `EVIDENCE.md` 能在 5 分钟内

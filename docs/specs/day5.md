@@ -40,28 +40,23 @@ queries** (graph sync included) — tagged `v0.5.0`.
 7. **After implementation: red-team review** (the automatic gate; Day 5 is
    a ⚑ heavy node per the execution plan).
 
-## Open Questions — [AI-drafted, awaiting Yi Xin's ruling]
+## Open Questions — [adjudicated by Yi Xin, 2026-07-16 session]
 
-- **Q1 — Graph integration shape** (amends ADR-0002). Tutorial 06 §9 offers
-  three interfaces. Proposal: (a) `learnarken index` gains a **graph-sync
-  step** — DM-level nodes with DM→DM (dmRefs) and DM→ICN edges from the
-  chunk hooks, idempotent upserts (INV-2); (b) `query` uses **interface ③
-  (context injection)**: the graph facts of the cited/retrieved DMs
-  (outbound/inbound refs, ICNs) enter the prompt as a structured list
-  alongside text evidence. Multi-hop graph *tools* (interface ①) stay at
-  Day 7/9. Alternative: graph-neighbor retrieval expansion (fetch chunks of
-  referenced DMs into the candidate set) — more invasive, touches ablation
-  claims.
-- **Q2 — Refusal strictness**. The DR report (陷阱二) recommends graded
-  degradation (low-confidence answer + strong disclaimer) between hard
-  refusal and full answer. The transcribed decision 4 says generic
-  placeholder. Strict two-outcome (answer / placeholder) is the cleaner
-  INV-4 story; graded adds a third band. Which?
-- **Q3 — Answer language**: follow the question's language (zh→zh, en→en),
-  or fixed?
-- **Q4 — Retrieval mode behind `query`**: proposal `hybrid-rerank` (best
-  ablation quality; the reranker score doubles as the refusal-threshold
-  signal), with `--mode` override. Confirm.
+- **Q1 — Graph integration shape: (a)+(b) approved** — index-time graph
+  sync (DM-level nodes, DM→DM dmRefs edges, DM→ICN edges, idempotent
+  upserts per INV-2) + **interface ③ context injection** (graph facts of
+  retrieved DMs as a structured list in the prompt). Graph-neighbor
+  retrieval expansion NOT taken; multi-hop tools stay at Day 7/9.
+  ADR-0002 amended accordingly.
+- **Q2 — Strict two-outcome refusal**: only "cited answer" or "placeholder
+  refusal"; no graded low-confidence band. (The DR report's graceful-
+  degradation alternative was considered and declined — INV-4 cleanliness
+  and a smaller Day 8 attack surface.)
+- **Q3 — Answer language: fixed English** (consistent with outward-facing
+  artifacts; the evidence corpus is English synthetic XML, avoiding
+  cross-lingual citation-alignment noise). Refusal placeholder is English.
+- **Q4 — `query` runs on `hybrid-rerank`** (the reranker score doubles as
+  the refusal-threshold signal), `--mode` override retained.
 
 ## Interfaces — [AI-drafted, pending approval]
 
