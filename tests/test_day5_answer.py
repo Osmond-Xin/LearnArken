@@ -307,8 +307,7 @@ class TestAnswerGates:
             engine,
             "_candidates",
             lambda question, c, mode: [
-                Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id})
-                for ch in chunks
+                Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id}) for ch in chunks
             ],
         )
         import learnarken.retrieval.hybrid as hybrid

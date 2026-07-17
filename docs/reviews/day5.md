@@ -110,4 +110,8 @@ Number re-runs (threshold, sample eval) are Yi Xin's before merge.
   (NLI / LLM-judge) remains the Day 8 adversarial-eval deliverable — the
   substring + boilerplate rules are the documented machine floor, not a
   groundedness proof.
-- **Pass 3**: recorded below once complete.
+- **Pass 3** (scope-bounded to the necessary-condition floor, semantics
+  excluded per the ruling): necessary-condition floor **SOUND**, **no new
+  P0/P1**. **VERDICT: CONVERGED.** The Day 5 answer path is fail-closed
+  against empty/short/foreign/boilerplate/unparseable/low-confidence cases;
+  semantic groundedness is the Day 8 deliverable.
