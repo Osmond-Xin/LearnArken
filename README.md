@@ -78,7 +78,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | 3 | BM25 baseline & retrieval evaluation | `v0.3.0` | ✅ 2026-07-16 |
 | 4 | Hybrid retrieval & ablation table ⚑ heavy red team | `v0.4.0` | ✅ 2026-07-16 |
 | 5 | RAG with citations ⚑ heavy red team | `v0.5.0` | ✅ 2026-07-17 |
-| 6 | API & local demo | `v0.6.0` | ⬜ |
+| 6 | API & local demo | `v0.6.0` | ✅ 2026-07-17 |
 | 7 | Validation-repair agent | `v0.7.0` | ⬜ |
 | 8 | Adversarial evaluation: attacking my own RAG ⚑ heavy red team | `v0.8.0` | ⬜ |
 | 9 | Evidence chain & machine readability | `v0.9.0` | ⬜ |
