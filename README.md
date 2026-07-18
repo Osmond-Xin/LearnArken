@@ -269,9 +269,13 @@ never self-declared): X-01 flips affirm→refuse; P-03 flips hallucinated→grou
 on both judges. One honest wrinkle — a *correct* answer (P-09: "25 Nm, not 25
 ft-lb") is still judged hallucinated by both, which is exactly why the judge is
 calibrated against human labels with **Cohen's Kappa** (soft gate 0.60), not
-trusted blind. The κ step (`tools/adversarial_eval.py --kappa-only`) is
-deterministic over the frozen judge labels; the human anchor set is pending
-(INV-6). Full evidence chain: [docs/notes/day8-defects.md](docs/notes/day8-defects.md).
+trusted blind. On the human anchor (n=30: Day 5 answered rows + Day 8
+adversarial, human-labeled blind, INV-6) both judges pass: **Codex κ = 0.74,
+agy κ = 0.67** — "substantial" agreement (Landis-Koch), enough to back the
+groundedness numbers but deliberately short of blind trust. The κ step
+(`tools/adversarial_eval.py --kappa-only`) is deterministic over the frozen
+judge labels + `eval/golden/day8-human-labels.json`. Full evidence chain:
+[docs/notes/day8-defects.md](docs/notes/day8-defects.md).
 
 Reproduce: `learnarken eval adversarial --seed 42` (live judges); behavior
 distribution: `uv run python tools/adversarial_eval.py --repeat 3 --label after`

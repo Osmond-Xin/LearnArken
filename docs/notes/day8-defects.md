@@ -80,10 +80,19 @@ trace 才下的结论(DR §7 坑3:别把病灶归错层)。
 | P-03 值扰动 | 答(两裁判判 hallucinated) | 答「不是 30,是 25 Nm」(**两裁判 grounded**) | 实体/值对齐生效 |
 | P-09 单位扰动 | 两裁判 hallucinated | 答「25 Nm,不是 25 ft-lb」(**两裁判仍判 hallucinated**) | **裁判可错**:答案其实正确却被判幻觉——正是 κ 人工校准存在的理由,裁判不是 ground truth |
 
-> **裁判校准(Cohen's κ)仍待人工标签**:`eval/golden/day8-human-labels.json`(人工所有,
-> INV-6)就位后,`uv run python tools/adversarial_eval.py --kappa-only` 出 κ(软门 0.60,
-> 决策 A:不达标不丢数据、人工标签兜底)。当前 anchor=Day5-answered(14)+Day8 对抗人工标
-> (决策 B,有 pass/fail 方差,避 DR §4 偏斜陷阱)。
+**裁判校准(Cohen's κ,人工盲标锚 n=30 = Day5-answered 14 + Day8 对抗 16,决策 B)**:
+
+| 裁判 | κ (n=30) | 一致率 | 软门(>0.60) |
+| --- | --- | --- | --- |
+| Codex | **0.737** | 90% | ✅ |
+| agy | **0.667** | 86.7% | ✅ |
+
+> 都过 0.60 软门,属「substantial」(Landis-Koch 0.61–0.80)——够背书 groundedness 数字,
+> 但**刻意不到盲信**。曾在 n=16(仅 Day8 干净纠正行)算出 0.85/1.00 偏乐观;补进 Day 5 后
+> 回落,是更诚实的锚(Day5 的 C109/C124/C108 被裁判判 hallucinated、Q015/Q009/C101/C111
+> 两裁判分歧,拉低一致)。人工标签 `eval/golden/day8-human-labels.json`(人工所有,INV-6);
+> 复跑确定性:`uv run python tools/adversarial_eval.py --kappa-only`(冻结 judge 标签 × 人工标签)。
+> 软门 0.60 是决策 A:不达标不丢数据、人工标签兜底。
 
 ## 复跑命令（INV-5）
 

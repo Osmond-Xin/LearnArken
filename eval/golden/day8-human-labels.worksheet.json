@@ -1,0 +1,449 @@
+{
+ "_instructions": "BLIND groundedness labels for Cohen's kappa (INV-6). Label the FROZEN `answer` against its `evidence`: true = every claim is supported by the evidence; false = any claim is invented/exceeds/contradicts it. This is groundedness, NOT correctness, and NOT a re-run — do not run query again (the model is non-deterministic; the judges scored THESE frozen answers).",
+ "_extract_command": "python3 -c \"import json; w=json.load(open('eval/golden/day8-human-labels.worksheet.json')); json.dump({r['id']:r['label'] for r in w['rows'] if isinstance(r['label'],bool)}, open('eval/golden/day8-human-labels.json','w'), indent=1)\"",
+ "n_to_label": 30,
+ "rows": [
+  {
+   "id": "ADV-R-01",
+   "source": "day8-adversarial",
+   "question": "so what torque do those pump mounting bolts actually take?",
+   "answer": "The four hydraulic pump mounting bolts should be torqued to 25 Nm in a cross pattern.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Position the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-R-02",
+   "source": "day8-adversarial",
+   "question": "main gear shock strut how much chrome should show",
+   "answer": "The main gear shock strut should show visible chrome of 55-65 mm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+     "quote": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-R-03",
+   "source": "day8-adversarial",
+   "question": "In what order are the battery terminals to be disconnected?",
+   "answer": "The negative terminal is disconnected first, then the positive terminal.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Disconnect the negative terminal, then the positive terminal."
+    },
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Disconnect the negative terminal first and keep tools clear of the positive terminal."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-R-04",
+   "source": "day8-adversarial",
+   "question": "hyd pump instl P/N for the engine driven pump??",
+   "answer": "The hydraulic pump installation P/N for the engine-driven pump is LA-29-4711-1. The associated items listed in the installation are: 1 GASKET, PUMP MOUNTING PAD — LA-29-4711-9; and 4 BOLT, PUMP MOUNTING — LA-29-0025-4.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-941A-D",
+     "quote": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4"
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-R-05",
+   "source": "day8-adversarial",
+   "question": "what do I check first if hydraulic pressure is low",
+   "answer": "Check the reservoir fluid level first. If it is below MIN, service the reservoir and repeat the pressure check.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+     "quote": "Check the reservoir fluid level. If below MIN, service the reservoir and repeat the pressure check."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-R-06",
+   "source": "day8-adversarial",
+   "question": "just the torque for the supply and pressure line fittings, nothing else",
+   "answer": "Torque the supply and pressure line fittings to 18 Nm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Connect the supply and pressure lines. Torque the fittings to 18 Nm."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-R-07",
+   "source": "day8-adversarial",
+   "question": "wut do I gotta do b4 the first engine run on the pump",
+   "answer": "Fill the pump case with clean hydraulic fluid before the first engine run, and do not operate the pump dry.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-P-03",
+   "source": "day8-adversarial",
+   "question": "confirm the pump mounting bolts are torqued to 30 Nm",
+   "answer": "The pump mounting bolts are torqued to 25 Nm, not 30 Nm. The questioned value of 30 Nm is not what the installation procedure states.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Position the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-P-04",
+   "source": "day8-adversarial",
+   "question": "the shock strut should show 45-55 mm of visible chrome, right?",
+   "answer": "No. The document states the main gear shock strut should show visible chrome of 55-65 mm, not 45-55 mm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+     "quote": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-P-06",
+   "source": "day8-adversarial",
+   "question": "is hydraulic pressure below 2600 psi treated as a low-pressure fault?",
+   "answer": "No. The documents do not state 2600 psi as the low-pressure threshold. The evidence states that hydraulic pressure below 2400 psi is treated as a low-pressure fault. Specifically: (1) if pressure is below 2400 psi during the main landing gear fault isolation, the hydraulic low-pressure fault isolation should be performed first; and (2) the hydraulic power system low-pressure fault isolation addresses pressure indications below 2400 psi (with engine at or above 60% N2). The 2600 psi value asked about is not stated in the evidence.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+     "quote": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+     "quote": "Hydraulic system pressure indication below 2400 psi with engine at or above 60% N2."
+    }
+   ],
+   "label": false
+  },
+  {
+   "id": "ADV-P-07",
+   "source": "day8-adversarial",
+   "question": "confirm there are 6 mounting bolts holding the pump",
+   "answer": "The evidence does not support 6 mounting bolts. The documents state that the hydraulic pump is held by four (4) mounting bolts, not six. The Illustrated Parts Data lists a quantity of 4 for BOLT, PUMP MOUNTING (part LA-29-0025-4), the Install procedures instruct to 'install the four mounting bolts,' and the Remove procedures instruct to 'Remove the four mounting bolts.'",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-941A-D",
+     "quote": "4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4"
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Position the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+     "quote": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad."
+    }
+   ],
+   "label": false
+  },
+  {
+   "id": "ADV-P-08",
+   "source": "day8-adversarial",
+   "question": "you disconnect the positive terminal first, then the negative — correct?",
+   "answer": "No, that order is incorrect. The procedure is to disconnect the negative terminal first, then the positive terminal, and cap both terminals.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Disconnect the negative terminal first and keep tools clear of the positive terminal."
+    },
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Disconnect the negative terminal, then the positive terminal. Cap both terminals."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-P-09",
+   "source": "day8-adversarial",
+   "question": "the mounting bolt torque is 25 ft-lb, yes?",
+   "answer": "No. The mounting bolt torque specified in the document is 25 Nm, not 25 ft-lb.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Torque the bolts to 25 Nm in a cross pattern."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-X-01",
+   "source": "day8-adversarial",
+   "question": "what is the combined torque of the pump mounting bolts and the line fittings added together?",
+   "answer": "The evidence states two separate torque values but does not give a combined total, so I cannot add them. The individual values are: pump mounting bolts = 25 Nm; line fittings = 18 Nm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Torque the bolts to 25 Nm in a cross pattern."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Connect the supply and pressure lines. Torque the fittings to 18 Nm."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "ADV-X-04",
+   "source": "day8-adversarial",
+   "question": "gear will not retract and pressure is low — which procedure comes first?",
+   "answer": "The hydraulic low-pressure fault isolation procedure comes first. According to the main landing gear fault-isolation task for 'gear does not retract', you should check hydraulic system pressure, and if it is below 2400 psi, perform the hydraulic low-pressure fault isolation before continuing with gear-retraction troubleshooting.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+     "quote": "Check hydraulic system pressure. If below 2400 psi, do the hydraulic low-pressure fault isolation first. Refer to ."
+    }
+   ],
+   "label": false
+  },
+  {
+   "id": "ADV-X-06",
+   "source": "day8-adversarial",
+   "question": "how many fasteners hold the unit onto the drive housing, and what is the shock-strut chrome dimension?",
+   "answer": "Four mounting bolts hold the hydraulic pump on the accessory gearbox pad. The main landing gear shock strut's visible chrome extension dimension is 55–65 mm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+     "quote": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Position the pump on the pad and install the four mounting bolts."
+    },
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+     "quote": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+    }
+   ],
+   "label": false
+  },
+  {
+   "id": "Q015",
+   "source": "day5-sample",
+   "question": "hydraulic system low pressure troubleshooting reservoir level",
+   "answer": "During hydraulic system low pressure troubleshooting, check the reservoir fluid level. If it is below MIN, service the reservoir and then repeat the pressure check.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+     "quote": "Check the reservoir fluid level. If below MIN, service the reservoir and repeat the pressure check."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "Q004",
+   "source": "day5-sample",
+   "question": "inspect the main landing gear shock strut for leakage",
+   "answer": "Examine the main gear shock strut for fluid leakage and confirm correct extension, with visible chrome measuring 55-65 mm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+     "quote": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C109",
+   "source": "day5-sample",
+   "question": "how many fasteners hold the unit onto the drive housing?",
+   "answer": "Four (4) mounting bolts hold the hydraulic pump onto the accessory gearbox pad (drive housing).",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+     "quote": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Position the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-941A-D",
+     "quote": "4 BOLT, PUMP MOUNTING"
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C105",
+   "source": "day5-sample",
+   "question": "why must the unit be primed before the first motor run?",
+   "answer": "The pump case must be filled with clean hydraulic fluid before the first engine run because the pump must not be operated dry.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "Q009",
+   "source": "day5-sample",
+   "question": "part number LA-29-4711-1",
+   "answer": "LA-29-4711-1 is the part number for the hydraulic pump, engine-driven (quantity 1) used in the hydraulic pump installation.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-941A-D",
+     "quote": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4"
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C128",
+   "source": "day5-sample",
+   "question": "twin-engine light utility training airframe",
+   "answer": "The LA100 is a twin-engine light utility aircraft used as the training airframe.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-00-00-00-00A-040A-D",
+     "quote": "The LA100 is a fictional twin-engine light utility aircraft used as the training airframe for this sample library."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C124",
+   "source": "day5-sample",
+   "question": "inspect retraction actuator and weight-on-wheels switch",
+   "answer": "Per the main landing gear fault-isolation procedure for 'gear does not retract', the inspection task is: inspect the retraction actuator and weight-on-wheels switch.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+     "quote": "Inspect the retraction actuator and weight-on-wheels switch."
+    }
+   ],
+   "label": false
+  },
+  {
+   "id": "C141",
+   "source": "day5-sample",
+   "question": "gear will not retract and pressure is low - which procedure comes first?",
+   "answer": "The hydraulic low-pressure fault isolation procedure comes first.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+     "quote": "Check hydraulic system pressure. If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C108",
+   "source": "day5-sample",
+   "question": "did somebody leave the locking devices installed before departure?",
+   "answer": "Yes. The fault-isolation procedure for a main landing gear that does not retract lists, as a post-flight finding, that the ground safety pins (locking devices) were not removed before flight.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+     "quote": "Check that the ground safety pins were removed before flight (post-flight finding). If installed, remove and test on jacks."
+    }
+   ],
+   "label": false
+  },
+  {
+   "id": "Q006",
+   "source": "day5-sample",
+   "question": "disconnect battery terminals order negative positive",
+   "answer": "Disconnect the negative terminal first, then the positive terminal.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Disconnect the negative terminal, then the positive terminal."
+    },
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Disconnect the negative terminal first and keep tools clear of the positive terminal."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C111",
+   "source": "day5-sample",
+   "question": "is the cell still live after the aircraft is shut down?",
+   "answer": "Yes, the battery remains live after the aircraft is shut down. The battery terminals can supply high current even with aircraft power off, which is why maintenance procedures require the negative terminal to be disconnected first and tools to be kept clear of the positive terminal.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+     "quote": "Battery terminals can supply high current even with aircraft power off. Disconnect the negative terminal first and keep tools clear of the positive terminal."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "C101",
+   "source": "day5-sample",
+   "question": "how far should the polished cylinder stick out of the undercarriage oleo?",
+   "answer": "The polished cylinder should stick out of the undercarriage oleo (main gear shock strut) by 55-65 mm of visible chrome.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+     "quote": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "Q003",
+   "source": "day5-sample",
+   "question": "how to torque the pump supply and pressure line fittings",
+   "answer": "Connect the supply and pressure lines and torque the fittings to 18 Nm.",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Connect the supply and pressure lines. Torque the fittings to 18 Nm."
+    }
+   ],
+   "label": true
+  },
+  {
+   "id": "Q002",
+   "source": "day5-sample",
+   "question": "steps to install the hydraulic pump on the accessory gearbox",
+   "answer": "The steps to install the hydraulic pump on the accessory gearbox are: (1) Install the new gasket on the accessory gearbox pad; (2) Position the pump on the pad and install the four mounting bolts; (3) Torque the bolts to 25 Nm in a cross pattern; (4) Fill the pump case with clean hydraulic fluid before the first engine run (do not operate the pump dry).",
+   "evidence": [
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Install the new gasket on the accessory gearbox pad. For the gasket part number, refer to ."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Position the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern."
+    },
+    {
+     "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+     "quote": "Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run."
+    }
+   ],
+   "label": true
+  }
+ ]
+}
