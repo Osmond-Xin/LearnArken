@@ -494,6 +494,83 @@ def _cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
+def _repair_approver(patch) -> bool:
+    """Interactive per-patch approval gate (Ruling 1 / §1.3 — never silent)."""
+    print(f"\n  patch for {patch.rule_id} in {patch.file} ({patch.risk_tier})")
+    print(_sanitize(patch.diff) or "  (no diff)")
+    try:
+        answer = input("  apply this patch? [y/N] ").strip().lower()
+    except EOFError:
+        return False
+    return answer in ("y", "yes")
+
+
+def _cmd_repair(args: argparse.Namespace) -> int:
+    """Exit codes: 0 = all targeted findings resolved; 3 = some refused (fail
+    closed, no verified fix); 1 = service/LLM/config failure; 2 = not a package."""
+    from learnarken.repair import RepairMode, run_repair
+    from learnarken.repair.config import load_repair_config, override_budget
+
+    budget = override_budget(
+        load_repair_config().budget,
+        max_iterations=args.max_iterations,
+        max_tokens=args.max_tokens,
+    )
+    mode = RepairMode.APPLY if args.apply else RepairMode.DRY_RUN
+    try:
+        report = run_repair(
+            args.package,
+            mode=mode,
+            only=args.only,
+            budget=budget,
+            approver=_repair_approver if args.apply else None,
+            seed=args.seed,
+        )
+    except NotAPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        if type(exc).__name__ in (
+            "VespaError",
+            "GraphError",
+            "LLMError",
+            "ConfigError",
+            "EmbeddingError",
+            "ValueError",
+            "PartialPackageError",
+        ):
+            print(f"error (fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+            return 1
+        raise
+
+    if args.json:
+        print(json.dumps(report.model_dump(), indent=2, ensure_ascii=False, default=str))
+    else:
+        _print_repair_report(report)
+    if args.report:
+        Path(args.report).write_text(
+            json.dumps(report.model_dump(), indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+    return 0 if report.all_resolved else 3
+
+
+def _print_repair_report(report) -> None:
+    print(f"repair {report.package} · mode={report.mode} · targeted={report.findings_targeted}")
+    for p in report.patches:
+        head = f"  [{p.status}] {p.rule_id} {p.file} ({p.risk_tier})"
+        print(_sanitize(head))
+        if p.rationale:
+            print(_sanitize(f"    why: {p.rationale[:200]}"))
+        if p.diff:
+            for line in p.diff.splitlines():
+                print(_sanitize("    " + line))
+    print(
+        f"  fixed={report.fixed_count} applied={report.applied_count} "
+        f"refused={report.refused_count}"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="learnarken")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -602,6 +679,27 @@ def main(argv: list[str] | None = None) -> int:
     index_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
     index_parser.add_argument("--skip-bad", action="store_true")
     index_parser.set_defaults(func=_cmd_index)
+
+    repair_parser = subparsers.add_parser(
+        "repair", help="self-healing repair agent for L0–L3 findings (dry-run by default)"
+    )
+    repair_parser.add_argument("package", help="package directory to repair")
+    repair_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="approve-then-write mode (per-patch human gate; never silent — §1.3)",
+    )
+    repair_parser.add_argument(
+        "--only",
+        action="append",
+        help="limit to rule ids or layers, e.g. --only XREF-001 --only L3 (repeatable)",
+    )
+    repair_parser.add_argument("--max-iterations", type=_positive_int, default=None)
+    repair_parser.add_argument("--max-tokens", type=_positive_int, default=None)
+    repair_parser.add_argument("--report", help="also write the JSON report to this path")
+    repair_parser.add_argument("--seed", type=int, default=0, help="recorded for reproducibility")
+    repair_parser.add_argument("--json", action="store_true", help="print the JSON report")
+    repair_parser.set_defaults(func=_cmd_repair)
 
     eval_sub = eval_parser.add_subparsers(dest="eval_command", required=True)
     retrieval_parser = eval_sub.add_parser(

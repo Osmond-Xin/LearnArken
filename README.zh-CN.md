@@ -56,9 +56,9 @@ AI agent)沿证据链核查。
 | --- | --- | --- | --- |
 | 1 | 骨架、样本包、项目宪法 | `v0.1.0` | ✅ 2026-07-13 |
 | 2 | 规范模型与校验器 | `v0.2.0` | ✅ 2026-07-14 |
-| 3 | BM25 基线与检索评估 | `v0.3.0` | ⬜ |
-| 4 | 混合检索与消融表 ⚑重型红队 | `v0.4.0` | ⬜ |
-| 5 | 带引用的 RAG 问答 ⚑重型红队 | `v0.5.0` | ⬜ |
+| 3 | BM25 基线与检索评估 | `v0.3.0` | ✅ 2026-07-16 |
+| 4 | 混合检索与消融表 ⚑重型红队 | `v0.4.0` | ✅ 2026-07-16 |
+| 5 | 带引用的 RAG 问答 ⚑重型红队 | `v0.5.0` | ✅ 2026-07-17 |
 | 6 | API 与本地 demo | `v0.6.0` | ⬜ |
 | 7 | 校验修复 agent | `v0.7.0` | ⬜ |
 | 8 | 评估红队:攻击自己的 RAG ⚑重型红队 | `v0.8.0` | ⬜ |
@@ -73,10 +73,24 @@ AI agent)沿证据链核查。
 - **Implemented**:`inspect` CLI(包摘要、JSON 输出、加固的 XML 解析);
   合成样本包 a/b/c 及可枚举违规清单(VIO-1..8);规范 Pydantic 模型
   (含结构化 applicability);四层校验器(语法 → 项目 mini-XSD → BREX →
-  跨文件引用图),`validate` 与单模块查询 `dm` 命令
-- **Toy-scale**:合成样本包规模、单机模拟分布式
-- **Planned**:SPLADE、ColBERT、RDF/SPARQL 知识图谱、vLLM 本地 serving、
-  Rust 扩展、GNN、形式化验证(见 [docs/project-design.md](docs/project-design.md))
+  跨文件引用图),`validate` 与单模块查询 `dm`;保标识符 BM25 基线 + 人工标注
+  golden set 评估(`search`、`eval retrieval`);Vespa 稠密检索(Qwen3-8B、
+  revision 锁定)、混合 RRF + 交叉编码器重排、包级作用域检索、四模式消融与生成的
+  基准表(`index`、`eval ablation`);带强制引用或显式拒答的问答——三道 fail-closed
+  门(重排阈值、LLM 可答性、逐字引用确证)——`query`(Day 5);本地 demo
+  (FastAPI 后端 + Streamlit 哑客户端、SSE 流式带召回回撤、上传事务化)
+  `make demo`(Day 6);LLM 主导的 ReAct **修复 agent**,诊断 L0–L3 校验 finding
+  并提议最小结构化 patch,仅当确定性校验器复跑通过才采信,默认 dry-run、
+  批准后写入 `--apply`(逐 patch 人工闸、绝不静默——宪法 §1.3)`repair`(Day 7)
+- **Toy-scale**:合成样本包规模、单机模拟分布式;修复 agent 的沙箱是应用层围栏
+  (import/argv 白名单 + 临时目录 jail + 资源上限),非 OS 级隔离;demo 单用户、
+  仅 loopback、无鉴权
+- **基于证据否决**:SPLADE 与 ColBERT——Day 4b 闸在复核的消融上保持关闭
+  (决策 + 复评触发见 [docs/adr/0001-day4b-gate-stays-shut.md](docs/adr/0001-day4b-gate-stays-shut.md))
+- **Planned**:RDF/SPARQL 知识图谱(最小依赖图查询切片已拉入 Day 9,见
+  [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md))、
+  vLLM 本地 serving、Rust 扩展、GNN、形式化验证(见
+  [docs/project-design.md](docs/project-design.md))
 
 ## 仓库导览
 
@@ -86,7 +100,11 @@ AI agent)沿证据链核查。
 | [docs/execution-plan.md](docs/execution-plan.md) | 10 日执行主计划与每日验收标准 |
 | [docs/project-design.md](docs/project-design.md) | 完整设计、JD 覆盖矩阵、里程碑 |
 | [docs/specs/](docs/specs/) · [docs/reviews/](docs/reviews/) · [docs/journal/](docs/journal/) | 每日证据链:SPEC / 红队+裁决 / 学习日志 |
-| [docs/redteam.md](docs/redteam.md) | 红队评审 recipe(轻量交叉评审 + 重型对抗循环) |
+| [docs/discussions/](docs/discussions/) | 蒸馏的设计讨论:问题 → 选项 → 决定 → 理由 |
+| [docs/architecture/](docs/architecture/README.md) | 架构快照与变更基准(文件清单、数据流、配置、选型、API/demo) |
+| [docs/research/](docs/research/README.md) · [docs/gemini-deepresearch/](docs/gemini-deepresearch/) | 每日深度调研报告 + 未知点扫描(研→读→扫 学习循环) |
+| [docs/adr/](docs/adr/) | 架构决策记录(Day 4b 关门、最小图查询切片) |
+| [docs/redteam.md](docs/redteam.md) · [docs/local-services.md](docs/local-services.md) | 红队 recipe;本地 Vespa/Neo4j/MiniMax 服务手册 |
 | [docs/tutorials/00-overview.md](docs/tutorials/00-overview.md) | 零基础教程系列(中文) |
 | [samples/](samples/README.md) | S1000D 样本说明与许可证核查记录 |
 | [CLAUDE.md](CLAUDE.md) | AI 实现方的操作规则与角色边界 |
@@ -94,7 +112,14 @@ AI agent)沿证据链核查。
 ## Quickstart
 
 ```bash
-uv sync                                        # Python 3.12 + 依赖(需要 uv)
-make test                                      # ruff + pytest(15 个测试)
+uv sync --locked                               # Python 3.12 + 依赖(需要 uv)
+make test                                      # ruff + pytest
 uv run learnarken inspect samples/package-a    # 查看样本包摘要
+uv run learnarken validate samples/package-b   # 四层校验 findings
 ```
+
+`inspect`/`validate` 离线可跑。检索、问答与修复路径(`index`、`query`、
+`repair`、`make demo`)需要本地服务(Vespa + Neo4j)在跑,以及 repo 根目录的
+`.env`(`MINIMAX_*`、`NEO4J_*`),详见
+[docs/local-services.md](docs/local-services.md)。其中 `repair` 每条 finding 会驱动
+一次 LLM ReAct 循环;`repair --apply` 仅在逐 patch 人工批准后才写盘(宪法 §1.3)。

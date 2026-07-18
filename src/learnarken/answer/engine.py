@@ -25,17 +25,19 @@ import json
 import math
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from learnarken import graph
 from learnarken.answer.models import AnswerResult, Citation
 from learnarken.answer.prompt import build_system, build_user, make_delimiter
+from learnarken.answer.stream import AnswerFieldExtractor
 from learnarken.answer.trace import new_trace_id, write_trace
 from learnarken.chunking import chunk_package
 from learnarken.chunking.base import Chunk
 from learnarken.chunking.documents import from_document, to_document
 from learnarken.config import REPO_ROOT
-from learnarken.llm import LLMContractError, chat_json
+from learnarken.llm import LLMContractError, chat_json, chat_json_stream
 from learnarken.retrieval import MODES, _dedupe_chunks, verify_corpus
 from learnarken.retrieval.bm25 import BM25Index
 
@@ -95,10 +97,20 @@ def answer_question(
     package_dirs: list[str] | None = None,
     k: int = ANSWER_K,
     mode: str = "hybrid-rerank",
+    on_event: Callable[[str, dict], None] | None = None,
 ) -> AnswerResult:
-    """Answer over the verified indexed corpus, or refuse. Never in between."""
+    """Answer over the verified indexed corpus, or refuse. Never in between.
+
+    `on_event` (Day 6 SSE path) receives progress beats as they happen:
+    `("status", {"stage"})`, `("token", {"text"})` for incremental answer
+    text (pre-verification — SPEC day6 decision 3), and `("retract",
+    {"gate", "message"})` when a post-generation gate voids what was
+    streamed. The threshold gate never retracts: nothing was generated.
+    The return value is unchanged either way.
+    """
     from learnarken.retrieval.hybrid import rerank_scored
 
+    emit = on_event or (lambda kind, data: None)
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; choose from {MODES}")
     packages = [str(p) for p in (package_dirs or DEFAULT_PACKAGES)]
@@ -107,6 +119,7 @@ def answer_question(
     trace_id = new_trace_id()
     spans: dict = {"question": question, "packages": packages, "mode": mode}
 
+    emit("status", {"stage": "retrieval"})
     raw: list[Chunk] = []
     for package in packages:
         raw.extend(chunk_package(package, strategy="structure"))
@@ -116,6 +129,7 @@ def answer_question(
 
     t0 = time.perf_counter()
     candidates = _candidates(question, chunks, mode)
+    emit("status", {"stage": "rerank"})
     ranked = rerank_scored(question, candidates, k=k)
     spans["retrieval"] = {
         "candidate_k": CANDIDATE_K,
@@ -128,6 +142,16 @@ def answer_question(
     }
 
     def refuse(gate: str, extra: dict | None = None) -> AnswerResult:
+        if gate != "threshold":
+            # Generation happened (or was attempted) and a fail-closed gate
+            # voided it: anything already streamed must be withdrawn client-side.
+            emit(
+                "retract",
+                {
+                    "gate": gate,
+                    "message": f"generated content failed the {gate} gate and has been retracted",
+                },
+            )
         spans["outcome"] = {"refused": True, "gate": gate, **(extra or {})}
         write_trace(trace_id, spans)
         return AnswerResult(
@@ -150,10 +174,29 @@ def answer_question(
     spans["graph"] = {"facts": [f.model_dump() for f in facts]}
 
     delimiter = make_delimiter()
+    emit("status", {"stage": "generating"})
     try:
-        result = chat_json(
-            build_system(delimiter), build_user(question, evidence, facts, delimiter)
-        )
+        if on_event is None:
+            result = chat_json(
+                build_system(delimiter), build_user(question, evidence, facts, delimiter)
+            )
+        else:
+            # Streaming path: forward only the answer-field text, extracted
+            # incrementally from the raw delta stream. Usage is null in
+            # stream mode (probe 2026-07-17), so the trace's llm span may
+            # carry an empty usage dict here.
+            extractor = AnswerFieldExtractor()
+
+            def _on_delta(text: str) -> None:
+                piece = extractor.feed(text)
+                if piece:
+                    emit("token", {"text": piece})
+
+            result = chat_json_stream(
+                build_system(delimiter),
+                build_user(question, evidence, facts, delimiter),
+                on_delta=_on_delta,
+            )
     except LLMContractError as exc:
         # The service answered but broke the JSON contract — a refusal, not a
         # transport error (red-team day5 #3): traced, exit 3, not exit 1.
