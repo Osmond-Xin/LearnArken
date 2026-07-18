@@ -83,7 +83,34 @@
 | --- | --- |
 | [api/app.py](../../src/learnarken/api/app.py) | FastAPI 后端:`/health`(四服务 fail-closed 探测)、`/upload`(信封检查→四层校验→索引,**staging 事务化 + 原子换入**)、`/query`(SSE:status/token/retract/result/error/done,**召回覆盖门拒答与传输中断**)。路由 `def`(同步栈进线程池);CSRF Origin 门守状态变更路由;fail-closed 分类镜像 CLI 的 INV-4 映射。 |
 
-## 三、demo/ · tools/ — 演示与脚本（Day 4–6）
+### 2.8 repair/ — 自愈校验修复 Agent（Day 7）
+
+LLM 主导的 ReAct 循环 + 受约束工具 + 沙箱执行器,读 Day 2 校验器 findings、出结构化
+补丁,**默认 dry-run,`--apply` 逐补丁人工闸**(宪法 §1.3:绝不静默改数据)。信任来源
+是**确定性校验器复跑通过**,不是 LLM 自称修好(生成器-验证器不共谋)。
+
+| 文件 | 职责 |
+| --- | --- |
+| [agent.py](../../src/learnarken/repair/agent.py) / [core.py](../../src/learnarken/repair/core.py) | ReAct 循环(thought/tool/args 结构化 JSON,非原生 function-calling)+ 三维熔断(迭代/token/no-progress),编排单 finding 的诊断→补丁→复验。 |
+| [tools.py](../../src/learnarken/repair/tools.py) | 6 个受约束工具:`search_corpus`/`read_module`/`query_xml`(只读)/`run_validator`(确定性验证器,反共谋)/`propose_patch`(唯一写路径,绑定到锚定节点)/`exec_sandbox`。**绝不给自由字符串/正则替换**(ACI 防呆)。 |
+| [sandbox.py](../../src/learnarken/repair/sandbox.py) | 沙箱执行器:temp-dir jail(仅目标 XML/ICN 副本)、import/命令白名单、禁网络/禁越 jail 写、`setrlimit` + 超时。**玩具层(INV-7):应用层围栏,非 OS 级隔离**。 |
+| [patch.py](../../src/learnarken/repair/patch.py) | 4 个扁平 `EditOp`(set_attr/set_text/remove/insert + 单节点 xpath),lxml 拼 DOM——消灭"忘闭合标签"类崩溃(神经符号分工)。 |
+| [apply.py](../../src/learnarken/repair/apply.py) | 批准后写入:原子 `os.replace` + trash/启动恢复(INV-2 幂等+回滚)、apply 边界按 rule_id **重算风险 tier**、文件名 jail、TOCTOU 复检。 |
+| [config.py](../../src/learnarken/repair/config.py) / [models.py](../../src/learnarken/repair/models.py) / [prompt.py](../../src/learnarken/repair/prompt.py) | 预算/沙箱配置(`pyproject [tool.learnarken.repair]`,加载钳位);`RepairReport`/`EditOp` 模型;ReAct 系统 prompt + 工具契约。 |
+
+### 2.9 adversarial/ — 评估红队：对抗集 + LLM-as-judge（Day 8）
+
+攻击自家 RAG:≥30 例对抗集跑 Day 5 引擎,**行为**确定性判分(应答/拒/澄清),**有据性**
+由**两个异构裁判(Codex + agy/Gemini,绝不用生成器 MiniMax)**打分。裁判不是信任来源,是
+"异构 + 人工锚定(Cohen's κ)的人工抽查放大器"(呼应"别用 LLM 验 LLM")。
+
+| 文件 | 职责 |
+| --- | --- |
+| [judge.py](../../src/learnarken/adversarial/judge.py) | 有据性裁判:extraction+verification 双步 prompt(单点打分,反位置/冗长偏差)、`CLIJudge`(受约束单发,非自主 agent)、`ScriptedJudge`(测试)、`parse_judge_output`(从噪声 stdout 抽 JSON)。**`FORBIDDEN_JUDGES={minimax}`**——同族裁判会 self-preference 共谋。 |
+| [score.py](../../src/learnarken/adversarial/score.py) | `behavior_pass`(无需 LLM);`grounded_intersection`(**交集**:两裁判皆过才算有据,无人工兜底);`cohen_kappa`(sklearn;单类退化 → κ=None + 显式标注 DR §4 偏斜陷阱)。 |
+| [run.py](../../src/learnarken/adversarial/run.py) / [models.py](../../src/learnarken/adversarial/models.py) | 编排:逐例跑引擎→判行为→答对行送裁判→冻结 per-judge artifact(记 model+version+date,INV-5 复现口径);`AdversarialCase`/`JudgeVerdict`/`RowResult`/`AdversarialReport` 模型。 |
+
+## 三、demo/ · tools/ — 演示与脚本（Day 4–8）
 
 | 文件 | 职责 |
 | --- | --- |
@@ -91,6 +118,7 @@
 | [tools/run_demo.sh](../../tools/run_demo.sh) | `make demo`:fail-closed 预检 → uvicorn 单 worker → 轮询 `/health`(60s 不健康非零退出)→ Streamlit,均 loopback。 |
 | [tools/demo_preflight.py](../../tools/demo_preflight.py) | 预检:repo-root cwd、`.env`、阈值 artifact、Vespa、Neo4j——缺则给修复命令并中止。 |
 | [tools/measure_refusal_threshold.py](../../tools/measure_refusal_threshold.py) / [answer_sample_eval.py](../../tools/answer_sample_eval.py) | Day 5:从 golden 分数分布测拒答阈值(INV-5 artifact);带引用问答样本评估。 |
+| [tools/adversarial_eval.py](../../tools/adversarial_eval.py) | **Day 8**:对抗评估活体 runner(≡ `learnarken eval adversarial`)+ **确定性 κ 校准模式** `--kappa-only`(读冻结 judge artifact × 人工标签算 Cohen's κ,无活体调用——INV-5 复现命令)。 |
 | [tools/dense_bakeoff.py](../../tools/dense_bakeoff.py) / [probe_length_bias.py](../../tools/probe_length_bias.py) | Day 4a:dense 模型 bake-off(BGE-M3 vs Qwen3-8B;历史 MiniMax 行在 `b414fa4` 复现)；长度偏置证据脚本(自带 MiniMax 客户端,保证裁决证据可复跑 INV-5)。 |
 | [tools/gen_benchmark_tables.py](../../tools/gen_benchmark_tables.py) | 从 eval artifacts **生成** README 基准表(红队 day4 #1:手编表出过 R@5 > R@10 的算术不可能;标记区间内原地重写,禁止手改)。 |
 | [tools/deep_research.py](../../tools/deep_research.py) | 每日循环步骤 1a(研)的自动化通道:Gemini Interactions API 跑官方 Deep Research(需付费 key;截至 2026-07-15 未实跑验证)。 |
@@ -109,8 +137,10 @@
 | [test_day5_answer.py](../../tests/test_day5_answer.py) / [test_day5_integration.py](../../tests/test_day5_integration.py) | Day 5:配置加固、M3 解析、三门拒答、CLI 退出码;golden 问答活体套件(skip 标记)。 |
 | [test_day6_stream.py](../../tests/test_day6_stream.py) | Day 6:`AnswerFieldExtractor` 边界(think 跳过、跨 delta 解转义)、SSE chunk 解析、流式客户端。 |
 | [test_day6_api.py](../../tests/test_day6_api.py) | Day 6:上传信封/事务化/拒答路径、SSE 事件序(答/召回/阈值拒答/传输中断)、CSRF、哑客户端纯度(不 import learnarken)。引擎/服务全 mock,无活体依赖。 |
+| [test_day7_repair.py](../../tests/test_day7_repair.py) / [test_day7_sandbox.py](../../tests/test_day7_sandbox.py) | Day 7:VIO 金对、沙箱逃逸(路径穿越/网络/白名单外)、预算熔断、apply 批准/拒绝/恢复、over-repair 门。 |
+| [test_day8_adversarial.py](../../tests/test_day8_adversarial.py) | Day 8:对抗集完整性、行为判分(答/拒/澄清)、裁判交集/分歧、Cohen's κ(含偏斜陷阱)、**MiniMax 永不当裁判**、**对抗集不泄进生成 prompt**、编排端到端(stub 引擎 + ScriptedJudge);活体裁判套件 skip 标记。 |
 
-## 五、eval/ — 版本化评估资产（Day 3–5）
+## 五、eval/ — 版本化评估资产（Day 3–8）
 
 | 文件 | 职责 |
 | --- | --- |
@@ -122,6 +152,8 @@
 | results/day5-answer-sample.json | Day 5 带引用问答样本评估结果（`answer_sample_eval.py` 产出）。 |
 | results/day5-refusal-threshold.json | **Day 5 实测拒答阈值 artifact（INV-5）**：从 golden 分数分布测出、非手挑，`load_threshold` 加载时校验有限且 ∈[0,1]（红队 day5 #6）。 |
 | traces/（git-ignored） | 每次 `query` 落一份五跨度 answer trace，可从语料复现。 |
+| [golden/day8-adversarial.jsonl](../../eval/golden/day8-adversarial.jsonl) | **Day 8 对抗集**:32 例四类(改写/扰动/无答案/跨文档),LA100 真锚。**AI 设计、Yi Xin review**(SPEC day8 决策 1,每行 `ai_drafted:true`);**绝不进生成 prompt**(防泄漏)。 |
+| results/day8-adversarial-report.json / day8-judge-{codex,agy}.json | **Day 8** 冻结报告 + per-judge 裁决 artifact(记 model+version+date,INV-5 复现口径);κ 由 `adversarial_eval.py --kappa-only` 对人工标签算,人工标签 `golden/day8-human-labels.json`(人工所有,INV-6,待 Yi Xin 标)。 |
 
 ## 六、samples/ — 合成样本包（INV-1：绝不含真实 S1000D 内容）
 

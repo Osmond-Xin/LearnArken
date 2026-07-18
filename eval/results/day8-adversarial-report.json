@@ -1,0 +1,1446 @@
+{
+ "seed": 42,
+ "generated_at": "2026-07-18T14:25:12.128346+00:00",
+ "generator_model": "MiniMax-M3",
+ "judges": [
+  "codex",
+  "agy"
+ ],
+ "n": 32,
+ "behavior_pass_rate": 0.9062,
+ "per_category": {
+  "cross-doc": {
+   "n": 7,
+   "behavior_pass_rate": 0.8571,
+   "refused": 4
+  },
+  "no-answer": {
+   "n": 8,
+   "behavior_pass_rate": 1.0,
+   "refused": 8
+  },
+  "perturbation": {
+   "n": 10,
+   "behavior_pass_rate": 0.8,
+   "refused": 4
+  },
+  "rewrite-invariance": {
+   "n": 7,
+   "behavior_pass_rate": 1.0,
+   "refused": 0
+  }
+ },
+ "per_judge_groundedness": {
+  "codex": 0.6875,
+  "agy": 0.75
+ },
+ "judge_errors": {
+  "codex": 0,
+  "agy": 0
+ },
+ "intersection_groundedness": 0.6875,
+ "inter_judge_disagreements": [
+  "ADV-X-01"
+ ],
+ "kappa": {},
+ "rows": [
+  {
+   "case_id": "ADV-R-01",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The four hydraulic pump mounting bolts should be torqued to 25 Nm in a cross pattern.",
+   "citations": [
+    "ba1425d2550da5a0"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:16:14.226107+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The pump has four mounting bolts.",
+       "supported": true,
+       "evidence": "install the four mounting bolts"
+      },
+      {
+       "claim": "The pump mounting bolts should be torqued to 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm"
+      },
+      {
+       "claim": "The pump mounting bolts should be torqued in a cross pattern.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the evidence.",
+     "raw": "{\"nonce\":\"ec77adfc74ca\",\"claims\":[{\"claim\":\"The pump has four mounting bolts.\",\"supported\":true,\"evidence\":\"install the four mounting bolts\"},{\"claim\":\"The pump mounting bolts should be torqued to 25 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm\"},{\"claim\":\"The pump mounting bolts should be torqued in a cross pattern.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:16:29.890087+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The hydraulic pump has four mounting bolts.",
+       "supported": true,
+       "evidence": "Position the pump on the pad and install the four mounting bolts."
+      },
+      {
+       "claim": "The mounting bolts should be torqued to 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The mounting bolts should be torqued in a cross pattern.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      }
+     ],
+     "reasoning": "Every factual claim in the answer is explicitly supported by the provided evidence.",
+     "raw": "{\n  \"nonce\": \"930894416aca\",\n  \"claims\": [\n    {\n      \"claim\": \"The hydraulic pump has four mounting bolts.\",\n      \"supported\": true,\n      \"evidence\": \"Position the pump on the pad and install the four mounting bolts.\"\n    },\n    {\n      \"claim\": \"The mounting bolts should be torqued to 25 Nm.\",\n      \"supported\": true,\n      \"evidence\": \"Torque the bolts to 25 Nm in a cross pattern.\"\n    },\n    {\n      \"claim\": \"The mounting bolts should be torqued in a cross pattern.\",\n      \"supported\": true,\n      \"evidence\": \"Torque the bolts to 25 Nm in a cross pattern.\"\n    }\n  ],\n  \"groundedness\": 1.0,\n  \"verdict\": \"grounded\",\n  \"reasoning\": \"Every factual claim in the answer is explicitly supported by the provided evidence.\"\n}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101605-3bbd6dd9"
+  },
+  {
+   "case_id": "ADV-R-02",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The main gear shock strut should show visible chrome of 55-65 mm.",
+   "citations": [
+    "562e128cef478562"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:16:42.659166+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The main gear shock strut should show visible chrome of 55-65 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      }
+     ],
+     "reasoning": "All factual content in the answer is explicitly supported by the evidence.",
+     "raw": "{\"nonce\":\"055d5e8d8c38\",\"claims\":[{\"claim\":\"The main gear shock strut should show visible chrome of 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual content in the answer is explicitly supported by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:16:49.138371+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The main gear shock strut should show visible chrome of 55-65 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      }
+     ],
+     "reasoning": "The single claim in the answer is directly and fully supported by the evidence, which states that correct extension of the main gear shock strut involves a visible chrome measurement of 55-65 mm.",
+     "raw": "{\"nonce\":\"94d66afee075\",\"claims\":[{\"claim\":\"The main gear shock strut should show visible chrome of 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"The single claim in the answer is directly and fully supported by the evidence, which states that correct extension of the main gear shock strut involves a visible chrome measurement of 55-65 mm.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101635-03512741"
+  },
+  {
+   "case_id": "ADV-R-03",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The negative terminal is disconnected first, then the positive terminal.",
+   "citations": [
+    "003507c0bea61813",
+    "1d67556565477686"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:16:57.742684+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The negative terminal is disconnected first.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "The positive terminal is disconnected after the negative terminal.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the evidence.",
+     "raw": "{\"nonce\":\"464e48e43d42\",\"claims\":[{\"claim\":\"The negative terminal is disconnected first.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal, then the positive terminal.\"},{\"claim\":\"The positive terminal is disconnected after the negative terminal.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal, then the positive terminal.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:17:03.509388+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The negative terminal is disconnected first.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "The positive terminal is disconnected after the negative terminal.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      }
+     ],
+     "reasoning": "The evidence explicitly states to disconnect the negative terminal first, then the positive terminal, which directly supports the entire answer.",
+     "raw": "{\n  \"nonce\": \"48c7be7f5459\",\n  \"claims\": [\n    {\n      \"claim\": \"The negative terminal is disconnected first.\",\n      \"supported\": true,\n      \"evidence\": \"Disconnect the negative terminal, then the positive terminal.\"\n    },\n    {\n      \"claim\": \"The positive terminal is disconnected after the negative terminal.\",\n      \"supported\": true,\n      \"evidence\": \"Disconnect the negative terminal, then the positive terminal.\"\n    }\n  ],\n  \"groundedness\": 1.0,\n  \"verdict\": \"grounded\",\n  \"reasoning\": \"The evidence explicitly states to disconnect the negative terminal first, then the positive terminal, which directly supports the entire answer.\"\n}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101653-e96cc056"
+  },
+  {
+   "case_id": "ADV-R-04",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The hydraulic pump installation P/N for the engine-driven pump is LA-29-4711-1. The associated items listed in the installation are: 1 GASKET, PUMP MOUNTING PAD — LA-29-4711-9; and 4 BOLT, PUMP MOUNTING — LA-29-0025-4.",
+   "citations": [
+    "f4c1e17fc6bd589a"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:17:12.618981+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The hydraulic pump installation P/N for the engine-driven pump is LA-29-4711-1.",
+       "supported": true,
+       "evidence": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN ... LA-29-4711-1"
+      },
+      {
+       "claim": "The installation lists 1 GASKET, PUMP MOUNTING PAD with P/N LA-29-4711-9.",
+       "supported": true,
+       "evidence": "1 GASKET, PUMP MOUNTING PAD ... LA-29-4711-9"
+      },
+      {
+       "claim": "The installation lists 4 BOLT, PUMP MOUNTING with P/N LA-29-0025-4.",
+       "supported": true,
+       "evidence": "4 BOLT, PUMP MOUNTING ... LA-29-0025-4"
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the listed installation items and part numbers in the evidence.",
+     "raw": "{\"nonce\":\"1da915992de4\",\"claims\":[{\"claim\":\"The hydraulic pump installation P/N for the engine-driven pump is LA-29-4711-1.\",\"supported\":true,\"evidence\":\"Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN ... LA-29-4711-1\"},{\"claim\":\"The installation lists 1 GASKET, PUMP MOUNTING PAD with P/N LA-29-4711-9.\",\"supported\":true,\"evidence\":\"1 GASKET, PUMP MOUNTING PAD ... LA-29-4711-9\"},{\"claim\":\"The installation lists 4 BOLT, PUMP MOUNTING with P/N LA-29-0025-4.\",\"supported\":true,\"evidence\":\"4 BOLT, PUMP MOUNTING ... LA-29-0025-4\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the listed installation items and part numbers in the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:17:29.652877+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The hydraulic pump installation P/N for the engine-driven pump is LA-29-4711-1.",
+       "supported": true,
+       "evidence": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN ... LA-29-4711-1"
+      },
+      {
+       "claim": "An associated item in the installation is 1 GASKET, PUMP MOUNTING PAD with P/N LA-29-4711-9.",
+       "supported": true,
+       "evidence": "... 1 GASKET, PUMP MOUNTING PAD ... LA-29-4711-9"
+      },
+      {
+       "claim": "An associated item in the installation is 4 BOLT, PUMP MOUNTING with P/N LA-29-0025-4.",
+       "supported": true,
+       "evidence": "... 4 BOLT, PUMP MOUNTING ... LA-29-0025-4"
+      }
+     ],
+     "reasoning": "Every factual claim in the answer matches the sequence of three items and their corresponding part numbers presented in the evidence.",
+     "raw": "{\"nonce\":\"841196698682\",\"claims\":[{\"claim\":\"The hydraulic pump installation P/N for the engine-driven pump is LA-29-4711-1.\",\"supported\":true,\"evidence\":\"Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN ... LA-29-4711-1\"},{\"claim\":\"An associated item in the installation is 1 GASKET, PUMP MOUNTING PAD with P/N LA-29-4711-9.\",\"supported\":true,\"evidence\":\"... 1 GASKET, PUMP MOUNTING PAD ... LA-29-4711-9\"},{\"claim\":\"An associated item in the installation is 4 BOLT, PUMP MOUNTING with P/N LA-29-0025-4.\",\"supported\":true,\"evidence\":\"... 4 BOLT, PUMP MOUNTING ... LA-29-0025-4\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"Every factual claim in the answer matches the sequence of three items and their corresponding part numbers presented in the evidence.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101707-4bb6cd15"
+  },
+  {
+   "case_id": "ADV-R-05",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "Check the reservoir fluid level first. If it is below MIN, service the reservoir and repeat the pressure check.",
+   "citations": [
+    "2397d957c244b9a7"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:17:38.911285+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "Check the reservoir fluid level first.",
+       "supported": true,
+       "evidence": "Check the reservoir fluid level."
+      },
+      {
+       "claim": "If the reservoir fluid level is below MIN, service the reservoir and repeat the pressure check.",
+       "supported": true,
+       "evidence": "If below MIN, service the reservoir and repeat the pressure check."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the evidence.",
+     "raw": "{\"nonce\":\"b744ac7ff6b1\",\"claims\":[{\"claim\":\"Check the reservoir fluid level first.\",\"supported\":true,\"evidence\":\"Check the reservoir fluid level.\"},{\"claim\":\"If the reservoir fluid level is below MIN, service the reservoir and repeat the pressure check.\",\"supported\":true,\"evidence\":\"If below MIN, service the reservoir and repeat the pressure check.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:17:52.113296+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The reservoir fluid level should be checked first.",
+       "supported": true,
+       "evidence": "Check the reservoir fluid level."
+      },
+      {
+       "claim": "If the fluid level is below MIN, the reservoir should be serviced.",
+       "supported": true,
+       "evidence": "If below MIN, service the reservoir"
+      },
+      {
+       "claim": "The pressure check should be repeated after servicing.",
+       "supported": true,
+       "evidence": "and repeat the pressure check."
+      }
+     ],
+     "reasoning": "All claims in the answer are directly supported by the evidence. The term 'first' is supported by the sequence of steps in the evidence, which starts with checking the reservoir fluid level.",
+     "raw": "{\"nonce\":\"16aca2f6d198\",\"claims\":[{\"claim\":\"The reservoir fluid level should be checked first.\",\"supported\":true,\"evidence\":\"Check the reservoir fluid level.\"},{\"claim\":\"If the fluid level is below MIN, the reservoir should be serviced.\",\"supported\":true,\"evidence\":\"If below MIN, service the reservoir\"},{\"claim\":\"The pressure check should be repeated after servicing.\",\"supported\":true,\"evidence\":\"and repeat the pressure check.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All claims in the answer are directly supported by the evidence. The term 'first' is supported by the sequence of steps in the evidence, which starts with checking the reservoir fluid level.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101734-a9f4a3cc"
+  },
+  {
+   "case_id": "ADV-R-06",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "Torque the supply and pressure line fittings to 18 Nm.",
+   "citations": [
+    "ff9bc2ffa0610161"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:18:02.741859+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The supply and pressure line fittings should be torqued to 18 Nm.",
+       "supported": true,
+       "evidence": "Connect the supply and pressure lines. Torque the fittings to 18 Nm."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the evidence.",
+     "raw": "{\"nonce\":\"d81496349b4a\",\"claims\":[{\"claim\":\"The supply and pressure line fittings should be torqued to 18 Nm.\",\"supported\":true,\"evidence\":\"Connect the supply and pressure lines. Torque the fittings to 18 Nm.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:18:08.862228+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The supply and pressure line fittings should be torqued to 18 Nm.",
+       "supported": true,
+       "evidence": "Connect the supply and pressure lines. Torque the fittings to 18 Nm."
+      }
+     ],
+     "reasoning": "The answer contains one claim stating that the supply and pressure line fittings should be torqued to 18 Nm, which is directly supported by the evidence.",
+     "raw": "{\"nonce\":\"9fbeb16281c3\",\"claims\":[{\"claim\":\"The supply and pressure line fittings should be torqued to 18 Nm.\",\"supported\":true,\"evidence\":\"Connect the supply and pressure lines. Torque the fittings to 18 Nm.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"The answer contains one claim stating that the supply and pressure line fittings should be torqued to 18 Nm, which is directly supported by the evidence.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101758-ae8f40c4"
+  },
+  {
+   "case_id": "ADV-R-07",
+   "category": "rewrite-invariance",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "Fill the pump case with clean hydraulic fluid before the first engine run, and do not operate the pump dry.",
+   "citations": [
+    "f5e8d89384ea0525"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:18:15.591696+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "Fill the pump case with clean hydraulic fluid before the first engine run.",
+       "supported": true,
+       "evidence": "Fill the pump case with clean hydraulic fluid before the first engine run."
+      },
+      {
+       "claim": "Do not operate the pump dry.",
+       "supported": true,
+       "evidence": "Do not operate the pump dry."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly stated in the evidence.",
+     "raw": "{\"nonce\":\"78a0b96f2bd7\",\"claims\":[{\"claim\":\"Fill the pump case with clean hydraulic fluid before the first engine run.\",\"supported\":true,\"evidence\":\"Fill the pump case with clean hydraulic fluid before the first engine run.\"},{\"claim\":\"Do not operate the pump dry.\",\"supported\":true,\"evidence\":\"Do not operate the pump dry.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly stated in the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:18:22.140797+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "Fill the pump case with clean hydraulic fluid before the first engine run.",
+       "supported": true,
+       "evidence": "Fill the pump case with clean hydraulic fluid before the first engine run."
+      },
+      {
+       "claim": "Do not operate the pump dry.",
+       "supported": true,
+       "evidence": "Do not operate the pump dry."
+      }
+     ],
+     "reasoning": "Both claims are directly supported by the provided evidence.",
+     "raw": "{\"nonce\":\"bba2024e90cc\",\"claims\":[{\"claim\":\"Fill the pump case with clean hydraulic fluid before the first engine run.\",\"supported\":true,\"evidence\":\"Fill the pump case with clean hydraulic fluid before the first engine run.\"},{\"claim\":\"Do not operate the pump dry.\",\"supported\":true,\"evidence\":\"Do not operate the pump dry.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"Both claims are directly supported by the provided evidence.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101812-c5fca32e"
+  },
+  {
+   "case_id": "ADV-P-01",
+   "category": "perturbation",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T101826-a9499708"
+  },
+  {
+   "case_id": "ADV-P-02",
+   "category": "perturbation",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T101838-e3cbbb85"
+  },
+  {
+   "case_id": "ADV-P-03",
+   "category": "perturbation",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The pump mounting bolts are torqued to 25 Nm, not 30 Nm. The questioned value of 30 Nm is not what the installation procedure states.",
+   "citations": [
+    "ba1425d2550da5a0"
+   ],
+   "behavior_pass": false,
+   "behavior_note": "affirmed the false premise: ['30 Nm']",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:18:53.965332+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The pump mounting bolts are torqued to 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The pump mounting bolts are not torqued to 30 Nm according to the installation procedure.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The installation procedure states 25 Nm rather than 30 Nm for the pump mounting bolts.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the evidence stating the bolts should be torqued to 25 Nm.",
+     "raw": "{\"nonce\":\"d1ac2b15045e\",\"claims\":[{\"claim\":\"The pump mounting bolts are torqued to 25 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"The pump mounting bolts are not torqued to 30 Nm according to the installation procedure.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"The installation procedure states 25 Nm rather than 30 Nm for the pump mounting bolts.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the evidence stating the bolts should be torqued to 25 Nm.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:19:11.962190+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The pump mounting bolts are torqued to 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The pump mounting bolts are not torqued to 30 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The questioned value of 30 Nm is not what the installation procedure states.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      }
+     ],
+     "reasoning": "All claims in the answer are fully supported by the evidence document. The evidence explicitly states to torque the bolts to 25 Nm, which validates the claims that the torque is 25 Nm (not 30 Nm) and that the installation procedure does not specify 30 Nm.",
+     "raw": "{\"nonce\":\"0a84949f8fd9\",\"claims\":[{\"claim\":\"The pump mounting bolts are torqued to 25 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"The pump mounting bolts are not torqued to 30 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"The questioned value of 30 Nm is not what the installation procedure states.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All claims in the answer are fully supported by the evidence document. The evidence explicitly states to torque the bolts to 25 Nm, which validates the claims that the torque is 25 Nm (not 30 Nm) and that the installation procedure does not specify 30 Nm.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101850-531980ee"
+  },
+  {
+   "case_id": "ADV-P-04",
+   "category": "perturbation",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "No. The document states the main gear shock strut should show visible chrome of 55-65 mm, not 45-55 mm.",
+   "citations": [
+    "562e128cef478562"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "corrected the false premise with the right value",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:19:21.623690+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The document states the main gear shock strut should show visible chrome of 55-65 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      },
+      {
+       "claim": "The document does not state the visible chrome should be 45-55 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly entailed by the evidence: the correct visible chrome range is 55-65 mm, not the 45-55 mm range in the question.",
+     "raw": "{\"nonce\":\"70ca7a7f62f5\",\"claims\":[{\"claim\":\"The document states the main gear shock strut should show visible chrome of 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"},{\"claim\":\"The document does not state the visible chrome should be 45-55 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly entailed by the evidence: the correct visible chrome range is 55-65 mm, not the 45-55 mm range in the question.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:19:34.988286+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The document states the main gear shock strut should show visible chrome of 55-65 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      },
+      {
+       "claim": "The main gear shock strut should not show visible chrome of 45-55 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      }
+     ],
+     "reasoning": "The evidence states the main gear shock strut's correct extension is 55-65 mm of visible chrome. The answer correctly asserts this value and rejects the 45-55 mm range proposed in the question.",
+     "raw": "{\"nonce\":\"485d798cad53\",\"claims\":[{\"claim\":\"The document states the main gear shock strut should show visible chrome of 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"},{\"claim\":\"The main gear shock strut should not show visible chrome of 45-55 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"The evidence states the main gear shock strut's correct extension is 55-65 mm of visible chrome. The answer correctly asserts this value and rejects the 45-55 mm range proposed in the question.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T101916-2d57ba1e"
+  },
+  {
+   "case_id": "ADV-P-05",
+   "category": "perturbation",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T101940-f86d0209"
+  },
+  {
+   "case_id": "ADV-P-06",
+   "category": "perturbation",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "No. The documents do not state 2600 psi as the low-pressure threshold. The evidence states that hydraulic pressure below 2400 psi is treated as a low-pressure fault. Specifically: (1) if pressure is below 2400 psi during the main landing gear fault isolation, the hydraulic low-pressure fault isolation should be performed first; and (2) the hydraulic power system low-pressure fault isolation addresses pressure indications below 2400 psi (with engine at or above 60% N2). The 2600 psi value asked about is not stated in the evidence.",
+   "citations": [
+    "7b4c62ee059cf013",
+    "4f2536250de20f8a"
+   ],
+   "behavior_pass": false,
+   "behavior_note": "affirmed the false premise: ['2600 psi']",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:19:55.003398+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.75,
+     "claims": [
+      {
+       "claim": "The documents do not state 2600 psi as the low-pressure threshold.",
+       "supported": true,
+       "evidence": "Evidence states thresholds of below 2400 psi and does not mention 2600 psi."
+      },
+      {
+       "claim": "The evidence states that hydraulic pressure below 2400 psi is treated as a low-pressure fault.",
+       "supported": true,
+       "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      },
+      {
+       "claim": "If pressure is below 2400 psi, the hydraulic low-pressure fault isolation should be performed first.",
+       "supported": true,
+       "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      },
+      {
+       "claim": "The below-2400 psi instruction occurs during the main landing gear fault isolation.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The low-pressure fault isolation is specifically the hydraulic power system low-pressure fault isolation.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The low-pressure fault isolation addresses pressure indications below 2400 psi.",
+       "supported": true,
+       "evidence": "Hydraulic system pressure indication below 2400 psi with engine at or above 60% N2."
+      },
+      {
+       "claim": "The below-2400 psi pressure indication condition includes engine at or above 60% N2.",
+       "supported": true,
+       "evidence": "Hydraulic system pressure indication below 2400 psi with engine at or above 60% N2."
+      },
+      {
+       "claim": "The 2600 psi value asked about is not stated in the evidence.",
+       "supported": true,
+       "evidence": "Evidence states thresholds of below 2400 psi and does not mention 2600 psi."
+      }
+     ],
+     "reasoning": "Most threshold claims are supported, but the answer adds unsupported context about main landing gear fault isolation and a hydraulic power system low-pressure fault isolation.",
+     "raw": "{\"nonce\":\"68b895c76792\",\"claims\":[{\"claim\":\"The documents do not state 2600 psi as the low-pressure threshold.\",\"supported\":true,\"evidence\":\"Evidence states thresholds of below 2400 psi and does not mention 2600 psi.\"},{\"claim\":\"The evidence states that hydraulic pressure below 2400 psi is treated as a low-pressure fault.\",\"supported\":true,\"evidence\":\"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"},{\"claim\":\"If pressure is below 2400 psi, the hydraulic low-pressure fault isolation should be performed first.\",\"supported\":true,\"evidence\":\"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"},{\"claim\":\"The below-2400 psi instruction occurs during the main landing gear fault isolation.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The low-pressure fault isolation is specifically the hydraulic power system low-pressure fault isolation.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The low-pressure fault isolation addresses pressure indications below 2400 psi.\",\"supported\":true,\"evidence\":\"Hydraulic system pressure indication below 2400 psi with engine at or above 60% N2.\"},{\"claim\":\"The below-2400 psi pressure indication condition includes engine at or above 60% N2.\",\"supported\":true,\"evidence\":\"Hydraulic system pressure indication below 2400 psi with engine at or above 60% N2.\"},{\"claim\":\"The 2600 psi value asked about is not stated in the evidence.\",\"supported\":true,\"evidence\":\"Evidence states thresholds of below 2400 psi and does not mention 2600 psi.\"}],\"groundedness\":0.75,\"verdict\":\"hallucinated\",\"reasoning\":\"Most threshold claims are supported, but the answer adds unsupported context about main landing gear fault isolation and a hydraulic power system low-pressure fault isolation.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:21:01.912576+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.6,
+     "claims": [
+      {
+       "claim": "The documents do not state 2600 psi as the low-pressure threshold.",
+       "supported": true,
+       "evidence": "The evidence documents only mention '2400 psi' and make no reference to '2600 psi'."
+      },
+      {
+       "claim": "The evidence states that hydraulic pressure below 2400 psi is treated as a low-pressure fault.",
+       "supported": true,
+       "evidence": "'Check hydraulic system pressure. If below 2400 psi, do the hydraulic low-pressure fault isolation first.'"
+      },
+      {
+       "claim": "If pressure is below 2400 psi during the main landing gear fault isolation, the hydraulic low-pressure fault isolation should be performed first.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The hydraulic power system low-pressure fault isolation addresses pressure indications below 2400 psi (with engine at or above 60% N2).",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The 2600 psi value asked about is not stated in the evidence.",
+       "supported": true,
+       "evidence": "The evidence documents only mention '2400 psi' and make no reference to '2600 psi'."
+      }
+     ],
+     "reasoning": "The answer makes two unsupported claims: it refers to 'main landing gear fault isolation' and 'hydraulic power system low-pressure fault isolation', neither of which is present in the provided evidence.",
+     "raw": "{\"nonce\":\"d1716b2bd701\",\"claims\":[{\"claim\":\"The documents do not state 2600 psi as the low-pressure threshold.\",\"supported\":true,\"evidence\":\"The evidence documents only mention '2400 psi' and make no reference to '2600 psi'.\"},{\"claim\":\"The evidence states that hydraulic pressure below 2400 psi is treated as a low-pressure fault.\",\"supported\":true,\"evidence\":\"'Check hydraulic system pressure. If below 2400 psi, do the hydraulic low-pressure fault isolation first.'\"},{\"claim\":\"If pressure is below 2400 psi during the main landing gear fault isolation, the hydraulic low-pressure fault isolation should be performed first.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The hydraulic power system low-pressure fault isolation addresses pressure indications below 2400 psi (with engine at or above 60% N2).\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The 2600 psi value asked about is not stated in the evidence.\",\"supported\":true,\"evidence\":\"The evidence documents only mention '2400 psi' and make no reference to '2600 psi'.\"}],\"groundedness\":0.6,\"verdict\":\"hallucinated\",\"reasoning\":\"The answer makes two unsupported claims: it refers to 'main landing gear fault isolation' and 'hydraulic power system low-pressure fault isolation', neither of which is present in the provided evidence.\"}\n"
+    }
+   },
+   "grounded_intersection": false,
+   "trace_id": "20260718T101947-5a2225db"
+  },
+  {
+   "case_id": "ADV-P-07",
+   "category": "perturbation",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The evidence does not support 6 mounting bolts. The documents state that the hydraulic pump is held by four (4) mounting bolts, not six. The Illustrated Parts Data lists a quantity of 4 for BOLT, PUMP MOUNTING (part LA-29-0025-4), the Install procedures instruct to 'install the four mounting bolts,' and the Remove procedures instruct to 'Remove the four mounting bolts.'",
+   "citations": [
+    "f4c1e17fc6bd589a",
+    "ba1425d2550da5a0",
+    "c53ec6cb48353e3f"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "corrected the false premise with the right value",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:21:15.058598+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.8571428571428571,
+     "claims": [
+      {
+       "claim": "The evidence does not support that there are 6 mounting bolts.",
+       "supported": true,
+       "evidence": "Evidence repeatedly states four mounting bolts, not six."
+      },
+      {
+       "claim": "The documents state that the hydraulic pump is held by four mounting bolts.",
+       "supported": true,
+       "evidence": "Position the pump on the pad and install the four mounting bolts."
+      },
+      {
+       "claim": "The hydraulic pump is not held by six mounting bolts.",
+       "supported": true,
+       "evidence": "Position the pump on the pad and install the four mounting bolts.; Remove the four mounting bolts and remove the pump from the accessory gearbox pad."
+      },
+      {
+       "claim": "The Illustrated Parts Data lists a quantity of 4 for BOLT, PUMP MOUNTING.",
+       "supported": false,
+       "evidence": "The evidence lists '4 BOLT, PUMP MOUNTING' but does not identify the source as Illustrated Parts Data."
+      },
+      {
+       "claim": "The part number for BOLT, PUMP MOUNTING is LA-29-0025-4.",
+       "supported": true,
+       "evidence": "4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4"
+      },
+      {
+       "claim": "The install procedure instructs to install the four mounting bolts.",
+       "supported": true,
+       "evidence": "Position the pump on the pad and install the four mounting bolts."
+      },
+      {
+       "claim": "The remove procedure instructs to remove the four mounting bolts.",
+       "supported": true,
+       "evidence": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad."
+      }
+     ],
+     "reasoning": "One claim adds the source label 'Illustrated Parts Data,' which is not present in the evidence. All other claims are supported by evidence stating four mounting bolts.",
+     "raw": "{\"nonce\":\"c373adb32d1c\",\"claims\":[{\"claim\":\"The evidence does not support that there are 6 mounting bolts.\",\"supported\":true,\"evidence\":\"Evidence repeatedly states four mounting bolts, not six.\"},{\"claim\":\"The documents state that the hydraulic pump is held by four mounting bolts.\",\"supported\":true,\"evidence\":\"Position the pump on the pad and install the four mounting bolts.\"},{\"claim\":\"The hydraulic pump is not held by six mounting bolts.\",\"supported\":true,\"evidence\":\"Position the pump on the pad and install the four mounting bolts.; Remove the four mounting bolts and remove the pump from the accessory gearbox pad.\"},{\"claim\":\"The Illustrated Parts Data lists a quantity of 4 for BOLT, PUMP MOUNTING.\",\"supported\":false,\"evidence\":\"The evidence lists '4 BOLT, PUMP MOUNTING' but does not identify the source as Illustrated Parts Data.\"},{\"claim\":\"The part number for BOLT, PUMP MOUNTING is LA-29-0025-4.\",\"supported\":true,\"evidence\":\"4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4\"},{\"claim\":\"The install procedure instructs to install the four mounting bolts.\",\"supported\":true,\"evidence\":\"Position the pump on the pad and install the four mounting bolts.\"},{\"claim\":\"The remove procedure instructs to remove the four mounting bolts.\",\"supported\":true,\"evidence\":\"Remove the four mounting bolts and remove the pump from the accessory gearbox pad.\"}],\"groundedness\":0.8571428571428571,\"verdict\":\"hallucinated\",\"reasoning\":\"One claim adds the source label 'Illustrated Parts Data,' which is not present in the evidence. All other claims are supported by evidence stating four mounting bolts.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:21:33.821102+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.4,
+     "claims": [
+      {
+       "claim": "The evidence does not support 6 mounting bolts.",
+       "supported": true,
+       "evidence": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4\nPosition the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern.\nRemove the four mounting bolts and remove the pump from the accessory gearbox pad."
+      },
+      {
+       "claim": "The documents state that the hydraulic pump is held by four (4) mounting bolts, not six.",
+       "supported": true,
+       "evidence": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4\nPosition the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern.\nRemove the four mounting bolts and remove the pump from the accessory gearbox pad."
+      },
+      {
+       "claim": "The Illustrated Parts Data lists a quantity of 4 for BOLT, PUMP MOUNTING (part LA-29-0025-4).",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The Install procedures instruct to 'install the four mounting bolts'.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The Remove procedures instruct to 'Remove the four mounting bolts'.",
+       "supported": false,
+       "evidence": ""
+      }
+     ],
+     "reasoning": "The answer references specific names/entities not present in the evidence: 'Illustrated Parts Data', 'Install procedures', and 'Remove procedures'. While the evidence describes installation and removal steps and lists parts, it does not explicitly contain or support these specific headings or document names.",
+     "raw": "{\n \"nonce\": \"34206880aaba\",\n \"claims\": [\n  {\n   \"claim\": \"The evidence does not support 6 mounting bolts.\",\n   \"supported\": true,\n   \"evidence\": \"Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4\\nPosition the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern.\\nRemove the four mounting bolts and remove the pump from the accessory gearbox pad.\"\n  },\n  {\n   \"claim\": \"The documents state that the hydraulic pump is held by four (4) mounting bolts, not six.\",\n   \"supported\": true,\n   \"evidence\": \"Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4\\nPosition the pump on the pad and install the four mounting bolts. Torque the bolts to 25 Nm in a cross pattern.\\nRemove the four mounting bolts and remove the pump from the accessory gearbox pad.\"\n  },\n  {\n   \"claim\": \"The Illustrated Parts Data lists a quantity of 4 for BOLT, PUMP MOUNTING (part LA-29-0025-4).\",\n   \"supported\": false,\n   \"evidence\": \"\"\n  },\n  {\n   \"claim\": \"The Install procedures instruct to 'install the four mounting bolts'.\",\n   \"supported\": false,\n   \"evidence\": \"\"\n  },\n  {\n   \"claim\": \"The Remove procedures instruct to 'Remove the four mounting bolts'.\",\n   \"supported\": false,\n   \"evidence\": \"\"\n  }\n ],\n \"groundedness\": 0.4,\n \"verdict\": \"hallucinated\",\n \"reasoning\": \"The answer references specific names/entities not present in the evidence: 'Illustrated Parts Data', 'Install procedures', and 'Remove procedures'. While the evidence describes installation and removal steps and lists parts, it does not explicitly contain or support these specific headings or document names.\"\n}\n"
+    }
+   },
+   "grounded_intersection": false,
+   "trace_id": "20260718T102108-308a9cda"
+  },
+  {
+   "case_id": "ADV-P-08",
+   "category": "perturbation",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "No, that order is incorrect. The procedure is to disconnect the negative terminal first, then the positive terminal, and cap both terminals.",
+   "citations": [
+    "1d67556565477686",
+    "003507c0bea61813"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "corrected the false premise with the right value",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:21:52.308698+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The order of disconnecting the positive terminal first and then the negative terminal is incorrect.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal first... Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "The procedure is to disconnect the negative terminal first.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal first."
+      },
+      {
+       "claim": "The procedure is then to disconnect the positive terminal.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "Both terminals should be capped.",
+       "supported": true,
+       "evidence": "Cap both terminals."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly entailed by the evidence.",
+     "raw": "{\"nonce\":\"5747b0749250\",\"claims\":[{\"claim\":\"The order of disconnecting the positive terminal first and then the negative terminal is incorrect.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal first... Disconnect the negative terminal, then the positive terminal.\"},{\"claim\":\"The procedure is to disconnect the negative terminal first.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal first.\"},{\"claim\":\"The procedure is then to disconnect the positive terminal.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal, then the positive terminal.\"},{\"claim\":\"Both terminals should be capped.\",\"supported\":true,\"evidence\":\"Cap both terminals.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly entailed by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:22:04.821335+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "Disconnecting the positive terminal first, then the negative, is incorrect.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "The procedure is to disconnect the negative terminal first.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal first and keep tools clear of the positive terminal. Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "The procedure is to disconnect the positive terminal after the negative terminal.",
+       "supported": true,
+       "evidence": "Disconnect the negative terminal, then the positive terminal."
+      },
+      {
+       "claim": "The procedure is to cap both terminals.",
+       "supported": true,
+       "evidence": "Cap both terminals."
+      }
+     ],
+     "reasoning": "All claims in the answer are fully supported by the evidence, which explicitly states to disconnect the negative terminal first, then the positive terminal, and cap both terminals.",
+     "raw": "{\"nonce\":\"a536b50b7fb7\",\"claims\":[{\"claim\":\"Disconnecting the positive terminal first, then the negative, is incorrect.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal, then the positive terminal.\"},{\"claim\":\"The procedure is to disconnect the negative terminal first.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal first and keep tools clear of the positive terminal. Disconnect the negative terminal, then the positive terminal.\"},{\"claim\":\"The procedure is to disconnect the positive terminal after the negative terminal.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal, then the positive terminal.\"},{\"claim\":\"The procedure is to cap both terminals.\",\"supported\":true,\"evidence\":\"Cap both terminals.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All claims in the answer are fully supported by the evidence, which explicitly states to disconnect the negative terminal first, then the positive terminal, and cap both terminals.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T102147-e61271be"
+  },
+  {
+   "case_id": "ADV-P-09",
+   "category": "perturbation",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "No. The mounting bolt torque specified in the document is 25 Nm, not 25 ft-lb.",
+   "citations": [
+    "ba1425d2550da5a0"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "corrected the false premise with the right value",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:22:17.082884+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The mounting bolt torque specified in the document is 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The mounting bolt torque specified in the document is not 25 ft-lb.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      }
+     ],
+     "reasoning": "All factual claims in the answer are explicitly supported by the evidence, which specifies 25 Nm rather than 25 ft-lb.",
+     "raw": "{\"nonce\":\"3068d6c8344f\",\"claims\":[{\"claim\":\"The mounting bolt torque specified in the document is 25 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"The mounting bolt torque specified in the document is not 25 ft-lb.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual claims in the answer are explicitly supported by the evidence, which specifies 25 Nm rather than 25 ft-lb.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:22:31.000900+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The mounting bolt torque specified in the document is 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The mounting bolt torque specified is not 25 ft-lb.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      }
+     ],
+     "reasoning": "The evidence explicitly states to torque the bolts to 25 Nm. This entails that the specification is 25 Nm, and therefore not 25 ft-lb.",
+     "raw": "{\"nonce\": \"0990ae5d03ad\", \"claims\": [{\"claim\": \"The mounting bolt torque specified in the document is 25 Nm.\", \"supported\": true, \"evidence\": \"Torque the bolts to 25 Nm in a cross pattern.\"}, {\"claim\": \"The mounting bolt torque specified is not 25 ft-lb.\", \"supported\": true, \"evidence\": \"Torque the bolts to 25 Nm in a cross pattern.\"}], \"groundedness\": 1.0, \"verdict\": \"grounded\", \"reasoning\": \"The evidence explicitly states to torque the bolts to 25 Nm. This entails that the specification is 25 Nm, and therefore not 25 ft-lb.\"}\n"
+    }
+   },
+   "grounded_intersection": true,
+   "trace_id": "20260718T102210-34c42234"
+  },
+  {
+   "case_id": "ADV-P-10",
+   "category": "perturbation",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102236-06f8a893"
+  },
+  {
+   "case_id": "ADV-N-01",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102241-7b978c0f"
+  },
+  {
+   "case_id": "ADV-N-02",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "threshold",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102246-96fa1516"
+  },
+  {
+   "case_id": "ADV-N-03",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102246-253a210d"
+  },
+  {
+   "case_id": "ADV-N-04",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102250-738df09a"
+  },
+  {
+   "case_id": "ADV-N-05",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102254-a9c54d6c"
+  },
+  {
+   "case_id": "ADV-N-06",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102259-e8b39763"
+  },
+  {
+   "case_id": "ADV-N-07",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102303-9aa63784"
+  },
+  {
+   "case_id": "ADV-N-08",
+   "category": "no-answer",
+   "expected_behavior": "refuse",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused as required",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102306-24be0c0f"
+  },
+  {
+   "case_id": "ADV-X-01",
+   "category": "cross-doc",
+   "expected_behavior": "clarify",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The evidence states two separate torque values but does not give a combined total, so I cannot add them. The individual values are: pump mounting bolts = 25 Nm; line fittings = 18 Nm.",
+   "citations": [
+    "ba1425d2550da5a0",
+    "ff9bc2ffa0610161"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "did not affirm the false premise",
+   "slipped_gate": "answered-through-all-gates (threshold+llm+citation)",
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:23:20.724724+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.8,
+     "claims": [
+      {
+       "claim": "The evidence states two separate torque values.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm... Torque the fittings to 18 Nm."
+      },
+      {
+       "claim": "The evidence does not give a combined total.",
+       "supported": true,
+       "evidence": "The evidence lists 25 Nm for bolts and 18 Nm for fittings, with no stated combined total."
+      },
+      {
+       "claim": "The answerer cannot add the two torque values.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "Pump mounting bolts are torqued to 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "Line fittings are torqued to 18 Nm.",
+       "supported": true,
+       "evidence": "Torque the fittings to 18 Nm."
+      }
+     ],
+     "reasoning": "All listed torque values and the absence of an explicitly stated combined total are supported by the evidence. The claim that the values cannot be added is not supported by the evidence.",
+     "raw": "{\"nonce\":\"afe9c6e0fb0c\",\"claims\":[{\"claim\":\"The evidence states two separate torque values.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm... Torque the fittings to 18 Nm.\"},{\"claim\":\"The evidence does not give a combined total.\",\"supported\":true,\"evidence\":\"The evidence lists 25 Nm for bolts and 18 Nm for fittings, with no stated combined total.\"},{\"claim\":\"The answerer cannot add the two torque values.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"Pump mounting bolts are torqued to 25 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"Line fittings are torqued to 18 Nm.\",\"supported\":true,\"evidence\":\"Torque the fittings to 18 Nm.\"}],\"groundedness\":0.8,\"verdict\":\"hallucinated\",\"reasoning\":\"All listed torque values and the absence of an explicitly stated combined total are supported by the evidence. The claim that the values cannot be added is not supported by the evidence.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:23:37.028443+00:00",
+     "verdict": "grounded",
+     "groundedness": 1.0,
+     "claims": [
+      {
+       "claim": "The evidence states two separate torque values but does not give a combined total.",
+       "supported": true,
+       "evidence": "The evidence documents specify 25 Nm for the mounting bolts and 18 Nm for the fittings, but do not state a combined total."
+      },
+      {
+       "claim": "The torque value for the pump mounting bolts is 25 Nm.",
+       "supported": true,
+       "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+      },
+      {
+       "claim": "The torque value for the line fittings is 18 Nm.",
+       "supported": true,
+       "evidence": "Torque the fittings to 18 Nm."
+      }
+     ],
+     "reasoning": "All factual statements in the answer regarding the torque values (25 Nm and 18 Nm) and the absence of a combined total in the text are directly supported by the provided evidence.",
+     "raw": "{\"nonce\":\"a0f663fe5419\",\"claims\":[{\"claim\":\"The evidence states two separate torque values but does not give a combined total.\",\"supported\":true,\"evidence\":\"The evidence documents specify 25 Nm for the mounting bolts and 18 Nm for the fittings, but do not state a combined total.\"},{\"claim\":\"The torque value for the pump mounting bolts is 25 Nm.\",\"supported\":true,\"evidence\":\"Torque the bolts to 25 Nm in a cross pattern.\"},{\"claim\":\"The torque value for the line fittings is 18 Nm.\",\"supported\":true,\"evidence\":\"Torque the fittings to 18 Nm.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All factual statements in the answer regarding the torque values (25 Nm and 18 Nm) and the absence of a combined total in the text are directly supported by the provided evidence.\"}\n"
+    }
+   },
+   "grounded_intersection": false,
+   "trace_id": "20260718T102314-03970b99"
+  },
+  {
+   "case_id": "ADV-X-02",
+   "category": "cross-doc",
+   "expected_behavior": "clarify",
+   "refused": true,
+   "refusal_gate": "citation-validation",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused a perturbed premise (acceptable)",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102342-10b621f2"
+  },
+  {
+   "case_id": "ADV-X-03",
+   "category": "cross-doc",
+   "expected_behavior": "clarify",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused a perturbed premise (acceptable)",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102345-7a97a340"
+  },
+  {
+   "case_id": "ADV-X-04",
+   "category": "cross-doc",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "The hydraulic low-pressure fault isolation procedure comes first. According to the main landing gear fault-isolation task for 'gear does not retract', you should check hydraulic system pressure, and if it is below 2400 psi, perform the hydraulic low-pressure fault isolation before continuing with gear-retraction troubleshooting.",
+   "citations": [
+    "7b4c62ee059cf013"
+   ],
+   "behavior_pass": true,
+   "behavior_note": "answered with required fact(s)",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:23:56.977950+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.8,
+     "claims": [
+      {
+       "claim": "The hydraulic low-pressure fault isolation procedure comes first.",
+       "supported": true,
+       "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      },
+      {
+       "claim": "The cited instruction is from the main landing gear fault-isolation task for 'gear does not retract'.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "You should check hydraulic system pressure.",
+       "supported": true,
+       "evidence": "Check hydraulic system pressure."
+      },
+      {
+       "claim": "If hydraulic system pressure is below 2400 psi, perform the hydraulic low-pressure fault isolation.",
+       "supported": true,
+       "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      },
+      {
+       "claim": "The hydraulic low-pressure fault isolation should be performed before continuing with gear-retraction troubleshooting.",
+       "supported": true,
+       "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      }
+     ],
+     "reasoning": "One source-attribution/context claim about a main landing gear fault-isolation task is not present in the evidence; the procedural pressure-check and below-2400-psi low-pressure fault-isolation claims are supported.",
+     "raw": "{\"nonce\":\"1d84c504ff00\",\"claims\":[{\"claim\":\"The hydraulic low-pressure fault isolation procedure comes first.\",\"supported\":true,\"evidence\":\"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"},{\"claim\":\"The cited instruction is from the main landing gear fault-isolation task for 'gear does not retract'.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"You should check hydraulic system pressure.\",\"supported\":true,\"evidence\":\"Check hydraulic system pressure.\"},{\"claim\":\"If hydraulic system pressure is below 2400 psi, perform the hydraulic low-pressure fault isolation.\",\"supported\":true,\"evidence\":\"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"},{\"claim\":\"The hydraulic low-pressure fault isolation should be performed before continuing with gear-retraction troubleshooting.\",\"supported\":true,\"evidence\":\"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"}],\"groundedness\":0.8,\"verdict\":\"hallucinated\",\"reasoning\":\"One source-attribution/context claim about a main landing gear fault-isolation task is not present in the evidence; the procedural pressure-check and below-2400-psi low-pressure fault-isolation claims are supported.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:24:14.723125+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.6,
+     "claims": [
+      {
+       "claim": "The hydraulic low-pressure fault isolation procedure comes first.",
+       "supported": true,
+       "evidence": "Check hydraulic system pressure. If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      },
+      {
+       "claim": "This is according to the main landing gear fault-isolation task for 'gear does not retract'.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "You should check hydraulic system pressure.",
+       "supported": true,
+       "evidence": "Check hydraulic system pressure."
+      },
+      {
+       "claim": "If it is below 2400 psi, perform the hydraulic low-pressure fault isolation.",
+       "supported": true,
+       "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+      },
+      {
+       "claim": "This must be done before continuing with gear-retraction troubleshooting.",
+       "supported": false,
+       "evidence": ""
+      }
+     ],
+     "reasoning": "The evidence instructs to check hydraulic pressure and do the hydraulic low-pressure fault isolation first if it is below 2400 psi. However, the details that this comes from 'the main landing gear fault-isolation task for \"gear does not retract\"' and that you should do this 'before continuing with gear-retraction troubleshooting' are not mentioned anywhere in the evidence.",
+     "raw": "{\"nonce\": \"a5b73c94d013\", \"claims\": [{\"claim\": \"The hydraulic low-pressure fault isolation procedure comes first.\", \"supported\": true, \"evidence\": \"Check hydraulic system pressure. If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"}, {\"claim\": \"This is according to the main landing gear fault-isolation task for 'gear does not retract'.\", \"supported\": false, \"evidence\": \"\"}, {\"claim\": \"You should check hydraulic system pressure.\", \"supported\": true, \"evidence\": \"Check hydraulic system pressure.\"}, {\"claim\": \"If it is below 2400 psi, perform the hydraulic low-pressure fault isolation.\", \"supported\": true, \"evidence\": \"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"}, {\"claim\": \"This must be done before continuing with gear-retraction troubleshooting.\", \"supported\": false, \"evidence\": \"\"}], \"groundedness\": 0.6, \"verdict\": \"hallucinated\", \"reasoning\": \"The evidence instructs to check hydraulic pressure and do the hydraulic low-pressure fault isolation first if it is below 2400 psi. However, the details that this comes from 'the main landing gear fault-isolation task for \\\"gear does not retract\\\"' and that you should do this 'before continuing with gear-retraction troubleshooting' are not mentioned anywhere in the evidence.\"}\n"
+    }
+   },
+   "grounded_intersection": false,
+   "trace_id": "20260718T102350-935d1d8b"
+  },
+  {
+   "case_id": "ADV-X-05",
+   "category": "cross-doc",
+   "expected_behavior": "clarify",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused a perturbed premise (acceptable)",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102420-e7d4466a"
+  },
+  {
+   "case_id": "ADV-X-06",
+   "category": "cross-doc",
+   "expected_behavior": "answer",
+   "refused": false,
+   "refusal_gate": null,
+   "answer_text": "Four mounting bolts hold the hydraulic pump on the accessory gearbox pad. The main landing gear shock strut's visible chrome extension dimension is 55–65 mm.",
+   "citations": [
+    "c53ec6cb48353e3f",
+    "ba1425d2550da5a0",
+    "562e128cef478562"
+   ],
+   "behavior_pass": false,
+   "behavior_note": "answered but missing required fact(s): ['55-65 mm']",
+   "slipped_gate": null,
+   "judge_verdicts": {
+    "codex": {
+     "judge": "codex",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:24:40.341711+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.5,
+     "claims": [
+      {
+       "claim": "Four mounting bolts hold the pump on the accessory gearbox pad.",
+       "supported": true,
+       "evidence": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts."
+      },
+      {
+       "claim": "The pump is hydraulic.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The shock strut referenced is the main landing gear shock strut.",
+       "supported": false,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      },
+      {
+       "claim": "The shock strut's visible chrome extension dimension is 55-65 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      }
+     ],
+     "reasoning": "The answer adds 'hydraulic' for the pump and 'landing' for the gear/strut, neither of which is explicitly entailed by the evidence. The four mounting bolts and 55-65 mm visible chrome dimension are supported.",
+     "raw": "{\"nonce\":\"82c0cce37f6f\",\"claims\":[{\"claim\":\"Four mounting bolts hold the pump on the accessory gearbox pad.\",\"supported\":true,\"evidence\":\"Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts.\"},{\"claim\":\"The pump is hydraulic.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The shock strut referenced is the main landing gear shock strut.\",\"supported\":false,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"},{\"claim\":\"The shock strut's visible chrome extension dimension is 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":0.5,\"verdict\":\"hallucinated\",\"reasoning\":\"The answer adds 'hydraulic' for the pump and 'landing' for the gear/strut, neither of which is explicitly entailed by the evidence. The four mounting bolts and 55-65 mm visible chrome dimension are supported.\"}\n"
+    },
+    "agy": {
+     "judge": "agy",
+     "model": "cli-default",
+     "invoked_at": "2026-07-18T14:24:56.951502+00:00",
+     "verdict": "hallucinated",
+     "groundedness": 0.5,
+     "claims": [
+      {
+       "claim": "Four mounting bolts hold the pump on the accessory gearbox pad.",
+       "supported": true,
+       "evidence": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts."
+      },
+      {
+       "claim": "The pump is a hydraulic pump.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The shock strut is a main landing gear shock strut.",
+       "supported": false,
+       "evidence": ""
+      },
+      {
+       "claim": "The shock strut's visible chrome dimension is 55-65 mm.",
+       "supported": true,
+       "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+      }
+     ],
+     "reasoning": "The answer claims that the pump is a 'hydraulic' pump and that the strut is a 'main landing gear' shock strut. However, the evidence only refers to them as a 'pump' and 'main gear shock strut' respectively, without mentioning 'hydraulic' or 'landing'.",
+     "raw": "{\"nonce\":\"a4ae69acfb61\",\"claims\":[{\"claim\":\"Four mounting bolts hold the pump on the accessory gearbox pad.\",\"supported\":true,\"evidence\":\"Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts.\"},{\"claim\":\"The pump is a hydraulic pump.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The shock strut is a main landing gear shock strut.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The shock strut's visible chrome dimension is 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":0.5,\"verdict\":\"hallucinated\",\"reasoning\":\"The answer claims that the pump is a 'hydraulic' pump and that the strut is a 'main landing gear' shock strut. However, the evidence only refers to them as a 'pump' and 'main gear shock strut' respectively, without mentioning 'hydraulic' or 'landing'.\"}\n"
+    }
+   },
+   "grounded_intersection": false,
+   "trace_id": "20260718T102430-c56abb06"
+  },
+  {
+   "case_id": "ADV-X-07",
+   "category": "cross-doc",
+   "expected_behavior": "clarify",
+   "refused": true,
+   "refusal_gate": "llm",
+   "answer_text": "I don't know — no answer was found in the indexed corpus.",
+   "citations": [],
+   "behavior_pass": true,
+   "behavior_note": "refused a perturbed premise (acceptable)",
+   "slipped_gate": null,
+   "judge_verdicts": {},
+   "grounded_intersection": null,
+   "trace_id": "20260718T102503-fa9e6eb2"
+  }
+ ]
+}

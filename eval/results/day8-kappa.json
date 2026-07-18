@@ -1,0 +1,17 @@
+{
+ "human_label_n": 32,
+ "judges": {
+  "codex": {
+   "kappa": 0.8462,
+   "n": 16,
+   "agreement": 0.9375,
+   "passes_soft_gate": true
+  },
+  "agy": {
+   "kappa": 1.0,
+   "n": 16,
+   "agreement": 1.0,
+   "passes_soft_gate": true
+  }
+ }
+}

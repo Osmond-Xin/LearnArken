@@ -50,3 +50,25 @@ Relevance is annotated at the `(dmc, source_path)` **anchor** level, where
 strategies: a chunk counts relevant when it shares the DMC and its text
 contains — or is contained by — the anchor element's text. A no-answer query
 has `"relevant": []`.
+
+## `day8-adversarial.jsonl` — adversarial evaluation set (Day 8)
+
+32 adversarial queries over the LA100 corpus, spanning the four attack classes
+(DR §3): **rewrite-invariance** (colloquial / cross-language / de-punctuated
+restatements → must still answer), **perturbation** (part-number / torque /
+measurement / DMC fuzzing → must refuse or correct, never affirm the false
+value), **no-answer** (absent systems, false premises, world-knowledge bait →
+must refuse), and **cross-doc** (aggregation traps, code ambiguity, attribute
+grafting → must disambiguate, not conflate).
+
+**Authorship (SPEC day8 Decision 1):** these are **AI-drafted, pending Yi Xin's
+review** — every row carries `"ai_drafted": true`. Unlike the retrieval golden,
+Day 8's decision layer delegates the adversarial *design* to the AI (Yi Xin
+reviews); the **groundedness anchor labels** used for Cohen's Kappa calibration
+remain human-owned. **Anti-leak (Decision 9):** this file must never be pasted
+into the answer-generation prompt / few-shot — a test asserts the isolation.
+
+Row schema: `id`, `category`, `question`, `expected_behavior`
+(`answer|refuse|clarify`), `attack_note`, and `anchor`
+(`must_cite_dmc` / `must_state` for answerable; `must_not_state` for
+perturbation/trap rows).
