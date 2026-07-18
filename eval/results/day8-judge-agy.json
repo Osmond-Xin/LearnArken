@@ -420,6 +420,351 @@
    ],
    "reasoning": "The answer claims that the pump is a 'hydraulic' pump and that the strut is a 'main landing gear' shock strut. However, the evidence only refers to them as a 'pump' and 'main gear shock strut' respectively, without mentioning 'hydraulic' or 'landing'.",
    "raw": "{\"nonce\":\"a4ae69acfb61\",\"claims\":[{\"claim\":\"Four mounting bolts hold the pump on the accessory gearbox pad.\",\"supported\":true,\"evidence\":\"Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts.\"},{\"claim\":\"The pump is a hydraulic pump.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The shock strut is a main landing gear shock strut.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The shock strut's visible chrome dimension is 55-65 mm.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"}],\"groundedness\":0.5,\"verdict\":\"hallucinated\",\"reasoning\":\"The answer claims that the pump is a 'hydraulic' pump and that the strut is a 'main landing gear' shock strut. However, the evidence only refers to them as a 'pump' and 'main gear shock strut' respectively, without mentioning 'hydraulic' or 'landing'.\"}\n"
+  },
+  "Q015": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:19:05.154031+00:00",
+   "verdict": "hallucinated",
+   "groundedness": 0.67,
+   "claims": [
+    {
+     "claim": "During hydraulic system low pressure troubleshooting, the reservoir fluid level should be checked.",
+     "supported": false,
+     "evidence": ""
+    },
+    {
+     "claim": "If it is below MIN, service the reservoir.",
+     "supported": true,
+     "evidence": "If below MIN, service the reservoir"
+    },
+    {
+     "claim": "Repeat the pressure check after servicing the reservoir.",
+     "supported": true,
+     "evidence": "repeat the pressure check."
+    }
+   ],
+   "reasoning": "The claim that these steps are performed during hydraulic system low pressure troubleshooting is not supported by the evidence, as the evidence does not mention hydraulic system low pressure troubleshooting.",
+   "raw": "{\"nonce\": \"d558f7345858\", \"claims\": [{\"claim\": \"During hydraulic system low pressure troubleshooting, the reservoir fluid level should be checked.\", \"supported\": false, \"evidence\": \"\"}, {\"claim\": \"If it is below MIN, service the reservoir.\", \"supported\": true, \"evidence\": \"If below MIN, service the reservoir\"}, {\"claim\": \"Repeat the pressure check after servicing the reservoir.\", \"supported\": true, \"evidence\": \"repeat the pressure check.\"}], \"groundedness\": 0.67, \"verdict\": \"hallucinated\", \"reasoning\": \"The claim that these steps are performed during hydraulic system low pressure troubleshooting is not supported by the evidence, as the evidence does not mention hydraulic system low pressure troubleshooting.\"}\n"
+  },
+  "Q004": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:19:23.599372+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "Examine the main gear shock strut for fluid leakage.",
+     "supported": true,
+     "evidence": "Examine the main gear shock strut for fluid leakage"
+    },
+    {
+     "claim": "Confirm correct extension of the main gear shock strut.",
+     "supported": true,
+     "evidence": "Examine the main gear shock strut for ... correct extension"
+    },
+    {
+     "claim": "The visible chrome measures 55-65 mm.",
+     "supported": true,
+     "evidence": "(visible chrome 55-65 mm)"
+    }
+   ],
+   "reasoning": "Every atomic claim in the answer is directly supported by the evidence.",
+   "raw": "{\"nonce\":\"bed6e053ca32\",\"claims\":[{\"claim\":\"Examine the main gear shock strut for fluid leakage.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage\"},{\"claim\":\"Confirm correct extension of the main gear shock strut.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for ... correct extension\"},{\"claim\":\"The visible chrome measures 55-65 mm.\",\"supported\":true,\"evidence\":\"(visible chrome 55-65 mm)\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"Every atomic claim in the answer is directly supported by the evidence.\"}\n"
+  },
+  "C109": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:19:39.034627+00:00",
+   "verdict": "hallucinated",
+   "groundedness": 0.5,
+   "claims": [
+    {
+     "claim": "Four mounting bolts hold the hydraulic pump onto the accessory gearbox pad.",
+     "supported": true,
+     "evidence": "Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts."
+    },
+    {
+     "claim": "The accessory gearbox pad is the drive housing.",
+     "supported": false,
+     "evidence": ""
+    }
+   ],
+   "reasoning": "The evidence explicitly supports the claim that four mounting bolts hold the hydraulic pump onto the accessory gearbox pad. However, the evidence contains no mention of a 'drive housing' or any indication that the accessory gearbox pad is the drive housing. Therefore, the second claim is unsupported, leading to a verdict of hallucinated.",
+   "raw": "{\n \"nonce\": \"795bab1360e7\",\n \"claims\": [\n  {\n   \"claim\": \"Four mounting bolts hold the hydraulic pump onto the accessory gearbox pad.\",\n   \"supported\": true,\n   \"evidence\": \"Remove the four mounting bolts and remove the pump from the accessory gearbox pad. Position the pump on the pad and install the four mounting bolts.\"\n  },\n  {\n   \"claim\": \"The accessory gearbox pad is the drive housing.\",\n   \"supported\": false,\n   \"evidence\": \"\"\n  }\n ],\n \"groundedness\": 0.5,\n \"verdict\": \"hallucinated\",\n \"reasoning\": \"The evidence explicitly supports the claim that four mounting bolts hold the hydraulic pump onto the accessory gearbox pad. However, the evidence contains no mention of a 'drive housing' or any indication that the accessory gearbox pad is the drive housing. Therefore, the second claim is unsupported, leading to a verdict of hallucinated.\"\n}\n"
+  },
+  "C105": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:19:55.615002+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "The pump case must be filled with clean hydraulic fluid before the first engine run.",
+     "supported": true,
+     "evidence": "Fill the pump case with clean hydraulic fluid before the first engine run."
+    },
+    {
+     "claim": "The pump must not be operated dry.",
+     "supported": true,
+     "evidence": "Do not operate the pump dry."
+    },
+    {
+     "claim": "The pump case is filled with fluid to prevent the pump from operating dry.",
+     "supported": true,
+     "evidence": "Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run."
+    }
+   ],
+   "reasoning": "All extracted claims are explicitly supported by the evidence. The requirement to fill the pump case, the prohibition against operating the pump dry, and the causal link between the two are directly entailed by the instructions 'Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run.'",
+   "raw": "{\n \"nonce\": \"e649ef888695\",\n \"claims\": [\n  {\n   \"claim\": \"The pump case must be filled with clean hydraulic fluid before the first engine run.\",\n   \"supported\": true,\n   \"evidence\": \"Fill the pump case with clean hydraulic fluid before the first engine run.\"\n  },\n  {\n   \"claim\": \"The pump must not be operated dry.\",\n   \"supported\": true,\n   \"evidence\": \"Do not operate the pump dry.\"\n  },\n  {\n   \"claim\": \"The pump case is filled with fluid to prevent the pump from operating dry.\",\n   \"supported\": true,\n   \"evidence\": \"Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run.\"\n  }\n ],\n \"groundedness\": 1.0,\n \"verdict\": \"grounded\",\n \"reasoning\": \"All extracted claims are explicitly supported by the evidence. The requirement to fill the pump case, the prohibition against operating the pump dry, and the causal link between the two are directly entailed by the instructions 'Do not operate the pump dry. Fill the pump case with clean hydraulic fluid before the first engine run.'\"\n}\n"
+  },
+  "Q009": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:20:16.157945+00:00",
+   "verdict": "hallucinated",
+   "groundedness": 0.67,
+   "claims": [
+    {
+     "claim": "LA-29-4711-1 is the part number for the hydraulic pump, engine-driven.",
+     "supported": false,
+     "evidence": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4"
+    },
+    {
+     "claim": "The quantity of the hydraulic pump, engine-driven is 1.",
+     "supported": true,
+     "evidence": "1 PUMP, HYDRAULIC, ENGINE-DRIVEN"
+    },
+    {
+     "claim": "The hydraulic pump, engine-driven is used in the hydraulic pump installation.",
+     "supported": true,
+     "evidence": "Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN"
+    }
+   ],
+   "reasoning": "The evidence lists three parts and three part numbers but does not explicitly map which part number corresponds to which part. Therefore, the claim that LA-29-4711-1 is the part number for the hydraulic pump is unsupported by the evidence.",
+   "raw": "{\"nonce\":\"ecdd10d3cffa\",\"claims\":[{\"claim\":\"LA-29-4711-1 is the part number for the hydraulic pump, engine-driven.\",\"supported\":false,\"evidence\":\"Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN 1 GASKET, PUMP MOUNTING PAD 4 BOLT, PUMP MOUNTING LA-29-4711-1 LA-29-4711-9 LA-29-0025-4\"},{\"claim\":\"The quantity of the hydraulic pump, engine-driven is 1.\",\"supported\":true,\"evidence\":\"1 PUMP, HYDRAULIC, ENGINE-DRIVEN\"},{\"claim\":\"The hydraulic pump, engine-driven is used in the hydraulic pump installation.\",\"supported\":true,\"evidence\":\"Hydraulic pump installation 1 PUMP, HYDRAULIC, ENGINE-DRIVEN\"}],\"groundedness\":0.67,\"verdict\":\"hallucinated\",\"reasoning\":\"The evidence lists three parts and three part numbers but does not explicitly map which part number corresponds to which part. Therefore, the claim that LA-29-4711-1 is the part number for the hydraulic pump is unsupported by the evidence.\"}\n"
+  },
+  "C128": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:20:30.521515+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "The LA100 is a twin-engine light utility aircraft.",
+     "supported": true,
+     "evidence": "The LA100 is a fictional twin-engine light utility aircraft used as the training airframe for this sample library."
+    },
+    {
+     "claim": "The LA100 is used as the training airframe.",
+     "supported": true,
+     "evidence": "The LA100 is a fictional twin-engine light utility aircraft used as the training airframe for this sample library."
+    }
+   ],
+   "reasoning": "All claims in the answer are directly and fully supported by the provided evidence.",
+   "raw": "{\"nonce\":\"ce0af85dbf8f\",\"claims\":[{\"claim\":\"The LA100 is a twin-engine light utility aircraft.\",\"supported\":true,\"evidence\":\"The LA100 is a fictional twin-engine light utility aircraft used as the training airframe for this sample library.\"},{\"claim\":\"The LA100 is used as the training airframe.\",\"supported\":true,\"evidence\":\"The LA100 is a fictional twin-engine light utility aircraft used as the training airframe for this sample library.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All claims in the answer are directly and fully supported by the provided evidence.\"}\n"
+  },
+  "C124": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:20:45.003704+00:00",
+   "verdict": "hallucinated",
+   "groundedness": 0.5,
+   "claims": [
+    {
+     "claim": "The inspection task is part of the main landing gear fault-isolation procedure for 'gear does not retract'.",
+     "supported": false,
+     "evidence": ""
+    },
+    {
+     "claim": "The inspection task is to inspect the retraction actuator and weight-on-wheels switch.",
+     "supported": true,
+     "evidence": "Inspect the retraction actuator and weight-on-wheels switch. Refer to ."
+    }
+   ],
+   "reasoning": "The answer mentions 'main landing gear fault-isolation procedure' and 'gear does not retract', neither of which is present or implied in the provided evidence. Thus, that claim is unsupported, while the claim to inspect the retraction actuator and weight-on-wheels switch is supported.",
+   "raw": "{\n  \"nonce\": \"3e4982c1108c\",\n  \"claims\": [\n    {\n      \"claim\": \"The inspection task is part of the main landing gear fault-isolation procedure for 'gear does not retract'.\",\n      \"supported\": false,\n      \"evidence\": \"\"\n    },\n    {\n      \"claim\": \"The inspection task is to inspect the retraction actuator and weight-on-wheels switch.\",\n      \"supported\": true,\n      \"evidence\": \"Inspect the retraction actuator and weight-on-wheels switch. Refer to .\"\n    }\n  ],\n  \"groundedness\": 0.5,\n  \"verdict\": \"hallucinated\",\n  \"reasoning\": \"The answer mentions 'main landing gear fault-isolation procedure' and 'gear does not retract', neither of which is present or implied in the provided evidence. Thus, that claim is unsupported, while the claim to inspect the retraction actuator and weight-on-wheels switch is supported.\"\n}\n"
+  },
+  "C141": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:20:56.856034+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "The hydraulic low-pressure fault isolation procedure comes first.",
+     "supported": true,
+     "evidence": "If below 2400 psi, do the hydraulic low-pressure fault isolation first."
+    }
+   ],
+   "reasoning": "The evidence explicitly states to do the hydraulic low-pressure fault isolation first when pressure is low (below 2400 psi).",
+   "raw": "{\"nonce\":\"5580e1f2f421\",\"claims\":[{\"claim\":\"The hydraulic low-pressure fault isolation procedure comes first.\",\"supported\":true,\"evidence\":\"If below 2400 psi, do the hydraulic low-pressure fault isolation first.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"The evidence explicitly states to do the hydraulic low-pressure fault isolation first when pressure is low (below 2400 psi).\"}\n"
+  },
+  "C108": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:21:18.093509+00:00",
+   "verdict": "hallucinated",
+   "groundedness": 0.25,
+   "claims": [
+    {
+     "claim": "Somebody left the locking devices installed before departure.",
+     "supported": false,
+     "evidence": ""
+    },
+    {
+     "claim": "The procedure is a fault-isolation procedure for a main landing gear that does not retract.",
+     "supported": false,
+     "evidence": ""
+    },
+    {
+     "claim": "Ground safety pins are locking devices.",
+     "supported": false,
+     "evidence": ""
+    },
+    {
+     "claim": "The procedure lists checking that ground safety pins were removed before flight as a post-flight finding.",
+     "supported": true,
+     "evidence": "Check that the ground safety pins were removed before flight (post-flight finding)."
+    }
+   ],
+   "reasoning": "The answer asserts that locking devices were left installed, but the evidence is a general check procedure rather than a confirmation of a specific event. Additionally, the evidence does not mention landing gear, retraction, a fault-isolation procedure, or that ground safety pins are locking devices.",
+   "raw": "{\"nonce\":\"59adaa8b3b5e\",\"claims\":[{\"claim\":\"Somebody left the locking devices installed before departure.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The procedure is a fault-isolation procedure for a main landing gear that does not retract.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"Ground safety pins are locking devices.\",\"supported\":false,\"evidence\":\"\"},{\"claim\":\"The procedure lists checking that ground safety pins were removed before flight as a post-flight finding.\",\"supported\":true,\"evidence\":\"Check that the ground safety pins were removed before flight (post-flight finding).\"}],\"groundedness\":0.25,\"verdict\":\"hallucinated\",\"reasoning\":\"The answer asserts that locking devices were left installed, but the evidence is a general check procedure rather than a confirmation of a specific event. Additionally, the evidence does not mention landing gear, retraction, a fault-isolation procedure, or that ground safety pins are locking devices.\"}\n"
+  },
+  "Q006": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:21:33.000316+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "Disconnect the negative terminal first.",
+     "supported": true,
+     "evidence": "Battery terminals can supply high current even with aircraft power off. Disconnect the negative terminal first and keep tools clear of the positive terminal."
+    },
+    {
+     "claim": "Disconnect the positive terminal after the negative terminal.",
+     "supported": true,
+     "evidence": "Disconnect the negative terminal, then the positive terminal."
+    }
+   ],
+   "reasoning": "All claims in the answer are directly and explicitly supported by the provided evidence.",
+   "raw": "{\"nonce\":\"aba3a894a5d3\",\"claims\":[{\"claim\":\"Disconnect the negative terminal first.\",\"supported\":true,\"evidence\":\"Battery terminals can supply high current even with aircraft power off. Disconnect the negative terminal first and keep tools clear of the positive terminal.\"},{\"claim\":\"Disconnect the positive terminal after the negative terminal.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal, then the positive terminal.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All claims in the answer are directly and explicitly supported by the provided evidence.\"}\n"
+  },
+  "C111": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:21:53.743304+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "The battery remains live after the aircraft is shut down.",
+     "supported": true,
+     "evidence": "Battery terminals can supply high current even with aircraft power off."
+    },
+    {
+     "claim": "The battery terminals can supply high current even with aircraft power off.",
+     "supported": true,
+     "evidence": "Battery terminals can supply high current even with aircraft power off."
+    },
+    {
+     "claim": "The negative terminal must be disconnected first.",
+     "supported": true,
+     "evidence": "Disconnect the negative terminal first"
+    },
+    {
+     "claim": "Tools must be kept clear of the positive terminal.",
+     "supported": true,
+     "evidence": "keep tools clear of the positive terminal."
+    }
+   ],
+   "reasoning": "All claims are directly supported by the evidence. The battery remaining live after shutdown is supported by the fact that battery terminals can supply high current even with aircraft power off. The instructions to disconnect the negative terminal first and keep tools clear of the positive terminal are explicitly stated in the evidence.",
+   "raw": "{\"nonce\":\"b07ece66b9d5\",\"claims\":[{\"claim\":\"The battery remains live after the aircraft is shut down.\",\"supported\":true,\"evidence\":\"Battery terminals can supply high current even with aircraft power off.\"},{\"claim\":\"The battery terminals can supply high current even with aircraft power off.\",\"supported\":true,\"evidence\":\"Battery terminals can supply high current even with aircraft power off.\"},{\"claim\":\"The negative terminal must be disconnected first.\",\"supported\":true,\"evidence\":\"Disconnect the negative terminal first\"},{\"claim\":\"Tools must be kept clear of the positive terminal.\",\"supported\":true,\"evidence\":\"keep tools clear of the positive terminal.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"All claims are directly supported by the evidence. The battery remaining live after shutdown is supported by the fact that battery terminals can supply high current even with aircraft power off. The instructions to disconnect the negative terminal first and keep tools clear of the positive terminal are explicitly stated in the evidence.\"}\n"
+  },
+  "C101": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:22:17.246966+00:00",
+   "verdict": "hallucinated",
+   "groundedness": 0.5,
+   "claims": [
+    {
+     "claim": "The correct extension of the main gear shock strut is 55-65 mm of visible chrome.",
+     "supported": true,
+     "evidence": "Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm)."
+    },
+    {
+     "claim": "The polished cylinder should stick out of the undercarriage oleo.",
+     "supported": false,
+     "evidence": ""
+    }
+   ],
+   "reasoning": "The evidence specifies the correct extension for the main gear shock strut (55-65 mm of visible chrome) but does not mention a polished cylinder or undercarriage oleo.",
+   "raw": "{\"nonce\":\"b86700c71422\",\"claims\":[{\"claim\":\"The correct extension of the main gear shock strut is 55-65 mm of visible chrome.\",\"supported\":true,\"evidence\":\"Examine the main gear shock strut for fluid leakage and correct extension (visible chrome 55-65 mm).\"},{\"claim\":\"The polished cylinder should stick out of the undercarriage oleo.\",\"supported\":false,\"evidence\":\"\"}],\"groundedness\":0.5,\"verdict\":\"hallucinated\",\"reasoning\":\"The evidence specifies the correct extension for the main gear shock strut (55-65 mm of visible chrome) but does not mention a polished cylinder or undercarriage oleo.\"}\n"
+  },
+  "Q003": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:22:30.060442+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "Connect the supply and pressure lines.",
+     "supported": true,
+     "evidence": "Connect the supply and pressure lines."
+    },
+    {
+     "claim": "Torque the fittings to 18 Nm.",
+     "supported": true,
+     "evidence": "Torque the fittings to 18 Nm."
+    }
+   ],
+   "reasoning": "Both claims extracted from the answer are directly and explicitly supported by the provided evidence.",
+   "raw": "{\"nonce\":\"2b47facb10b4\",\"claims\":[{\"claim\":\"Connect the supply and pressure lines.\",\"supported\":true,\"evidence\":\"Connect the supply and pressure lines.\"},{\"claim\":\"Torque the fittings to 18 Nm.\",\"supported\":true,\"evidence\":\"Torque the fittings to 18 Nm.\"}],\"groundedness\":1.0,\"verdict\":\"grounded\",\"reasoning\":\"Both claims extracted from the answer are directly and explicitly supported by the provided evidence.\"}\n"
+  },
+  "Q002": {
+   "judge": "agy",
+   "model": "cli-default",
+   "invoked_at": "2026-07-18T15:22:43.689274+00:00",
+   "verdict": "grounded",
+   "groundedness": 1.0,
+   "claims": [
+    {
+     "claim": "Step 1 is to install the new gasket on the accessory gearbox pad.",
+     "supported": true,
+     "evidence": "Install the new gasket on the accessory gearbox pad. For the gasket part number, refer to ."
+    },
+    {
+     "claim": "Step 2 is to position the pump on the pad and install the four mounting bolts.",
+     "supported": true,
+     "evidence": "Position the pump on the pad and install the four mounting bolts."
+    },
+    {
+     "claim": "Step 3 is to torque the bolts to 25 Nm in a cross pattern.",
+     "supported": true,
+     "evidence": "Torque the bolts to 25 Nm in a cross pattern."
+    },
+    {
+     "claim": "Step 4 is to fill the pump case with clean hydraulic fluid before the first engine run.",
+     "supported": true,
+     "evidence": "Fill the pump case with clean hydraulic fluid before the first engine run."
+    },
+    {
+     "claim": "The pump should not be operated dry.",
+     "supported": true,
+     "evidence": "Do not operate the pump dry."
+    }
+   ],
+   "reasoning": "All steps and warnings in the answer are directly and explicitly supported by the provided evidence documents.",
+   "raw": "{\"nonce\": \"5a9e4dece228\", \"claims\": [{\"claim\": \"Step 1 is to install the new gasket on the accessory gearbox pad.\", \"supported\": true, \"evidence\": \"Install the new gasket on the accessory gearbox pad. For the gasket part number, refer to .\"}, {\"claim\": \"Step 2 is to position the pump on the pad and install the four mounting bolts.\", \"supported\": true, \"evidence\": \"Position the pump on the pad and install the four mounting bolts.\"}, {\"claim\": \"Step 3 is to torque the bolts to 25 Nm in a cross pattern.\", \"supported\": true, \"evidence\": \"Torque the bolts to 25 Nm in a cross pattern.\"}, {\"claim\": \"Step 4 is to fill the pump case with clean hydraulic fluid before the first engine run.\", \"supported\": true, \"evidence\": \"Fill the pump case with clean hydraulic fluid before the first engine run.\"}, {\"claim\": \"The pump should not be operated dry.\", \"supported\": true, \"evidence\": \"Do not operate the pump dry.\"}], \"groundedness\": 1.0, \"verdict\": \"grounded\", \"reasoning\": \"All steps and warnings in the answer are directly and explicitly supported by the provided evidence documents.\"}\n"
   }
- }
+ },
+ "note": "verdicts cover Day 8 adversarial + Day 5 sample answered rows (Cohen's kappa anchor, SPEC decision B)"
 }
