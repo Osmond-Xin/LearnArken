@@ -62,6 +62,33 @@ class GraphFacts(BaseModel):
     icns: list[str] = []
 
 
+class ImpactedDM(BaseModel):
+    """A DM that (transitively) depends on the queried DM, with its hop distance."""
+
+    dmc: str
+    title: str = ""
+    hops: int
+
+
+class ImpactResult(BaseModel):
+    """Reverse-dependency impact for one DM (Day 9, ADR-0002 interface ①).
+
+    `affected` lists the DMs that would be hit if `target` were superseded,
+    ordered by hop distance. Existence is split (red-team day9 #6): `sync()`
+    creates bare nodes for dangling refs, so a DMC can appear as a graph node
+    (`exists_as_reference`) without being an indexed corpus module
+    (`exists_in_corpus`, i.e. carrying a package). `truncated` is True when the
+    result cap was hit before the traversal finished.
+    """
+
+    target: str
+    exists_in_corpus: bool
+    exists_as_reference: bool
+    depth: int
+    truncated: bool = False
+    affected: list[ImpactedDM] = []
+
+
 def _request(path: str, payload: dict | None = None, timeout: int = 30) -> dict:
     user, password = _credentials()
     token = base64.b64encode(f"{user}:{password}".encode()).decode()
@@ -73,11 +100,21 @@ def _request(path: str, payload: dict | None = None, timeout: int = 30) -> dict:
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-            return json.loads(response.read() or b"{}")
+            raw = response.read() or b"{}"
     except urllib.error.HTTPError as exc:
-        raise GraphError(f"{path} -> HTTP {exc.code}: {exc.read()[:300].decode()}") from exc
+        detail = exc.read()[:300].decode("utf-8", "replace")
+        raise GraphError(f"{path} -> HTTP {exc.code}: {detail}") from exc
     except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
         raise GraphError(f"{path} -> {exc}. Is the learnarken-neo4j container running?") from exc
+    # A non-JSON / non-object body means something other than Neo4j answered on
+    # 127.0.0.1:7474 — fail closed rather than let a decode error escape (day9 #3).
+    try:
+        body = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise GraphError(f"{path} -> non-JSON response ({len(raw)} bytes); is this Neo4j?") from exc
+    if not isinstance(body, dict):
+        raise GraphError(f"{path} -> unexpected JSON type {type(body).__name__}, expected object")
+    return body
 
 
 def _cypher(statements: list[tuple[str, dict]]) -> list[dict]:
@@ -91,7 +128,13 @@ def _cypher(statements: list[tuple[str, dict]]) -> list[dict]:
     body = _request(_TX_ENDPOINT, payload)
     if body.get("errors"):
         raise GraphError(f"cypher failed: {body['errors'][:2]}")
-    return body.get("results", [])
+    results = body.get("results")
+    # One result block per statement; a mismatch means a wrong/degraded endpoint
+    # (e.g. HTTP 200 `{}`) — fail closed instead of returning silent empties (day9 #3).
+    if not isinstance(results, list) or len(results) != len(statements):
+        got = len(results) if isinstance(results, list) else type(results).__name__
+        raise GraphError(f"cypher: expected {len(statements)} result blocks, got {got}")
+    return results
 
 
 def is_up() -> bool:
@@ -152,6 +195,86 @@ def sync(chunks: list[Chunk], owner: dict[str, str]) -> dict[str, int]:
     _cypher(statements)
     logger.info("graph sync: %d DM nodes, %d edges", len(dms), edges)
     return {"dm_nodes": len(dms), "edges": edges}
+
+
+MAX_IMPACT_DEPTH = 10
+MAX_IMPACT_RESULTS = 1000  # backstop against pathological fan-out (INV-2 bound)
+
+
+def impact(dmc: str, depth: int = 3) -> ImpactResult:
+    """Which DMs depend on `dmc` — the procedures affected if it were superseded.
+
+    Reverse `dmRef` traversal (interface ①, ADR-0002): a **breadth-first walk**
+    against the `REFS` edge direction, one single-hop query per level. Each level
+    excludes already-visited nodes, so the walk is cycle-safe by construction
+    (package-b's VIO-7 loops cannot re-expand) and — unlike a variable-length
+    `REFS*` pattern — never enumerates whole paths, so a dense/cyclic graph cannot
+    explode into a DoS (day9 red-team #1). Depth and a result cap
+    (`MAX_IMPACT_RESULTS`) bound the work; `truncated` flags the cap. Fails closed
+    (`GraphError`) when Neo4j is unreachable (INV-4).
+
+    Existence is split (day9 #6): `exists_as_reference` = the DMC is any graph
+    node; `exists_in_corpus` = it is an indexed module (carries a package), not a
+    bare dangling-reference placeholder.
+    """
+    if type(depth) is not int or not (1 <= depth <= MAX_IMPACT_DEPTH):
+        raise ValueError(f"depth must be an int in 1..{MAX_IMPACT_DEPTH}, got {depth!r}")
+
+    meta = _cypher(
+        [("MATCH (x:DM {dmc: $dmc}) RETURN count(x), head(collect(x.package))", {"dmc": dmc})]
+    )
+    meta_rows = meta[0].get("data", [])
+    node_count, package = meta_rows[0]["row"] if meta_rows else (0, None)
+    exists_as_reference = bool(node_count)
+    exists_in_corpus = package is not None
+
+    visited = {dmc}
+    frontier = [dmc]
+    affected: list[ImpactedDM] = []
+    truncated = False
+    for hop in range(1, depth + 1):
+        if not frontier:
+            break
+        rows = _cypher(
+            [
+                (
+                    "MATCH (a:DM)-[:REFS]->(t:DM) "
+                    "WHERE t.dmc IN $frontier AND NOT a.dmc IN $visited "
+                    "RETURN DISTINCT a.dmc AS dmc, a.title AS title ORDER BY dmc",
+                    {"frontier": frontier, "visited": sorted(visited)},
+                )
+            ]
+        )
+        next_frontier: list[str] = []
+        for row in rows[0].get("data", []):
+            admc, title = row["row"][0], row["row"][1]
+            if admc in visited:  # reachable from two frontier nodes in the same hop
+                continue
+            visited.add(admc)
+            affected.append(ImpactedDM(dmc=admc, title=title or "", hops=hop))
+            next_frontier.append(admc)
+            if len(affected) >= MAX_IMPACT_RESULTS:
+                truncated = True
+                break
+        if truncated:
+            break
+        frontier = next_frontier
+
+    logger.info(
+        "graph impact: target=%s depth=%d affected=%d truncated=%s",
+        dmc,
+        depth,
+        len(affected),
+        truncated,
+    )
+    return ImpactResult(
+        target=dmc,
+        exists_in_corpus=exists_in_corpus,
+        exists_as_reference=exists_as_reference,
+        depth=depth,
+        truncated=truncated,
+        affected=affected,
+    )
 
 
 def facts(dmcs: list[str]) -> list[GraphFacts]:

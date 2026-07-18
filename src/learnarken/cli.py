@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from learnarken.chunking import STRATEGIES, PartialPackageError, chunk_package
+from learnarken.graph import store as graph_store
 from learnarken.models import DataModule, PackageModel
 from learnarken.package import NotAPackageError, _sanitize, scan_package
 from learnarken.retrieval import MODES, index_package, run_ablation, run_eval, search_package
@@ -616,6 +617,47 @@ def _cmd_repair(args: argparse.Namespace) -> int:
     return 0 if report.all_resolved else 3
 
 
+def _cmd_graph_impact(args: argparse.Namespace) -> int:
+    """Dependency-impact query (ADR-0002 interface ①): which DMs are affected if
+    the given DM is superseded. Exit codes: 0 = OK; 1 = Neo4j unavailable (fail
+    closed, INV-4); 4 = DM not found in the graph."""
+    from learnarken import graph
+
+    try:
+        result = graph.impact(args.dmc, depth=args.depth)
+    except graph.GraphError as exc:
+        print(f"error (fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+        print("is the learnarken-neo4j container running and the corpus indexed?", file=sys.stderr)
+        return 1
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+        return 0 if result.exists_as_reference else 4
+
+    target = _sanitize(result.target)
+    if not result.exists_as_reference:
+        print(f"DM {target} is not in the graph (index the corpus first?)")
+        return 4
+    if not result.exists_in_corpus:
+        print(f"note: {target} is a dangling reference (referenced but not indexed).")
+    if not result.affected:
+        print(f"{target}: nothing depends on it within {result.depth} hops.")
+        return 0
+    print(
+        f"if {target} is superseded, {len(result.affected)} DM(s) are "
+        f"affected (within {result.depth} hops):"
+    )
+    for dm in result.affected:
+        title = f" — {dm.title}" if dm.title else ""
+        print(_sanitize(f"  [{dm.hops} hop] {dm.dmc}{title}"))
+    if result.truncated:
+        print(f"  … result capped at {graph_store.MAX_IMPACT_RESULTS} (truncated).")
+    return 0
+
+
 def _print_repair_report(report) -> None:
     print(f"repair {report.package} · mode={report.mode} · targeted={report.findings_targeted}")
     for p in report.patches:
@@ -842,6 +884,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     adversarial_parser.add_argument("--json", action="store_true", help="output JSON")
     adversarial_parser.set_defaults(func=_cmd_eval_adversarial)
+
+    graph_parser = subparsers.add_parser(
+        "graph", help="dependency-graph queries (Neo4j; ADR-0002 interface ①)"
+    )
+    graph_sub = graph_parser.add_subparsers(dest="graph_command", required=True)
+    impact_parser = graph_sub.add_parser(
+        "impact",
+        help="which DMs are affected if the given DM is superseded (reverse dmRef)",
+    )
+    impact_parser.add_argument("dmc", help="the DMC of the DM being superseded")
+    impact_parser.add_argument(
+        "--depth",
+        type=_positive_int,
+        default=3,
+        help=f"max reverse-dependency hops (1..{graph_store.MAX_IMPACT_DEPTH}, default 3)",
+    )
+    impact_parser.add_argument("--json", action="store_true", help="output JSON")
+    impact_parser.set_defaults(func=_cmd_graph_impact)
 
     args = parser.parse_args(argv)
     if getattr(args, "command", None) == "eval" and not args.package:

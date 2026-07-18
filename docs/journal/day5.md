@@ -1,4 +1,4 @@
-# Day N Learning Journal — <date>
+# Day 5 Learning Journal
 
 > Human-written; AI does not ghostwrite. (INV-6) Three fixed questions — each
 > answer must contain at least one concrete instance. No platitudes.

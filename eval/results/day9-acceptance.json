@@ -1,0 +1,25 @@
+{
+  "note": "Day 9 acceptance: MiniMax reads ONLY llms.txt + EVIDENCE.md and locates the reproduce command for a sampled number. Non-deterministic generator; a demonstration, not a benchmark.",
+  "model": "MiniMax-M3",
+  "generated_utc": "2026-07-18T18:51:21.693146+00:00",
+  "results": [
+    {
+      "question": "What is the reproduction command and evidence file for the Codex judge Cohen kappa (0.737)?",
+      "answer": {
+        "evidence_file": "eval/results/day8-kappa.json",
+        "reproduce_command": "uv run python tools/adversarial_eval.py --kappa-only",
+        "layer": "Toy-scale"
+      },
+      "elapsed_s": 3.3
+    },
+    {
+      "question": "What is the reproduction command and evidence file for the dependency-graph impact query?",
+      "answer": {
+        "evidence_file": "src/learnarken/graph/store.py; tests/test_day9_evidence.py",
+        "reproduce_command": "learnarken graph impact <DMC> (needs services)",
+        "layer": "Toy-scale"
+      },
+      "elapsed_s": 8.5
+    }
+  ]
+}

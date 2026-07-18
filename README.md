@@ -81,7 +81,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | 6 | API & local demo | `v0.6.0` | ✅ 2026-07-17 |
 | 7 | Validation-repair agent | `v0.7.0` | ✅ 2026-07-17 |
 | 8 | Adversarial evaluation: attacking my own RAG ⚑ heavy red team | `v0.8.0` | ✅ 2026-07-18 |
-| 9 | Evidence chain & machine readability | `v0.9.0` | ⬜ |
+| 9 | Evidence chain & machine readability | `v0.9.0` | ✅ 2026-07-18 |
 | 10 | Deployment & wrap-up | `v1.0.0` | ⬜ |
 
 Benchmark tables, ablations, and adversarial-evaluation results will appear
@@ -301,7 +301,14 @@ exact values drift run-to-run — the frozen artifact is the record).
   diagnoses L0–L3 validation findings and proposes minimal structured patches,
   trusted only when the deterministic validator re-runs clean, with a default
   dry-run and an approve-then-write `--apply` (per-patch human gate, never
-  silent — constitution §1.3) via `repair` (Day 7)
+  silent — constitution §1.3) via `repair` (Day 7); an adversarial evaluation
+  harness — 32-case golden set, two heterogeneous judges (Codex + agy) with
+  Cohen's κ calibration against human labels and deterministic behavioral
+  scoring — via `eval adversarial` (Day 8); a Neo4j dependency-graph impact
+  query (reverse `dmRef` traversal, cycle-safe, depth-bounded) via
+  `graph impact`, and a machine-readable evidence chain (`llms.txt`,
+  [docs/EVIDENCE.md](docs/EVIDENCE.md), [docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md))
+  (Day 9)
 - **Toy-scale**: synthetic sample-package size; single-machine simulation of
   distributed behavior; the repair agent's sandbox is an application-layer fence
   (import/argv allow-list + temp-dir jail + resource limits), not OS-level
@@ -311,11 +318,17 @@ exact values drift run-to-run — the frozen artifact is the record).
   would treat is closed by dense at 1.00; identifier queries are not losing),
   so neither was built; decision + revisit trigger in
   [docs/adr/0001-day4b-gate-stays-shut.md](docs/adr/0001-day4b-gate-stays-shut.md)
-- **Planned**: RDF/SPARQL knowledge graph (a minimal dependency-graph query
-  slice is pulled into Day 9 —
-  [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md));
-  local vLLM serving, Rust extensions, GNN, formal verification — see
+- **Planned**: full RDF/SPARQL knowledge graph (the minimal dependency-graph
+  query slice landed in Day 9 —
+  [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md);
+  the full graph, version/issue-semantics modelling, and multi-hop SPARQL stay
+  planned); local vLLM serving, Rust extensions, GNN, formal verification — see
   [docs/project-design.md](docs/project-design.md)
+- **Planned — deferred from Day 8 red team**: number/unit-aware answer matching
+  (the substring matcher treats `125 Nm` as satisfying `25 Nm`); a judge-call
+  circuit breaker (a hard cap on judge failures, not just a per-call timeout);
+  index content-hash / epoch and plaintext-trace payload hardening — see
+  [docs/reviews/day8.md](docs/reviews/day8.md)
 - **Planned — direct S1000D → graph-database mapping**: real S1000D already
   defines structure and relationships, and industry approaches map the XML
   straight into a graph database (ontology / property-graph), skipping text

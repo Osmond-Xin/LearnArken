@@ -1,0 +1,60 @@
+# LearnArken
+
+> Toy-scale, honestly-labelled RAG + validation system for S1000D-style aviation
+> maintenance manuals. Fail-closed ingestion, cited grounded QA (or explicit
+> refusal), hybrid retrieval with a measured ablation table, a dependency graph
+> for impact analysis, and an adversarial evaluation harness. Python 3.12.
+
+This repository is built AI-first with an independent red-team and human
+adjudication at every step. It is designed to be verifiable by a reviewer or a
+hiring-side AI agent: every outward number maps to a committed artifact and a
+copy-pasteable reproduction command. Paths below are relative to the repo root.
+
+## Start here
+
+- [docs/EVIDENCE.md](docs/EVIDENCE.md): claim → evidence → reproduce command for
+  every benchmark number. **Read this to reproduce any figure.**
+- [README.md](README.md): human-facing overview, progress table, benchmark tables.
+- [docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md): the AI-first workflow, the
+  "adversarial validation" term card, and what must be human-owned.
+
+## Authority & rules
+
+- [docs/constitution.md](docs/constitution.md): highest authority — invariants
+  INV-1 – INV-8 (data red line, distributed interfaces, fail-closed, reproducibility).
+- [CLAUDE.md](CLAUDE.md): operating rules for AI assistants — this repo's
+  `agents.md`-role file (role boundaries, the automatic red-team gate, daily cycle).
+
+## Evidence artifacts (how numbers are frozen)
+
+- [eval/golden/](eval/golden/): versioned golden sets (retrieval + adversarial).
+- [eval/results/](eval/results/): frozen result JSON — the single source of truth
+  for each number (e.g. `day4-ablation.json`, `day8-kappa.json`).
+- [tools/](tools/): reproduction scripts (`dense_bakeoff.py`, `adversarial_eval.py`,
+  `answer_sample_eval.py`, …) with fixed seeds.
+- [tests/test_day9_evidence.py](tests/test_day9_evidence.py): guards that the
+  links and numbers in EVIDENCE.md stay live and consistent.
+
+## Code
+
+- [src/learnarken/](src/learnarken/): the package — `chunking/`, `retrieval/`,
+  `answer/`, `validation/`, `repair/`, `adversarial/`, `graph/` (Neo4j dependency
+  graph + `impact()` query), `vespa/` (vector store).
+- [samples/](samples/): synthetic S1000D packages — `package-a` (legal),
+  `package-b` (enumerated violations), `package-c`.
+
+## Reproduce (common commands)
+
+- Retrieval ablation: `learnarken eval ablation --json` (needs local services).
+- Embedding bake-off: `uv run python tools/dense_bakeoff.py`.
+- Adversarial κ (deterministic, frozen labels): `uv run python tools/adversarial_eval.py --kappa-only`.
+- Dependency impact: `learnarken graph impact <DMC>` (needs Neo4j).
+- Full suite: `make test`.
+
+## Optional
+
+- [README.zh-CN.md](README.zh-CN.md): Chinese README (learning audience).
+- [docs/tutorials/](docs/tutorials/): twelve deep-dive tutorials (retrieval, KG,
+  LLM serving, agents, compliance, interview prep).
+- [docs/journal/](docs/journal/): human-written daily learning journals.
+- [docs/architecture/](docs/architecture/): subsystem architecture docs.
