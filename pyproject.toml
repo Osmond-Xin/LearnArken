@@ -57,3 +57,14 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+# Day 7 repair-agent budgets and sandbox policy (docs/specs/day7.md, Decision 4).
+# Versioned here so runs are reproducible (INV-5); CLI flags override.
+[tool.learnarken.repair]
+max_iterations = 12
+max_tokens = 60000
+no_progress_limit = 3
+sandbox_timeout_s = 10
+sandbox_mem_mb = 1024
+allowed_python_imports = ["lxml", "defusedxml", "re", "json", "collections", "itertools", "math"]
+shell_whitelist = ["xmllint", "cat", "grep", "head", "wc", "ls"]
