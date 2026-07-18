@@ -233,6 +233,51 @@ metrics over the full sampled sets — answerable_success, false_refusal_rate,
 trap_refusal_rate — coverage ≠ correctness; human groundedness review of the
 answered rows pending).
 
+### Adversarial evaluation — Day 8 (attack the RAG, judge groundedness, fix defects)
+
+`learnarken eval adversarial` runs a **32-case adversarial set**
+(`eval/golden/day8-adversarial.jsonl`; rewrite-invariance / perturbation /
+no-answer / cross-doc) through the answer engine, then scores each answered row
+for **groundedness with two heterogeneous judges — Codex (GPT-family) and agy
+(Gemini 3.1 Pro via Antigravity), never MiniMax** (the generator — same-family
+judging self-preferences its own hallucinations). The headline uses the
+**intersection** (both judges must pass); judge verdicts are frozen to
+`eval/results/day8-judge-*.json` for reproducibility.
+
+Defects exposed here are **generation-layer**. Root-cause analysis
+**exonerated retrieval** — the one candidate retrieval miss (a dropped cross-DM
+fact) was MiniMax non-determinism, not recall (its trace shows both facts
+retrieved). The fix is a prompt guardrail (entity/value alignment +
+no-derivation). Because MiniMax is non-deterministic at temperature 0, behavior
+is measured as a **mean over N=3 repeated runs**, frozen to
+`eval/results/day8-behavior-{before,after}.json`.
+
+Honest reading (INV-7): the **overall** behavior pass rate is essentially flat
+within the N=3 noise (0.94 → 0.93) — at this scale it is dominated by MiniMax
+non-determinism, not by the fix. What the guardrail **demonstrably** does is kill
+the one *reproducible* defect and lift judge-scored groundedness:
+
+| Metric | Before | After |
+| --- | --- | --- |
+| **Cross-doc aggregation defect** (X-01: sums 25 Nm + 18 Nm → "43 Nm") | **affirmed 3/3** | **eliminated 0/3** |
+| Intersection groundedness — 2 judges (single-run snapshot) | 0.53 | **0.63** |
+| Per-judge groundedness (Codex / agy) | 0.60 / 0.60 | **0.63 / 0.69** |
+| Overall behavior pass rate (N=3 mean) | 0.94 | 0.93 *(flat — noise-dominated)* |
+
+Decision-6 re-validation (same attacks re-run through the judges after the fix,
+never self-declared): X-01 flips affirm→refuse; P-03 flips hallucinated→grounded
+on both judges. One honest wrinkle — a *correct* answer (P-09: "25 Nm, not 25
+ft-lb") is still judged hallucinated by both, which is exactly why the judge is
+calibrated against human labels with **Cohen's Kappa** (soft gate 0.60), not
+trusted blind. The κ step (`tools/adversarial_eval.py --kappa-only`) is
+deterministic over the frozen judge labels; the human anchor set is pending
+(INV-6). Full evidence chain: [docs/notes/day8-defects.md](docs/notes/day8-defects.md).
+
+Reproduce: `learnarken eval adversarial --seed 42` (live judges); behavior
+distribution: `uv run python tools/adversarial_eval.py --repeat 3 --label after`
+(needs the local services, `MINIMAX_*` in `.env`, and the `codex` + `agy` CLIs;
+exact values drift run-to-run — the frozen artifact is the record).
+
 ## Roadmap (Honest Layering)
 
 - **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML

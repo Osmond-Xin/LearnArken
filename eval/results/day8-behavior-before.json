@@ -1,0 +1,17 @@
+{
+ "label": "before",
+ "generated_at": "2026-07-18T08:53:10.812639+00:00",
+ "n_runs": 3,
+ "n_cases": 32,
+ "pass_rate_per_run": [
+  0.9375,
+  0.9375,
+  0.9375
+ ],
+ "mean_pass_rate": 0.9375,
+ "fail_frequency": {
+  "ADV-X-01": 3,
+  "ADV-X-06": 3
+ },
+ "note": "MiniMax is non-deterministic at temp 0; values drift run-to-run"
+}

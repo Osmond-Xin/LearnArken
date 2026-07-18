@@ -447,6 +447,67 @@ def _cmd_eval_ablation(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_eval_adversarial(args: argparse.Namespace) -> int:
+    """Day 8 adversarial eval. Exit: 0 = ran; 1 = golden/corpus/service problem.
+
+    Runs live (MiniMax generation + Codex/Gemini judges); the report + frozen
+    per-judge artifacts are written for reproducibility (INV-5, decision D).
+    """
+    from learnarken.adversarial import build_report, evaluate, load_cases, write_artifacts
+    from learnarken.adversarial.judge import make_judges
+
+    try:
+        cases = load_cases(args.golden)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        print(f"error: cannot read adversarial set {args.golden}: {exc}", file=sys.stderr)
+        return 1
+    judges = make_judges(args.judge or ["codex", "agy"])
+    try:
+        rows = evaluate(cases, judges, packages=args.package or None)
+    except NotAPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        if type(exc).__name__ in (
+            "VespaError",
+            "GraphError",
+            "LLMError",
+            "ConfigError",
+            "EmbeddingError",
+            "ValueError",
+        ):
+            print(f"error (fail closed): {_sanitize(str(exc))}", file=sys.stderr)
+            return 1
+        raise
+    report = build_report(rows, judges, args.seed)
+    write_artifacts(report, judges, Path(args.report))
+    if args.json:
+        print(report.model_dump_json(indent=2))
+        return 0
+    judges_str = ",".join(report.judges)
+    lines = [
+        f"Adversarial eval · {report.n} cases · seed={report.seed} · judges={judges_str}",
+        f"  behavior pass rate: {report.behavior_pass_rate}",
+        f"  intersection groundedness (answered): {report.intersection_groundedness}",
+    ]
+    for cat, m in report.per_category.items():
+        lines.append(
+            f"    {cat:<20} behavior={m['behavior_pass_rate']}  "
+            f"(n={m['n']}, refused={m['refused']})"
+        )
+    for j, g in report.per_judge_groundedness.items():
+        lines.append(f"  judge[{j}] groundedness: {g}")
+    if report.inter_judge_disagreements:
+        lines.append(f"  judge disagreements: {', '.join(report.inter_judge_disagreements)}")
+    fails = [r for r in report.rows if not r.behavior_pass]
+    if fails:
+        lines.append(f"  behavior FAILURES ({len(fails)}) — candidate defects:")
+        for r in fails:
+            lines.append(f"    {r.case_id} [{r.category}/{r.expected_behavior}]: {r.behavior_note}")
+    print("\n".join(lines))
+    return 0
+
+
 def _cmd_query(args: argparse.Namespace) -> int:
     """Exit codes: 0 = answered; 3 = refused (placeholder); 1 = fail-closed
     error (services/LLM/config unavailable — never a degraded answer);
@@ -754,6 +815,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     ablation_parser.add_argument("--json", action="store_true", help="output JSON")
     ablation_parser.set_defaults(func=_cmd_eval_ablation)
+
+    adversarial_parser = eval_sub.add_parser(
+        "adversarial", help="Day 8 adversarial eval: attack the RAG + heterogeneous judges"
+    )
+    adversarial_parser.add_argument(
+        "--golden", default="eval/golden/day8-adversarial.jsonl", help="adversarial set (JSONL)"
+    )
+    adversarial_parser.add_argument(
+        "--package", action="append", help="package dir(s) (default: engine DEFAULT_PACKAGES)"
+    )
+    adversarial_parser.add_argument(
+        "--judge",
+        action="append",
+        default=None,
+        choices=["codex", "agy"],
+        help="judge CLI (repeatable; default: codex + agy). MiniMax-family is forbidden.",
+    )
+    adversarial_parser.add_argument(
+        "--report",
+        default="eval/results/day8-adversarial-report.json",
+        help="where to write the frozen report",
+    )
+    adversarial_parser.add_argument(
+        "--seed", type=int, default=42, help="recorded for reproducibility"
+    )
+    adversarial_parser.add_argument("--json", action="store_true", help="output JSON")
+    adversarial_parser.set_defaults(func=_cmd_eval_adversarial)
 
     args = parser.parse_args(argv)
     if getattr(args, "command", None) == "eval" and not args.package:
