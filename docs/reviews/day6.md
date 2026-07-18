@@ -98,7 +98,4 @@ each walked and hold.
 
 ## Part 2: Adjudication (Yi Xin — pending)
 
-> Human-written. For each finding: accept / reject + rationale, and the Day
-> assignment for any deferred item. Not drafted by the implementer. (The fixes
-> above are applied in code, but the accept/reject judgment — including whether
-> any should be reverted or reshaped — remains yours.)
+Accept all suggested revisions.
