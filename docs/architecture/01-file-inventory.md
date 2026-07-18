@@ -7,7 +7,8 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| [pyproject.toml](../../pyproject.toml) | 项目元数据与依赖单一事实源。运行时依赖仅 4 个（defusedxml / lxml / pydantic / rank-bm25），全部带上界 + `uv.lock` 锁定（Day 2 红队裁决 #13：解析器行为不许在未锁定安装下漂移）。注册 CLI 入口 `learnarken = learnarken.cli:main`。 |
+| [pyproject.toml](../../pyproject.toml) | 项目元数据与依赖单一事实源。运行时依赖现 14 个（Day 1 起步仅 4：defusedxml / lxml / pydantic / rank-bm25；Day 4–6 增至含 langchain 五件套、sentence-transformers、fastapi/uvicorn/python-multipart/requests），全部带上界 + `uv.lock` 锁定（Day 2 红队裁决 #13：解析器行为不许在未锁定安装下漂移）。注册 CLI 入口 `learnarken = learnarken.cli:main`。 |
+| [.env.example](../../.env.example) | 本地 `.env` 的形状模板：`MINIMAX_*` 四变量 + `NEO4J_*`，只记形状不记值（安全红线）。 |
 | [uv.lock](../../uv.lock) | 依赖锁文件，CI 用 `uv sync --locked` 安装，保证可复现（INV-5）。 |
 | [Makefile](../../Makefile) | 三个入口：`make test`（pytest）、`make lint`（ruff check + format --check）、`make fmt`（自动修复）。 |
 | [.pre-commit-config.yaml](../../.pre-commit-config.yaml) | 提交前钩子：ruff 检查/格式化 + 大文件/合并冲突/私钥泄漏/行尾空白检查。**detect-private-key 是安全红线的机器执行层**。 |
@@ -37,13 +38,15 @@
 | [rules.py](../../src/learnarken/validation/rules.py) | 169 | L2 BREX 规则表：Schematron 风格的声明式断言（rule id、severity、描述、fix hint、检查函数），不引入 isoschematron 工具链。BREX-001 是诚实标注的玩具启发式（危险词词表代替真实业务规则，INV-7）。 |
 | [report.py](../../src/learnarken/validation/report.py) | 58 | 四层共用的 Finding / ValidationReport Pydantic 模型（rule_id、layer、severity、file、line、path、message、fix_hint）。 |
 
-### 2.3 chunking/ — 结构感知分块（Day 3）
+### 2.3 chunking/ — 结构感知分块（Day 3–4）
 
 | 文件 | 行数 | 职责 |
 | --- | --- | --- |
 | [base.py](../../src/learnarken/chunking/base.py) | 104 | Chunk 模型 + 元数据继承：chunk 从 Day 2 DataModule 继承 DMC、applicability（排除场合）、hazard 标志（紧急场合，见 discussions/day3 D4）、`outbound_dm_refs`/`icn_refs`（**图谱钩子**，D3 的"不许饿死未来图谱"义务）。chunk_id 确定性生成（内容哈希），复跑不变。 |
 | [structure.py](../../src/learnarken/chunking/structure.py) | 113 | **结构感知策略（主力）**：沿文档自带的切线切——每个 procedural step 一块（行内 warning 折入并置 hazard 标志）、reqSafety 前置警告独立成块、前置条件/收尾各成块、描述节按 levelledPara 切。每块保留 XPath 锚点（golden set 按锚点标注）。 |
 | [recursive.py](../../src/learnarken/chunking/recursive.py) | 74 | **递归字符窗口策略（对照组）**：故意结构盲，800 字符窗口 / 100 重叠，在词边界断开。存在的意义是让评估表**量化**结构感知值多少分。 |
+| [semantic.py](../../src/learnarken/chunking/semantic.py) | 128 | **语义分块策略（Day 4a，spec Q5）**：Day 3 D1 承诺的第三策略，embedding 就位后交付。结构盲但按内容切——逐句嵌入、量邻句距离、在距离尖峰处断；断点取 DM 自身距离的 95 分位（自适应，不用固定余弦阈值）。唯一发网络调用的分块器，活体测试打 `integration` 标。 |
+| [documents.py](../../src/learnarken/chunking/documents.py) | 30 | Chunk ⇄ LangChain `Document` 的**唯一转换点**（Day 4a，D13）：metadata 无损往返完整 Chunk（适用性/hazard/图谱钩子）。 |
 | [\_\_init\_\_.py](../../src/learnarken/chunking/__init__.py) | 81 | `chunk_package` 入口：遍历包内 DM，按策略产出 chunk；复用 Day 2 loader，不重复解析。 |
 
 ### 2.4 retrieval/ — BM25 基线、稠密/混合检索与评估（Day 3–4）
@@ -80,7 +83,7 @@
 | --- | --- |
 | [api/app.py](../../src/learnarken/api/app.py) | FastAPI 后端:`/health`(四服务 fail-closed 探测)、`/upload`(信封检查→四层校验→索引,**staging 事务化 + 原子换入**)、`/query`(SSE:status/token/retract/result/error/done,**召回覆盖门拒答与传输中断**)。路由 `def`(同步栈进线程池);CSRF Origin 门守状态变更路由;fail-closed 分类镜像 CLI 的 INV-4 映射。 |
 
-## 三、demo/ · tools/ — 演示与脚本（Day 6）
+## 三、demo/ · tools/ — 演示与脚本（Day 4–6）
 
 | 文件 | 职责 |
 | --- | --- |
@@ -88,6 +91,9 @@
 | [tools/run_demo.sh](../../tools/run_demo.sh) | `make demo`:fail-closed 预检 → uvicorn 单 worker → 轮询 `/health`(60s 不健康非零退出)→ Streamlit,均 loopback。 |
 | [tools/demo_preflight.py](../../tools/demo_preflight.py) | 预检:repo-root cwd、`.env`、阈值 artifact、Vespa、Neo4j——缺则给修复命令并中止。 |
 | [tools/measure_refusal_threshold.py](../../tools/measure_refusal_threshold.py) / [answer_sample_eval.py](../../tools/answer_sample_eval.py) | Day 5:从 golden 分数分布测拒答阈值(INV-5 artifact);带引用问答样本评估。 |
+| [tools/dense_bakeoff.py](../../tools/dense_bakeoff.py) / [probe_length_bias.py](../../tools/probe_length_bias.py) | Day 4a:dense 模型 bake-off(BGE-M3 vs Qwen3-8B;历史 MiniMax 行在 `b414fa4` 复现)；长度偏置证据脚本(自带 MiniMax 客户端,保证裁决证据可复跑 INV-5)。 |
+| [tools/gen_benchmark_tables.py](../../tools/gen_benchmark_tables.py) | 从 eval artifacts **生成** README 基准表(红队 day4 #1:手编表出过 R@5 > R@10 的算术不可能;标记区间内原地重写,禁止手改)。 |
+| [tools/deep_research.py](../../tools/deep_research.py) | 每日循环步骤 1a(研)的自动化通道:Gemini Interactions API 跑官方 Deep Research(需付费 key;截至 2026-07-15 未实跑验证)。 |
 
 ## 四、tests/ — 测试（与实现同 PR 交付）
 
@@ -111,6 +117,9 @@
 | [golden/README.md](../../eval/golden/README.md) | 双文件双作者制的说明（检索评估的红线：**相关性判断必须人做**）。 |
 | [golden/day3.jsonl](../../eval/golden/day3.jsonl) | **人工标注的权威 golden set**：32 题（27 可答 + 5 无答案陷阱），Yi Xin 判定相关性。 |
 | golden/day4.jsonl | Day 4 消融用 golden（带分类标签）。 |
+| golden/day3.candidates.jsonl / day4.candidates.jsonl | AI 起草的候选题（红线：AI 只许起草，相关性判定人做；裁定后进权威 golden）。 |
+| results/day4-ablation.json / day4-bakeoff.json / day4-bakeoff-historical.json | Day 4 消融与 dense bake-off 数字 artifact——README 表由 `gen_benchmark_tables.py` 从这里生成；historical 保留 MiniMax 长度偏置的证据行。 |
+| results/day5-answer-sample.json | Day 5 带引用问答样本评估结果（`answer_sample_eval.py` 产出）。 |
 | results/day5-refusal-threshold.json | **Day 5 实测拒答阈值 artifact（INV-5）**：从 golden 分数分布测出、非手挑，`load_threshold` 加载时校验有限且 ∈[0,1]（红队 day5 #6）。 |
 | traces/（git-ignored） | 每次 `query` 落一份五跨度 answer trace，可从语料复现。 |
 
@@ -135,6 +144,9 @@
 | [reviews/day1–6.md](../reviews/) | 红队 findings（非实现方模型出）+ 人工逐条裁决（Day 6 为两轮:跨宿主对抗 + 安全评审） | AI + 人 |
 | [journal/day1–6.md](../journal/) | 学习日志（固定三问），**AI 永不触碰** | 人 |
 | [research/dayN-*.md](../research/) | 每日「研→读→扫」的未知点扫描（AI 生成、标注），交叉引用深调研报告 + 教程 | AI 起草 |
+| [gemini-deepresearch/](../gemini-deepresearch/) | 每日「研」的深调研报告存档（day1–10，2026-07-15 一次生成；REVIEW.md 为人工审读记录） | 外部生成、人审 |
+| [notes/](../notes/) | 测量笔记：Day 4 dense bake-off、嵌入长度偏置、失败案例分析——选型裁决的证据文件 | AI 起草 |
+| [handoff/](../handoff/) | 跨会话交接文档（day4–6）：当日状态、待办、坑位 | AI 起草 |
 | [redteam.md](../redteam.md) | 红队配方：轻量交叉评审 + 重型 Producer→Challenger→Reviser 循环 | 人 |
 | [local-services.md](../local-services.md) | **本地服务手册**：Vespa/Neo4j docker 连接信息、MiniMax API 环境变量形状（无密钥值） | 人+AI |
 | [adr/](../adr/) | 架构决策记录:0001 Day4b 关门、0002 最小图查询切片 | 人主导 |

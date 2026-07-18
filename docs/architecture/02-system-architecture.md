@@ -1,7 +1,7 @@
 # 02 · 系统架构：数据流、模块设计思路与稳健性评估
 
 > **AI-drafted，待人审**。快照：2026-07-17（Day 5 已合并 v0.5.0；Day 6 实现完成、
-> 待提交）。图中实线 = 已实现；虚线 = 已完成选型/部署但代码未写（Day 7+ 计划）。
+> 待提交）。图中全部节点均已实现（Day 1–6）。
 > Day 6 的服务化架构单列于 [05-api-and-demo](05-api-and-demo.md)。
 
 ## 1. 总架构图
@@ -23,9 +23,10 @@ flowchart TB
         REPORT["report.py<br/>Finding / ValidationReport"]
     end
 
-    subgraph CHUNK["分块层（Day 3）"]
+    subgraph CHUNK["分块层（Day 3–4）"]
         STRUCT["structure.py<br/>结构感知（主力）"]
         RECUR["recursive.py<br/>字符窗口（对照）"]
+        SEM["semantic.py<br/>语义断点（Day 4a 对照）"]
         CHUNKM["base.py Chunk 模型<br/>DMC/适用性/hazard/图谱钩子"]
     end
 
@@ -60,6 +61,7 @@ flowchart TB
     MODEL --> CHUNKM
     STRUCT --> CHUNKM
     RECUR --> CHUNKM
+    SEM --> CHUNKM
     CHUNKM --> BM25 --> EVAL
     CHUNKM --> DENSE --> FUSE
     DENSE --> VESPA
@@ -74,8 +76,6 @@ flowchart TB
     CLI --- VALID
     CLI --- CHUNKM
     CLI --- BM25
-
-    classDef planned stroke-dasharray: 5 5,opacity:0.75;
 ```
 
 ## 2. 数据流（一条 XML 的旅程）
@@ -116,7 +116,7 @@ flowchart LR
         BM25R["BM25Retriever<br/>(langchain-community)"]
         SPLIT["RecursiveCharacterTextSplitter<br/>(recursive 对照策略)"]
         DOC["Document"]
-        FUT["EnsembleRetriever(RRF)<br/>CrossEncoderReranker<br/>LCEL/chains (Day 5)"]:::planned
+        FUSED["EnsembleRetriever(RRF)<br/>CrossEncoderReranker<br/>(hybrid.py, Day 4b)"]
     end
     subgraph OURS["领域层（不可外包给框架的部分）"]
         TOK["保标识符分词器<br/>→ 作为 preprocess_func 注入"]
@@ -128,7 +128,6 @@ flowchart LR
     CHUNKM <-->|"chunking/documents.py<br/>唯一转换点"| DOC
     TOK --> BM25R
     HARD --> BM25R
-    classDef planned stroke-dasharray: 5 5,opacity:0.75;
 ```
 
 各天代码的 LangChain 化审计结论（D13）：
@@ -141,10 +140,12 @@ flowchart LR
 | Day 3 structure-aware 分块 | 领域 IP，无等价物，保留；经 `Document` 桥接进框架 |
 | Day 4 embedding 供应商 | 全部躲在 `Embeddings` 接口后（MiniMax 自研适配器——stock 版连不上带 X-Proxy-Token 的代理；本地模型用 `HuggingFaceEmbeddings`） |
 | 评估 harness | 无等价物（IR 指标），保留 |
-| Day 4 剩余（RRF/rerank）与 Day 5 RAG | 计划用 `EnsembleRetriever` / `CrossEncoderReranker` / LCEL（框架学习价值最高处） |
+| Day 4b RRF/rerank | **已落地**：LC `EnsembleRetriever`（RRF 融合）+ `CrossEncoderReranker`（bge-reranker-v2-m3，经 `HuggingFaceCrossEncoder`），import 自 `langchain-classic` |
+| Day 5 RAG 编排 | **未用 LCEL**——answer 引擎自研同步栈：三门 fail-closed 是领域逻辑不外包；LLM 客户端因非标准 X-Proxy-Token 头也自研（urllib） |
 
-已知风险：`langchain-community`（BM25Retriever 所在包）**已进入日落期**
-（import 时有弃用警告）。接受理由：底层就是我们已有的 rank-bm25，且领域层
+已知风险：`langchain-community`（BM25Retriever 与 reranker 的
+`HuggingFaceCrossEncoder` 所在包）**已进入日落期**（import 时有弃用警告）。
+接受理由：底层就是我们已有的 rank-bm25 / sentence-transformers，且领域层
 包装使得改挂别处是半天工作量；出现独立集成包后再迁。
 
 ### 3.1 单向分层，无环依赖
@@ -153,9 +154,11 @@ flowchart LR
 package.py ──┐
 loader.py ───┼──▶ models.py（只被依赖，不依赖任何人）
 validation/ ─┘         ▲
-chunking/  ────────────┤   chunking 依赖 loader + models
-retrieval/ ────────────┘   retrieval 只依赖 chunking（Chunk 即接口）
-cli.py ──▶ 以上全部（唯一的编排点）
+chunking/  ────────────┘        chunking 依赖 loader + models
+retrieval/ ──▶ chunking + embedding/ + vespa/   （Chunk 即接口，看不见 XML）
+answer/ ─────▶ retrieval + llm/ + graph/        （三门拒答在这一层）
+cli.py ──┐
+api/ ────┴──▶ 以上全部（两个平行编排点，不含领域逻辑）
 ```
 
 - **models.py 是纯数据层**：零业务逻辑，谁都可以依赖它，它不依赖任何模块。

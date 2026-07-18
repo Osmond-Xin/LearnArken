@@ -243,9 +243,20 @@ answered rows pending).
   identifier-preserving BM25 baseline + human-annotated golden-set evaluation
   (`search`, `eval retrieval`); Vespa-backed dense retrieval (Qwen3-8B,
   revision-pinned), hybrid RRF + cross-encoder rerank, package-scoped search,
-  four-mode ablation with generated benchmark tables (`index`, `eval ablation`)
+  four-mode ablation with generated benchmark tables (`index`, `eval ablation`);
+  grounded question answering with mandatory citations or explicit refusal —
+  three fail-closed gates (rerank threshold, LLM answerability, verbatim-quote
+  citation verification) — via `query` (Day 5); a local demo (FastAPI backend +
+  Streamlit dumb client, SSE streaming with a retraction protocol, transactional
+  upload) via `make demo` (Day 6); an LLM-driven ReAct **repair agent** that
+  diagnoses L0–L3 validation findings and proposes minimal structured patches,
+  trusted only when the deterministic validator re-runs clean, with a default
+  dry-run and an approve-then-write `--apply` (per-patch human gate, never
+  silent — constitution §1.3) via `repair` (Day 7)
 - **Toy-scale**: synthetic sample-package size; single-machine simulation of
-  distributed behavior
+  distributed behavior; the repair agent's sandbox is an application-layer fence
+  (import/argv allow-list + temp-dir jail + resource limits), not OS-level
+  isolation; the demo is single-user and loopback-bound with no auth
 - **Considered and declined on evidence**: SPLADE and ColBERT — the Day 4b
   gates stayed shut on the reviewed ablation (the paraphrase gap SPLADE
   would treat is closed by dense at 1.00; identifier queries are not losing),
@@ -273,7 +284,10 @@ answered rows pending).
 | [docs/project-design.md](docs/project-design.md) | Full design, JD coverage matrix, milestones |
 | [docs/specs/](docs/specs/) · [docs/reviews/](docs/reviews/) · [docs/journal/](docs/journal/) | Daily evidence chain: specs / red team + adjudication / journals |
 | [docs/discussions/](docs/discussions/) | Distilled design discussions: question → options → decision → rationale |
-| [docs/redteam.md](docs/redteam.md) | Red-team recipes (light cross-review + heavy adversarial loop) |
+| [docs/architecture/](docs/architecture/README.md) | Architecture snapshot & change baseline (file inventory, data flow, config, tech selection, API/demo) |
+| [docs/research/](docs/research/README.md) · [docs/gemini-deepresearch/](docs/gemini-deepresearch/) | Daily deep-research reports + unknowns scans (研→读→扫 learning loop) |
+| [docs/adr/](docs/adr/) | Architecture decision records (Day 4b gate, minimal graph-query slice) |
+| [docs/redteam.md](docs/redteam.md) · [docs/local-services.md](docs/local-services.md) | Red-team recipes; local Vespa/Neo4j/MiniMax service handbook |
 | [docs/tutorials/00-overview.md](docs/tutorials/00-overview.md) | Zero-background tutorial series (Chinese) |
 | [samples/](samples/README.md) | S1000D sample notes and license audit |
 | [CLAUDE.md](CLAUDE.md) | Operating rules and role boundaries for the AI implementer |
@@ -290,6 +304,13 @@ make test                                      # ruff + pytest
 uv run learnarken inspect samples/package-a    # summarize a sample package
 uv run learnarken validate samples/package-b   # four-layer validation findings
 ```
+
+`inspect` and `validate` run offline. The retrieval, QA and repair paths
+(`index`, `query`, `repair`, `make demo`) need the local services up
+(Vespa + Neo4j) and a repo-root `.env` (`MINIMAX_*`, `NEO4J_*`) — see
+[docs/local-services.md](docs/local-services.md). In particular `repair`
+drives an LLM ReAct loop per finding; `repair --apply` writes a fix only after
+a per-patch human approval (constitution §1.3).
 
 Validation results are only claimed for locked installs (`uv.lock`); CI runs
 `uv sync --locked` so parser behavior cannot drift with dependency versions.

@@ -25,7 +25,7 @@
 
 | 选型 | 候选 | 决定与理由 | 出处 |
 | --- | --- | --- | --- |
-| 结构感知分块（主力）+ 递归窗口（对照） | 一次做齐三种（含语义分块） | S1000D-like 文档自带切线（步骤/警告/引用）；语义分块需要 embedding，挪到 Day 4 消融，避免踩两日滑点规则（INV-8） | [discussions/day3 D1](../discussions/day3.md) |
+| 结构感知分块（主力）+ 递归窗口（对照） | 一次做齐三种（含语义分块） | S1000D-like 文档自带切线（步骤/警告/引用）；语义分块需要 embedding，挪到 Day 4 消融，避免踩两日滑点规则（INV-8）。**语义分块已如期于 Day 4a 落地**（`semantic.py`，百分位断点），作第三对照策略 | [discussions/day3 D1](../discussions/day3.md) |
 | rank-bm25（进程内） | Tantivy | 语料极小，服务化索引是过度工程；瓶颈在分词不在引擎 | specs/day3 Q1 |
 | 自写保标识符分词器 | 库默认分析器 | 技术语料单点杠杆最高的修复：`DMC-…`/件号保持整 token，否则标识符查询被数字碎片淹没 | [教程 02 §1](../tutorials/02-information-retrieval.md)、bm25.py |
 | 人工标注 golden set | LLM 标注 | 检索评估的判断力红线：相关性判断必须人做，AI 只许起草候选 | execution-plan Day 3、eval/golden/README |
