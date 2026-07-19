@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the LearnArken idle watchdog every minute
+
+[Timer]
+# First check 5 minutes after boot (startup grace), then every minute.
+OnBootSec=5min
+OnUnitActiveSec=1min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

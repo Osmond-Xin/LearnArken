@@ -1,0 +1,17 @@
+[Unit]
+Description=LearnArken demo containers (vespa + neo4j), root-owned
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+# Root owns the Docker socket so the unprivileged app user never joins the
+# docker group (which is root-equivalent — day10 #11). This unit starts the
+# containers; the demo unit only runs Python.
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker start learnarken-vespa learnarken-neo4j
+ExecStop=/usr/bin/docker stop learnarken-vespa learnarken-neo4j
+
+[Install]
+WantedBy=multi-user.target

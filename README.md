@@ -82,7 +82,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | 7 | Validation-repair agent | `v0.7.0` | ✅ 2026-07-17 |
 | 8 | Adversarial evaluation: attacking my own RAG ⚑ heavy red team | `v0.8.0` | ✅ 2026-07-18 |
 | 9 | Evidence chain & machine readability | `v0.9.0` | ✅ 2026-07-18 |
-| 10 | Deployment & wrap-up | `v1.0.0` | ⬜ |
+| 10 | On-demand real-stack deployment & wrap-up | `v1.0.0` | ✅ 2026-07-18 |
 
 Benchmark tables, ablations, and adversarial-evaluation results will appear
 below this section as the corresponding nodes complete. Every number comes
@@ -282,6 +282,30 @@ distribution: `uv run python tools/adversarial_eval.py --repeat 3 --label after`
 (needs the local services, `MINIMAX_*` in `.env`, and the `codex` + `agy` CLIs;
 exact values drift run-to-run — the frozen artifact is the record).
 
+## Live Demo (On-Demand)
+
+The full stack (Vespa + Neo4j + local embedding/rerank models + MiniMax) is too
+heavy for any free tier, so instead of a permanently-degraded copy the demo runs
+the **real stack, on demand**:
+
+- A recruiter opens a per-recipient token link → a static status page that
+  doubles as a guided walkthrough (architecture + key points) and a live state
+  monitor (**closed → starting → running → auto-closing**).
+- Clicking *start* boots a stopped GCP VM running the exact `make demo` topology
+  — the same code and same benchmarks, **no substituted backend, no INV-5
+  caveat**. The page shows real per-stage self-check progress, then a countdown.
+- **Cost fences (fail-closed, layered):** 30-minute business-idle auto-shutdown
+  and a 3-hour hard cap, both enforced in-VM from the kernel clock; an in-process
+  LLM call quota + concurrency cap (MiniMax spend is not GCP billing, so this is
+  the real spend fence); a shared access key on every spending route; uploads and
+  full prompt/answer traces disabled in public mode; a `$20` budget alert.
+
+This is deliberately **one-visitor-at-a-time and cost-aware**, not a
+high-availability service — the trigger itself is the interest signal. Mechanism,
+security envelope and the exact `gcloud` commands are in
+[deploy/runbook.md](deploy/runbook.md); the cross-host red-team review of the
+deploy slice is [docs/reviews/day10.md](docs/reviews/day10.md).
+
 ## Roadmap (Honest Layering)
 
 - **Implemented**: `inspect` CLI (package summary, JSON output, hardened XML
@@ -308,11 +332,18 @@ exact values drift run-to-run — the frozen artifact is the record).
   query (reverse `dmRef` traversal, cycle-safe, depth-bounded) via
   `graph impact`, and a machine-readable evidence chain (`llms.txt`,
   [docs/EVIDENCE.md](docs/EVIDENCE.md), [docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md))
-  (Day 9)
+  (Day 9); an **on-demand real-stack deployment** — a token-gated Cloud Function
+  boots a stopped GCP VM running the full `make demo` topology behind a
+  static status/guide page, with layered fail-closed cost fences (in-VM idle +
+  hard-cap shutdown, in-process LLM spend quota, shared-key gate, public-mode
+  upload/trace kill switches) — see [deploy/](deploy/runbook.md) (Day 10)
 - **Toy-scale**: synthetic sample-package size; single-machine simulation of
   distributed behavior; the repair agent's sandbox is an application-layer fence
   (import/argv allow-list + temp-dir jail + resource limits), not OS-level
-  isolation; the demo is single-user and loopback-bound with no auth
+  isolation; the local demo is single-user and loopback-bound with no auth, and
+  the on-demand public deployment is single-visitor with a shared-key gate and
+  plain-HTTP transport (TLS/per-recipient session auth are deferred, see
+  [docs/reviews/day10.md](docs/reviews/day10.md))
 - **Considered and declined on evidence**: SPLADE and ColBERT — the Day 4b
   gates stayed shut on the reviewed ablation (the paraphrase gap SPLADE
   would treat is closed by dense at 1.00; identifier queries are not losing),
@@ -352,6 +383,7 @@ exact values drift run-to-run — the frozen artifact is the record).
 | [docs/redteam.md](docs/redteam.md) · [docs/local-services.md](docs/local-services.md) | Red-team recipes; local Vespa/Neo4j/MiniMax service handbook |
 | [docs/tutorials/00-overview.md](docs/tutorials/00-overview.md) | Zero-background tutorial series (Chinese) |
 | [samples/](samples/README.md) | S1000D sample notes and license audit |
+| [deploy/](deploy/runbook.md) | On-demand GCP deploy: VM stack, idle watchdog, token trigger function, status page, runbook |
 | [CLAUDE.md](CLAUDE.md) | Operating rules and role boundaries for the AI implementer |
 
 Some learning materials (tutorials, journals) are written in Chinese; all

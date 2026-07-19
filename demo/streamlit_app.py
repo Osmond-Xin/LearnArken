@@ -13,11 +13,32 @@ HTML/JS into the operator's browser.
 """
 
 import json
+import os
 
 import requests
 import streamlit as st
 
 API_BASE = "http://127.0.0.1:8100"
+
+# Public-demo mode (day10): the app is internet-exposed, so it forwards the
+# shared access key (from its own `?k=` query param) to the backend on every
+# spending/mutating call, hides the corpus-mutating upload tab, and never
+# renders health-probe detail strings. All no-ops when DEMO_PUBLIC is unset,
+# so local `make demo` is unchanged.
+DEMO_PUBLIC = os.environ.get("DEMO_PUBLIC") == "1"
+DEMO_GATE_KEY = os.environ.get("DEMO_GATE_KEY", "")
+
+
+def _visitor_key() -> str:
+    try:
+        return st.query_params.get("k", "")
+    except Exception:  # older Streamlit API shape
+        return ""
+
+
+def _demo_headers() -> dict:
+    return {"X-Demo-Key": _visitor_key()} if DEMO_PUBLIC else {}
+
 
 STAGE_LABELS = {
     "retrieval": "检索中 (retrieval)…",
@@ -114,10 +135,7 @@ def render_upload_outcome(status_code: int, payload: dict) -> None:
         if not findings and payload.get("message"):
             st.text(payload["message"])
         for f in findings:
-            st.text(
-                f"[{f['layer']}/{f['rule_id']}/{f['severity']}] "
-                f"{f['file']}: {f['message']}"
-            )
+            st.text(f"[{f['layer']}/{f['rule_id']}/{f['severity']}] {f['file']}: {f['message']}")
     elif status == "index_failed":
         st.error(f"🚫 校验通过但入库失败(fail closed,文件已移除):{payload.get('message')}")
     else:
@@ -127,45 +145,54 @@ def render_upload_outcome(status_code: int, payload: dict) -> None:
 st.set_page_config(page_title="LearnArken Demo", page_icon="📘", layout="wide")
 st.title("LearnArken — 上传 + 有据问答 Demo(Day 6)")
 
+if DEMO_PUBLIC and not (DEMO_GATE_KEY and _visitor_key() == DEMO_GATE_KEY):
+    # Visitor-facing gate: without the shared key from the token status page,
+    # the app renders nothing spendable (day10 #1). The backend enforces the
+    # same key on /query and /upload as defense in depth.
+    st.warning("此在线 Demo 需从邀请链接进入(缺少访问密钥)。请通过邮件中的链接打开。")
+    st.stop()
+
 with st.sidebar:
     st.subheader("后端状态")
     st.caption("Streamlit 是哑客户端:所有计算都发生在 FastAPI 后端。")
     try:
-        resp = requests.get(f"{API_BASE}/health", timeout=10)
-        health = safe_json(resp.text, default={})
-        services = health.get("services") if isinstance(health, dict) else None
+        # Public-safe: /demo/status returns stage booleans only, never probe
+        # detail strings (day10 #7 — /health leaked internal paths to the UI).
+        resp = requests.get(f"{API_BASE}/demo/status", timeout=10)
+        status = safe_json(resp.text, default={})
+        services = status.get("services") if isinstance(status, dict) else None
         if not services:
             st.error(f"后端返回了非预期响应(HTTP {resp.status_code})。请先 `make demo`。")
         else:
-            for name, s in services.items():
-                if s.get("ok"):
-                    st.markdown(f"🟢 {name}")
-                else:
-                    st.markdown(f"🔴 {name}")
-                    st.caption(s.get("detail", ""))
+            for name, ok in services.items():
+                st.markdown(f"{'🟢' if ok else '🔴'} {name}")
     except requests.RequestException as exc:
         st.error(f"后端不可达({API_BASE}):{exc.__class__.__name__}。请先 `make demo`。")
 
-upload_tab, qa_tab = st.tabs(["📤 上传文档", "💬 问答"])
+tabs = ["💬 问答"] if DEMO_PUBLIC else ["📤 上传文档", "💬 问答"]
+tab_objs = st.tabs(tabs)
+qa_tab = tab_objs[-1]
+upload_tab = None if DEMO_PUBLIC else tab_objs[0]
 
-with upload_tab:
-    st.caption("上传合成 S1000D 数据模块(.xml ≤ 2 MiB)。后端跑四层校验;通过才入库。")
-    uploaded = st.file_uploader("选择 XML 文件", type=["xml"])
-    if uploaded is not None and st.button("上传并校验", type="primary"):
-        with st.spinner("校验 + 入库中(通过则全库重建索引,需要一点时间)…"):
-            try:
-                resp = requests.post(
-                    f"{API_BASE}/upload",
-                    files={"file": (uploaded.name, uploaded.getvalue(), "application/xml")},
-                    timeout=600,
-                )
+if upload_tab is not None:
+    with upload_tab:
+        st.caption("上传合成 S1000D 数据模块(.xml ≤ 2 MiB)。后端跑四层校验;通过才入库。")
+        uploaded = st.file_uploader("选择 XML 文件", type=["xml"])
+        if uploaded is not None and st.button("上传并校验", type="primary"):
+            with st.spinner("校验 + 入库中(通过则全库重建索引,需要一点时间)…"):
                 try:
-                    payload = resp.json()
-                except ValueError:
-                    payload = {"detail": resp.text[:300]}
-                render_upload_outcome(resp.status_code, payload)
-            except requests.RequestException as exc:
-                st.error(f"后端不可达:{exc.__class__.__name__}。请先 `make demo`。")
+                    resp = requests.post(
+                        f"{API_BASE}/upload",
+                        files={"file": (uploaded.name, uploaded.getvalue(), "application/xml")},
+                        timeout=600,
+                    )
+                    try:
+                        payload = resp.json()
+                    except ValueError:
+                        payload = {"detail": resp.text[:300]}
+                    render_upload_outcome(resp.status_code, payload)
+                except requests.RequestException as exc:
+                    st.error(f"后端不可达:{exc.__class__.__name__}。请先 `make demo`。")
 
 with qa_tab:
     if "history" not in st.session_state:
@@ -189,6 +216,7 @@ with qa_tab:
                 with requests.post(
                     f"{API_BASE}/query",
                     json={"question": question},
+                    headers=_demo_headers(),
                     stream=True,
                     timeout=600,
                 ) as resp:

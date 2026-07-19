@@ -1,0 +1,5 @@
+{
+  "_comment": "Format documentation ONLY. The real token->recipient map is set as the TOKENS_JSON env var on the Cloud Function and NEVER committed (INV-1-adjacent: recipient identities are private job-search data). Generate tokens with: python3 -c \"import secrets; print(secrets.token_urlsafe(24))\"",
+  "REPLACE-with-a-random-token": "example-company-a",
+  "REPLACE-with-another-token": "example-company-b"
+}

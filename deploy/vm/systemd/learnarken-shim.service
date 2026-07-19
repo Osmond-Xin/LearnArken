@@ -1,0 +1,15 @@
+[Unit]
+Description=LearnArken public read-only status shim (:8110)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=learnarken
+WorkingDirectory=/opt/learnarken/LearnArken
+ExecStart=/usr/bin/python3 deploy/vm/status_shim.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

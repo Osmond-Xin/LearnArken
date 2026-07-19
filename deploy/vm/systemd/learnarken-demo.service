@@ -1,0 +1,22 @@
+[Unit]
+Description=LearnArken on-demand demo app (FastAPI + Streamlit)
+After=learnarken-containers.service network-online.target
+Requires=learnarken-containers.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=learnarken
+WorkingDirectory=/opt/learnarken/LearnArken
+# Public-demo env (DEMO_PUBLIC=1, DEMO_GATE_KEY, LEARNARKEN_TRACE_DISABLED=1,
+# DEMO_MAX_LLM_CALLS, ...) is written by provision.sh with 600 perms.
+EnvironmentFile=/opt/learnarken/demo.env
+ExecStart=/usr/bin/env bash deploy/vm/run_demo_vm.sh
+# Wipe any uploaded corpus when the app stops (day10 #4: uploads must never
+# persist across visitors or VM sessions).
+ExecStopPost=/bin/rm -rf /opt/learnarken/LearnArken/var/uploads
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

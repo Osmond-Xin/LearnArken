@@ -1,0 +1,7 @@
+[Unit]
+Description=LearnArken idle watchdog (30 min idle / 3 h hard cap -> poweroff)
+
+[Service]
+Type=oneshot
+# Root on purpose: the watchdog's whole job is `systemctl poweroff`.
+ExecStart=/usr/bin/python3 /opt/learnarken/LearnArken/deploy/vm/idle_watchdog.py

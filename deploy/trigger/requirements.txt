@@ -1,0 +1,4 @@
+# Pinned to compatible-release (day10 #12: no bare wildcard majors). Regenerate
+# a hash-locked pin with `uv pip compile` before a production deploy.
+functions-framework~=3.8
+google-cloud-compute~=1.19

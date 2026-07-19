@@ -38,6 +38,7 @@ import queue
 import re
 import shutil
 import threading
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -48,6 +49,7 @@ from pydantic import BaseModel, Field
 from learnarken import graph, vespa
 from learnarken.answer import answer_question
 from learnarken.answer.engine import DEFAULT_PACKAGES, load_threshold
+from learnarken.api.demo_guard import GUARD
 from learnarken.config import REPO_ROOT, load_minimax_config
 from learnarken.package import NotAPackageError, _sanitize
 from learnarken.retrieval import index_package
@@ -81,7 +83,21 @@ _FAIL_CLOSED = (
     "ValueError",
     "PartialPackageError",
     "NotAPackageError",
+    "DemoQuotaExceeded",  # public-demo spend/concurrency fence (day10 #2)
 )
+
+# On-demand demo bookkeeping (SPEC day10): the idle watchdog and the public
+# status page read these through /demo/status. Only *business* endpoints
+# (/query, /upload) touch the activity clock — health/status polling must
+# never reset it, or the 30-minute idle shutdown would never fire (unknowns
+# T1). Plain float writes are atomic enough under the GIL for this purpose.
+_STARTED_AT = time.time()
+_activity: dict[str, float | None] = {"ts": None}
+
+
+def _touch_activity() -> None:
+    _activity["ts"] = time.time()
+
 
 # Serializes upload commits against each other AND against the brief active-dir
 # swap. Queries are not held here (they re-chunk from disk, and staging
@@ -115,6 +131,17 @@ def _guard_csrf(request: Request) -> None:
             status_code=403,
             detail="cross-origin request refused (the demo is loopback-only)",
         )
+
+
+def _guard_demo_key(request: Request) -> None:
+    """Public-mode shared-key gate on spending/mutating routes (day10 #1).
+
+    No-op outside `DEMO_PUBLIC=1`, so local `make demo` and tests are
+    unchanged. The visitor's Streamlit client forwards the key it received
+    from the token status page as `X-Demo-Key`.
+    """
+    if not GUARD.key_ok(request.headers.get("x-demo-key")):
+        raise HTTPException(status_code=403, detail="demo access key required or invalid")
 
 
 def _rmtree(path: Path) -> None:
@@ -258,9 +285,40 @@ def create_app() -> FastAPI:
         ok = all(s["ok"] for s in services.values())
         return {"status": "ok" if ok else "degraded", "services": services}
 
+    @app.get("/demo/status")
+    def demo_status() -> dict:
+        """Public self-check for the on-demand demo (SPEC day10).
+
+        Deliberately coarser than /health: stage booleans only, never probe
+        detail strings — details can carry exception text and this endpoint is
+        exposed beyond loopback via the VM status shim (unknowns T2).
+        """
+        services = {
+            "vespa": _probe(vespa.is_up)["ok"],
+            "neo4j": _probe(graph.is_up)["ok"],
+            "llm_config": _probe(load_minimax_config)["ok"],
+            "threshold_artifact": _probe(load_threshold)["ok"],
+        }
+        now = time.time()
+        last = _activity["ts"]
+        return {
+            "status": "ready" if all(services.values()) else "degraded",
+            "services": services,
+            "started_at": _STARTED_AT,
+            "uptime_seconds": round(now - _STARTED_AT, 1),
+            "last_business_activity": last,
+            "idle_seconds": round(now - (last if last is not None else _STARTED_AT), 1),
+        }
+
     @app.post("/upload")
     def upload(request: Request, file: UploadFile):
         _guard_csrf(request)
+        if not GUARD.uploads_allowed():
+            # Uploads mutate the shared live corpus and persist across visitors
+            # (day10 #4) — refused outright on the public demo.
+            raise HTTPException(status_code=403, detail="uploads are disabled on the public demo")
+        _guard_demo_key(request)
+        _touch_activity()
         content_length = request.headers.get("content-length")
         if (
             content_length
@@ -292,6 +350,8 @@ def create_app() -> FastAPI:
     @app.post("/query")
     def query(request: Request, body: QueryRequest) -> StreamingResponse:
         _guard_csrf(request)
+        _guard_demo_key(request)
+        _touch_activity()
 
         def events():
             beats: queue.Queue = queue.Queue()
@@ -301,12 +361,16 @@ def create_app() -> FastAPI:
                 beats.put((kind, data))
 
             def work() -> None:
+                # The spend fence is entered *inside* the worker so an over-quota
+                # request still streams a clean fail-closed error (day10 #2). The
+                # slot is held for the whole generation, bounding concurrency.
                 try:
-                    outcome["result"] = answer_question(
-                        body.question,
-                        package_dirs=_query_packages(),
-                        on_event=on_event,
-                    )
+                    with GUARD.llm_slot():
+                        outcome["result"] = answer_question(
+                            body.question,
+                            package_dirs=_query_packages(),
+                            on_event=on_event,
+                        )
                 except Exception as exc:  # reported below, fail closed
                     outcome["error"] = exc
                 finally:

@@ -10,6 +10,7 @@ parse it.
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -23,6 +24,11 @@ def new_trace_id() -> str:
 
 
 def write_trace(trace_id: str, spans: dict) -> Path:
+    if os.environ.get("LEARNARKEN_TRACE_DISABLED") == "1":
+        # Public demo (day10 #5): a full trace persists the visitor's question
+        # and the raw model output to disk. Refuse to write it — the audit
+        # record is a local-run feature, not a public-demo one (INV-1-adjacent).
+        return TRACE_DIR / f"{trace_id}.json"
     TRACE_DIR.mkdir(parents=True, exist_ok=True)
     path = TRACE_DIR / f"{trace_id}.json"
     path.write_text(

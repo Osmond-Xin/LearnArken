@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>LearnArken — live demo gate</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1e2227; --muted: #5c6570;
+    --line: #e3e2de; --accent: #14539a; --ok: #1a7f4b; --warn: #9a6700; --off: #8a8f98;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --panel: #1d2126; --ink: #e8e6e3; --muted: #9aa2ac;
+      --line: #2c313a; --accent: #6aa5e8; --ok: #4cc38a; --warn: #d4a72c; --off: #6c727c;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    padding: 2rem 1rem 4rem;
+  }
+  main { max-width: 46rem; margin: 0 auto; display: grid; gap: 1.25rem; }
+  h1 { font-size: 1.6rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.05rem; margin-bottom: .5rem; }
+  p { color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; }
+  .state-line { display: flex; align-items: center; gap: .6rem; font-weight: 600; font-size: 1.1rem; color: var(--ink); }
+  .dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--off); flex: none; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  button {
+    font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+    border: 0; border-radius: 8px; padding: .6rem 1.4rem; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  a { color: var(--accent); }
+  .checks { list-style: none; display: grid; gap: .35rem; margin-top: .75rem; }
+  .checks li { display: flex; gap: .55rem; align-items: center; color: var(--muted); font-size: .95rem; }
+  .countdown { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .demo-link { display: inline-block; margin: .6rem 0; font-size: 1.15rem; font-weight: 700; }
+  .note { font-size: .9rem; border-left: 3px solid var(--warn); padding-left: .8rem; margin-top: .9rem; }
+  .arch { width: 100%; height: auto; margin-top: .5rem; }
+  .arch text { font: 12px -apple-system, "Segoe UI", sans-serif; fill: var(--ink); }
+  .arch .lbl { fill: var(--muted); font-size: 10px; }
+  .arch rect { fill: none; stroke: var(--muted); rx: 6; }
+  .arch line { stroke: var(--muted); marker-end: url(#arr); }
+  .hidden { display: none; }
+  footer { font-size: .85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>LearnArken — S1000D validation &amp; cited RAG, live</h1>
+  <p>A ten-day, AI-first learning project: S1000D XML validation, hybrid retrieval
+  (BM25 + dense + RRF) and citation-verified, fail-closed RAG over synthetic
+  aerospace tech-pubs. This page starts the <strong>real stack</strong> — the same
+  Vespa + Neo4j + local-embedding topology the published benchmarks ran on, not a
+  simplified copy.</p>
+
+  <section class="panel" id="state-panel">
+    <div class="state-line"><span class="dot" id="dot"></span><span id="state-text">Checking backend state…</span></div>
+    <div id="closed-ui" class="hidden">
+      <p style="margin:.6rem 0 1rem">The backend is currently <strong>off</strong>. To keep this
+      honest and cheap, the stack runs on demand and shuts itself down after
+      <strong>30 idle minutes</strong> — start it and it will be ready in a few minutes.</p>
+      <button id="start-btn">Start the live demo</button>
+      <p id="start-error" class="note hidden"></p>
+    </div>
+    <div id="starting-ui" class="hidden">
+      <p style="margin-top:.6rem">Booting the full stack. Each item below is a real,
+      fail-closed self-check — nothing is shown green until it answers.</p>
+      <ul class="checks" id="checks"></ul>
+    </div>
+    <div id="running-ui" class="hidden">
+      <p style="margin-top:.6rem">All self-checks passed. The demo is live:</p>
+      <a class="demo-link" id="demo-link" href="#" target="_blank" rel="noopener">Open the demo →</a>
+      <p>Auto-shutdown in <span class="countdown" id="countdown">–:–</span> unless used —
+      asking a question resets the clock.</p>
+    </div>
+    <p class="note">Cost honesty: this is a personal portfolio project. The virtual machine
+    only bills while you use it (≈ $0.20 per session) and always powers off after 30 idle
+    minutes. If it is off when you return, just start it again.</p>
+  </section>
+
+  <section class="panel">
+    <h2>What you are looking at</h2>
+    <svg class="arch" viewBox="0 0 640 190" role="img" aria-label="Architecture diagram">
+      <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 z" fill="currentColor" opacity=".6"/></marker></defs>
+      <rect x="8"   y="70" width="110" height="46"/><text x="63"  y="90" text-anchor="middle">Streamlit UI</text><text class="lbl" x="63" y="106" text-anchor="middle">public :8501</text>
+      <rect x="170" y="70" width="130" height="46"/><text x="235" y="90" text-anchor="middle">FastAPI</text><text class="lbl" x="235" y="106" text-anchor="middle">loopback, fail-closed</text>
+      <rect x="360" y="8"  width="130" height="46"/><text x="425" y="28" text-anchor="middle">Vespa</text><text class="lbl" x="425" y="44" text-anchor="middle">BM25 + dense + RRF</text>
+      <rect x="360" y="70" width="130" height="46"/><text x="425" y="90" text-anchor="middle">Neo4j</text><text class="lbl" x="425" y="106" text-anchor="middle">dmRef impact graph</text>
+      <rect x="360" y="132" width="130" height="46"/><text x="425" y="152" text-anchor="middle">MiniMax LLM</text><text class="lbl" x="425" y="168" text-anchor="middle">cited, retractable SSE</text>
+      <rect x="530" y="39" width="100" height="46"/><text x="580" y="59" text-anchor="middle">Qwen3-8B</text><text class="lbl" x="580" y="75" text-anchor="middle">local embeddings</text>
+      <line x1="118" y1="93" x2="168" y2="93"/>
+      <line x1="300" y1="86" x2="358" y2="34"/>
+      <line x1="300" y1="93" x2="358" y2="93"/>
+      <line x1="300" y1="100" x2="358" y2="152"/>
+      <line x1="490" y1="31" x2="528" y2="55"/>
+    </svg>
+    <ul class="checks" style="margin-top:1rem">
+      <li>• Every answer carries citations back to specific S1000D data modules; unverifiable claims are retracted, not shown.</li>
+      <li>• Insufficient evidence ⇒ the system refuses instead of guessing (fail-closed, tuned on a frozen threshold artifact).</li>
+      <li>• All benchmark numbers are reproducible: see <code>docs/EVIDENCE.md</code> in the repository.</li>
+      <li>• Built AI-first in ten days with per-day human specs, cross-model red-team reviews and human adjudication.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Corpus is synthetic S1000D XML (no real tech pubs). Startup and shutdown behaviour on
+    this page is real infrastructure state, not an animation.
+  </footer>
+</main>
+<script>
+(function () {
+  "use strict";
+  var token = new URLSearchParams(location.search).get("t") || "";
+  var IDLE_LIMIT = 30 * 60;
+  var CHECK_LABELS = {
+    vespa: "Vespa search engine",
+    neo4j: "Neo4j dependency graph",
+    llm_config: "LLM (MiniMax) configuration",
+    threshold_artifact: "Refusal-threshold artifact",
+  };
+  var els = {
+    dot: document.getElementById("dot"),
+    text: document.getElementById("state-text"),
+    closed: document.getElementById("closed-ui"),
+    starting: document.getElementById("starting-ui"),
+    running: document.getElementById("running-ui"),
+    checks: document.getElementById("checks"),
+    link: document.getElementById("demo-link"),
+    countdown: document.getElementById("countdown"),
+    btn: document.getElementById("start-btn"),
+    err: document.getElementById("start-error"),
+  };
+
+  function show(state) {
+    ["closed", "starting", "running"].forEach(function (name) {
+      els[name].classList.toggle("hidden", name !== state);
+    });
+  }
+
+  function render(data) {
+    var s = data.state;
+    if (s === "running") {
+      els.dot.className = "dot ok";
+      els.text.textContent = "Backend running — demo is live";
+      if (data.demo_url) { els.link.href = data.demo_url; }
+      var left = Math.max(0, IDLE_LIMIT - (data.idle_seconds || 0));
+      els.countdown.textContent =
+        Math.floor(left / 60) + ":" + String(Math.floor(left % 60)).padStart(2, "0");
+      show("running");
+    } else if (s === "starting") {
+      els.dot.className = "dot warn";
+      els.text.textContent = "Backend starting — running self-checks";
+      els.checks.innerHTML = "";
+      var services = data.services || {};
+      Object.keys(CHECK_LABELS).forEach(function (key) {
+        var li = document.createElement("li");
+        var ok = services[key] === true;
+        li.textContent = (ok ? "✅ " : "⏳ ") + CHECK_LABELS[key];
+        els.checks.appendChild(li);
+      });
+      show("starting");
+    } else if (s === "closing") {
+      els.dot.className = "dot warn";
+      els.text.textContent = "Backend shutting down…";
+      show("closed");
+      els.btn.disabled = true;
+    } else {
+      els.dot.className = "dot";
+      els.text.textContent = "Backend off (auto-stopped to save cost)";
+      show("closed");
+      els.btn.disabled = false;
+    }
+  }
+
+  function poll() {
+    fetch("api/state?t=" + encodeURIComponent(token))
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(render)
+      .catch(function () {
+        els.dot.className = "dot";
+        els.text.textContent = "Status unavailable — retrying…";
+      });
+  }
+
+  els.btn.addEventListener("click", function () {
+    els.btn.disabled = true;
+    els.err.classList.add("hidden");
+    fetch("api/start?t=" + encodeURIComponent(token), { method: "POST" })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          els.err.textContent = res.body.error || "Could not start the backend.";
+          els.err.classList.remove("hidden");
+          els.btn.disabled = false;
+        } else {
+          render({ state: "starting", services: {} });
+        }
+      })
+      .catch(function () {
+        els.err.textContent = "Could not reach the trigger service — please try again.";
+        els.err.classList.remove("hidden");
+        els.btn.disabled = false;
+      });
+  });
+
+  poll();
+  setInterval(poll, 6000);
+})();
+</script>
+</body>
+</html>
