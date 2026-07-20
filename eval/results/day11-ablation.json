@@ -2,12 +2,12 @@
  "note": "Day 11 ablation (spec day11 Key Decision 4): hybrid vs hybrid+graph, old and new sets reported separately. Deterministic (retrieval only, no sampling); metrics verified identical across two runs (including before/after the corpus-authoritative graph-sync fix, red-team day11 #1). p50 rows share the day4 artifact convention (bm25/dense modes run first and absorb MLX warm-up).",
  "seed": 42,
  "old_set": {
-  "golden": "eval/golden/day4.jsonl",
+  "golden": "/Users/osmond/Documents/Job/LearnArken/eval/golden/day4.jsonl",
   "n_queries": 82,
   "strategy": "structure",
   "packages": [
-   "samples/package-a",
-   "samples/package-c"
+   "/Users/osmond/Documents/Job/LearnArken/samples/package-a",
+   "/Users/osmond/Documents/Job/LearnArken/samples/package-c"
   ],
   "model_revisions": {
    "BAAI/bge-m3": "5617a9f61b028005a4858fdac845db406aefb181",
@@ -78,11 +78,11 @@
   },
   "p50_ms": {
    "bm25": 0.0,
-   "dense": 55.3,
-   "hybrid": 5.4,
-   "hybrid-rerank": 122.0,
-   "hybrid-graph": 5.9,
-   "hybrid-graph-rerank": 128.9
+   "dense": 54.6,
+   "hybrid": 5.0,
+   "hybrid-rerank": 123.7,
+   "hybrid-graph": 5.7,
+   "hybrid-graph-rerank": 133.2
   },
   "per_category_recall": {
    "bm25": {
@@ -173,12 +173,12 @@
   "seed": 42
  },
  "multihop_set": {
-  "golden": "eval/golden/day11-multihop.jsonl",
+  "golden": "/Users/osmond/Documents/Job/LearnArken/eval/golden/day11-multihop.jsonl",
   "n_queries": 10,
   "strategy": "structure",
   "packages": [
-   "samples/package-a",
-   "samples/package-c"
+   "/Users/osmond/Documents/Job/LearnArken/samples/package-a",
+   "/Users/osmond/Documents/Job/LearnArken/samples/package-c"
   ],
   "model_revisions": {
    "BAAI/bge-m3": "5617a9f61b028005a4858fdac845db406aefb181",
@@ -249,11 +249,11 @@
   },
   "p50_ms": {
    "bm25": 0.2,
-   "dense": 66.1,
-   "hybrid": 6.0,
-   "hybrid-rerank": 170.5,
-   "hybrid-graph": 17.2,
-   "hybrid-graph-rerank": 205.9
+   "dense": 65.5,
+   "hybrid": 5.6,
+   "hybrid-rerank": 174.8,
+   "hybrid-graph": 14.6,
+   "hybrid-graph-rerank": 208.0
   },
   "per_category_recall": {
    "bm25": {

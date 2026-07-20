@@ -303,9 +303,9 @@ see [eval/golden/README.md](eval/golden/README.md)) is where gains could show.
 | bm25 (in-process) | 0.83 | 0.88 | 0.74 | 0.77 | **0.40** | <1 ms |
 | dense (Vespa + Qwen3-8B) | **0.99** | **1.00** | **0.87** | **0.90** | 0.00 | 55 ms |
 | hybrid (RRF) | 0.93 | **1.00** | 0.85 | 0.88 | 0.00 | 5 ms |
-| hybrid + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 122 ms |
+| hybrid + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 124 ms |
 | hybrid + graph (3-way RRF) | 0.93 | **1.00** | 0.84 | 0.88 | 0.00 | 6 ms |
-| hybrid + graph + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 129 ms |
+| hybrid + graph + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 133 ms |
 
 **New multi-hop set (day11, human-authored, answers span 2-3 DMs)** — answerable n=7, no-answer traps n=3:
 
@@ -314,9 +314,9 @@ see [eval/golden/README.md](eval/golden/README.md)) is where gains could show.
 | bm25 (in-process) | 0.58 | 0.65 | 0.73 | 0.58 | **0.00** | <1 ms |
 | dense (Vespa + Qwen3-8B) | **0.82** | **0.95** | 0.74 | 0.74 | 0.00 | 66 ms |
 | hybrid (RRF) | 0.65 | 0.83 | 0.81 | 0.72 | 0.00 | 6 ms |
-| hybrid + rerank | 0.73 | 0.81 | 0.71 | 0.69 | 0.00 | 170 ms |
-| hybrid + graph (3-way RRF) | 0.64 | 0.83 | **0.89** | **0.75** | 0.00 | 17 ms |
-| hybrid + graph + rerank | 0.73 | 0.81 | 0.71 | 0.69 | 0.00 | 206 ms |
+| hybrid + rerank | 0.73 | 0.81 | 0.71 | 0.69 | 0.00 | 175 ms |
+| hybrid + graph (3-way RRF) | 0.64 | 0.83 | **0.89** | **0.75** | 0.00 | 15 ms |
+| hybrid + graph + rerank | 0.73 | 0.81 | 0.71 | 0.69 | 0.00 | 208 ms |
 
 T3 refusal-regression gate (deterministic threshold gate over 18 no-answer traps): hybrid 0.06 vs hybrid+graph 0.06 — **pass** (not lower).
 
