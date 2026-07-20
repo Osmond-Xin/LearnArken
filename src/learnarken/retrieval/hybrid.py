@@ -63,6 +63,41 @@ def hybrid_retriever(
     )
 
 
+def graph_hybrid_retriever(
+    chunks: list[Chunk],
+    k: int = CANDIDATE_K,
+    strategy: str = "structure",
+    package: str | None = None,
+) -> EnsembleRetriever:
+    """BM25 + dense + graph expansion, plain three-way RRF (Day 11, spec §3).
+
+    Equal weights — adding the third route is the single variable under
+    ablation; no re-tuning of the existing pair (spec out-of-scope). The same
+    chunk arriving from several routes needs no bespoke dedup: RRF fuses by
+    `chunk_id` identity and sums the routes' contributions, which is the
+    standard treatment (scan "unknown-unknown" #3). `EnsembleRetriever`
+    de-duplicates by keeping the *first* document object seen for a given key
+    (in `retrievers` order) — the fused score is unaffected by list order
+    (it sums contributions by key regardless), but which object's *metadata*
+    survives is not. Graph is listed **first** so its `graph_hop`/
+    `graph_direction` provenance wins over a same-chunk BM25/dense copy that
+    carries none — otherwise the answer trace would undercount the graph
+    route's real contribution (red-team day11 #6).
+    """
+    from learnarken.retrieval.graph_expand import graph_expansion_retriever
+
+    return EnsembleRetriever(
+        retrievers=[
+            graph_expansion_retriever(chunks, k=k),
+            bm25_retriever(chunks, k=k),
+            VespaDenseRetriever(k=k, strategy=strategy, package=package),
+        ],
+        weights=[1 / 3, 1 / 3, 1 / 3],
+        c=RRF_K,
+        id_key="chunk_id",
+    )
+
+
 _RERANKER_CACHE: dict[str, CrossEncoderReranker] = {}
 
 
@@ -103,9 +138,11 @@ def reranked_retriever(
     candidate_k: int = CANDIDATE_K,
     strategy: str = "structure",
     package: str | None = None,
+    base: str = "hybrid",
 ) -> ContextualCompressionRetriever:
-    """The full pipeline: hybrid RRF candidates → cross-encoder rerank → top k."""
+    """The full pipeline: RRF candidates (`base` fusion) → cross-encoder rerank → top k."""
+    fuse = graph_hybrid_retriever if base == "hybrid-graph" else hybrid_retriever
     return ContextualCompressionRetriever(
-        base_retriever=hybrid_retriever(chunks, k=candidate_k, strategy=strategy, package=package),
+        base_retriever=fuse(chunks, k=candidate_k, strategy=strategy, package=package),
         base_compressor=_reranker(top_n=k),
     )

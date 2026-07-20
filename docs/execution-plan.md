@@ -263,6 +263,99 @@ findings;`learnarken dm` 对任意 package-a DMC 可查;`pytest` 覆盖每条规
 
 ---
 
+## 阶段三:JD 对位扩展(Day 11–13,v1.0.0 后追加)
+
+> **AI-drafted**(Claude,2026-07-19,待人审):Day 1–10 收口后对照目标岗位 JD
+> 复盘(岗位分析见私档,不入仓库),标题级关键词仍有两个缺口:
+> **Knowledge-Graph RAG**——图谱已做到影响查询(接口①,Day 9)与上下文注入
+> (接口③,Day 5),但**没有进入检索路径**;**Multi-Modal**——全切片纯文本,
+> ICN 插图从未入库。各补一个 1–2 日切片。另有一条技能行要求
+> **Python mastery(asyncio / multiprocessing / Cython/numba;Rust/C++ 为 plus)**,
+> 补 Day 13 性能工程切片,把并发与性能优化变成项目内的基准数字。
+> JD 另有一行 **multi-agent(ReAct/ToT/GoT/MCTS)+ world-model +
+> counterfactual + adversarial self-critique**:盘点结论是 ReAct(Day 7)、
+> 对抗质检(Day 8 + 红队流程)、反事实归因(Day 8 前后对比)、world-model
+> 雏形(dry-run 沙箱)已有实现证据,搜索类(ToT/GoT/MCTS)不专开一天——
+> 仅并入一个半日**玩具 ToT 实验**挂 Day 13,其余保持"概念掌握 + 适用边界
+> 判断"的第二档口径。
+> 七步循环、滑点规则(每节点最多 2 个日历日)照旧;**SPEC 决策层仍由人写**,
+> 本节只是计划占位,不替代 specs/day11–13.md。
+
+### Day 11 — 图谱增强检索 KG-RAG(`v1.1.0`)
+
+**学**:[tutorials/14 KG-RAG](tutorials/14-kg-rag.md)、
+复习 [tutorials/06](tutorials/06-knowledge-graph.md) §9 三接口
+
+**做**:
+- [ ] 查询侧实体链接:从 query 识别 DMC/零件号/任务实体——确定性规则
+      (正则/词表)优先,不上来就用 LLM
+- [ ] 图谱候选扩展(接口②升级为检索路径):命中实体沿引用/依赖边取 1–2 跳
+      邻域,作为第三路信号进 RRF 融合(复用 Day 9 引用图,不引入 RDF/SPARQL
+      ——全量图谱仍在 Planned,诚实分层)
+- [ ] golden set 补跨模块多跳问题(答案分散在引用链多个 DM 上的组合问题),
+      标注人做
+- [ ] 消融表加一行:hybrid vs **hybrid+graph**(Recall@k / nDCG / zero-hit / p50)
+- [ ] 引用增强:回答引用附"图谱路径"(该 chunk 为何相关:X 引用 Y)
+- [ ] 失败案例分析:图扩展引入邻居噪声的实例,写进 `docs/notes/`
+
+**证**:消融行进 README;多跳类查询指标提升或**诚实报告不提升**(假设待验证,
+不许只报有利数字);数字本人复跑一致。
+
+### Day 12 — 多模态入库与问答(`v1.2.0`)
+
+**学**:[tutorials/15 多模态 RAG](tutorials/15-multimodal-rag.md)、
+复习 [tutorials/01](tutorials/01-standards-and-xml.md) ICN 节
+
+**做**:
+- [ ] 合成样本包补 ICN 插图 2–3 张(自绘 SVG→PNG 示意图,含 hotspot 编号;
+      仍是合成红线 INV-1,不放任何真实图纸)
+- [ ] 入库管线 describe-then-index:VLM 对 ICN 生成**受控结构化描述**
+      (部件清单、hotspot 编号、警告;schema 约束),进现有索引,chunk 关联
+      ICN id;描述与图文件 checksum 绑定
+- [ ] 问答:图相关问题的答案可引用 ICN(引用 = 图 id + 描述出处);
+      描述覆盖不了的问题 fail-closed 拒答,不看图硬编
+- [ ] 小评估:8–10 个看图问题 golden set(答案在图 / 答案在文 / 图文冲突陷阱),
+      报告引用正确率,标注人做
+- [ ] 失败案例:VLM 幻觉图内细节(编号/箭头)的实例与防线,写进 `docs/notes/`
+
+**证**:demo 里"这个部件在图中哪个位置"类问题带图引用回答;评估一条命令可复现。
+
+### Day 13 — 性能工程与玩具 ToT 实验(`v1.3.0`)
+
+**学**:[tutorials/16 性能工程](tutorials/16-performance-engineering.md)、
+复习 [tutorials/10](tutorials/10-python-engineering.md) 并发模型版图、
+复习 [tutorials/09](tutorials/09-agents.md) ToT/critic 节
+
+**做**:
+- [ ] **asyncio**(I/O 密集):把一条批量外部调用管线(评估批量问答或 Day 12
+      的逐图描述)改为 `asyncio.gather` + `Semaphore(k)` 限并发 + 超时/重试,
+      报告串行 vs 并发的 wall-clock 对比与所选并发度的理由
+- [ ] **multiprocessing**(CPU 密集):多包校验/分块入库按分片并行
+      (`ProcessPoolExecutor`,分片藏在抽象后、写入幂等——INV-2 本来的要求),
+      测 1/2/4/8 worker 扩展曲线,**分析拐点成因**(pickle 序列化、进程启动
+      开销),不许只报最好的一列
+- [ ] **profile → numba**:`py-spy`/`cProfile` 定位一个真实热点(候选:BM25
+      打分、RRF 融合、精确 cosine),产出三列对比:纯 Python / numpy 向量化 /
+      numba `@njit`——收益小就如实报小("知道何时不值得"是本日核心结论之一)
+- [ ] **Rust/PyO3 证据开门项**(仿 Day 4b):默认不做,仅当 profile 显示
+      Python 侧成为瓶颈才立项;不开门则在 `docs/notes/` 写"知情消费者"
+      说明(Tantivy/Qdrant 即 Rust 实现,触发条件与预选路线 PyO3/maturin)
+- [ ] 失败案例/边界分析写进 `docs/notes/`:小任务负加速、asyncio await 点
+      交错的一个实例
+- [ ] **玩具 ToT 实验**(半日,全部复用现有设施):修复 agent 对同一违规
+      生成 3 个候选 patch → 各自沙箱复验(Day 7 执行器)+ 打分 → 取最优;
+      对 package-b 全部违规跑单候选 vs 3 候选对比:修复成功率 × token 成本
+      两列都报——**成本诚实入表**,成功率没涨或涨不抵成本就如实写
+      (这正是"ToT 何时不值得"的实测答案);候选生成可用本日 asyncio
+      并发,两个主题自然衔接
+
+**证**:并发扩展曲线 + 热点三列对比表进 README;每个数字带复跑命令;
+Rust 开门与否有留痕结论;ToT 对比表(成功率 × token 成本)进
+`docs/notes/`,结论一句话进 README Roadmap(ToT 从 Planned 改为
+Toy-scale measured)。
+
+---
+
 ## 完成定义(整个切片的 DoD)
 
 - [ ] 10 个 tag、10 份 release notes、10 份人写的 SPEC / 裁决记录 / 学习日志

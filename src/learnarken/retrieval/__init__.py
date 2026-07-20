@@ -1,14 +1,17 @@
-"""Retrieval entry points (Day 3 BM25 → Day 4a modes).
+"""Retrieval entry points (Day 3 BM25 → Day 4a modes → Day 11 graph modes).
 
-Four modes over the same chunk set (docs/specs/day4.md):
-  bm25          in-process, offline (Day 3 path, unchanged)
-  dense         Vespa nearestNeighbor via the default embedding provider
-  hybrid        BM25 + dense fused by RRF (LangChain EnsembleRetriever)
-  hybrid-rerank hybrid candidates re-scored by a local cross-encoder
+Six modes over the same chunk set (docs/specs/day4.md, day11.md):
+  bm25                in-process, offline (Day 3 path, unchanged)
+  dense               Vespa nearestNeighbor via the default embedding provider
+  hybrid              BM25 + dense fused by RRF (LangChain EnsembleRetriever)
+  hybrid-rerank       hybrid candidates re-scored by a local cross-encoder
+  hybrid-graph        BM25 + dense + graph expansion, three-way RRF (Day 11)
+  hybrid-graph-rerank hybrid-graph candidates re-scored by the cross-encoder
 
 Dense/hybrid modes need `learnarken index` to have fed Vespa with the same
 package + strategy first, and fail closed (INV-4) when Vespa/embeddings are
-unavailable — never a silent downgrade to bm25.
+unavailable — never a silent downgrade to bm25. Graph modes additionally need
+the Neo4j graph that the same `index` run synced (spec day11 T7).
 """
 
 from __future__ import annotations
@@ -30,10 +33,17 @@ from learnarken.retrieval.evaluate import (
     unresolved_anchors,
 )
 
-MODES = ("bm25", "dense", "hybrid", "hybrid-rerank")
+MODES = ("bm25", "dense", "hybrid", "hybrid-rerank", "hybrid-graph", "hybrid-graph-rerank")
+GRAPH_MODES = ("hybrid-graph", "hybrid-graph-rerank")  # Day 11: need Neo4j up
+# The pre-Day-11 mode set — kept as the CLI ablation default so the existing
+# `learnarken eval ablation` command does not silently gain a Neo4j dependency
+# (red-team day11 #9); graph modes are opt-in via --modes.
+DEFAULT_ABLATION_MODES = ("bm25", "dense", "hybrid", "hybrid-rerank")
 
 __all__ = [
     "BM25Index",
+    "DEFAULT_ABLATION_MODES",
+    "GRAPH_MODES",
     "MODES",
     "ScoredChunk",
     "tokenize",
@@ -142,12 +152,17 @@ def _mode_retriever(
         return _hybrid.hybrid_retriever(
             chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy, package=package
         )
+    if mode == "hybrid-graph":
+        return _hybrid.graph_hybrid_retriever(
+            chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy, package=package
+        )
     return _hybrid.reranked_retriever(
         chunks,
         k=k,
         candidate_k=max(k, _hybrid.CANDIDATE_K),
         strategy=strategy,
         package=package,
+        base="hybrid-graph" if mode == "hybrid-graph-rerank" else "hybrid",
     )
 
 
@@ -202,7 +217,7 @@ def index_package(
     # (fail closed) rather than leaving vector and graph views divergent.
     from learnarken import graph
 
-    graph.sync(chunks, owner)
+    graph_stats = graph.sync(chunks, owner)
     MANIFEST_PATH.write_text(
         _json.dumps(
             {
@@ -212,6 +227,9 @@ def index_package(
                 "revision": REVISIONS[DEFAULT_PROVIDER],
                 "dimension": DIMENSIONS[DEFAULT_PROVIDER],
                 "chunk_ids": sorted(c.chunk_id for c in chunks),
+                # Day 11 (spec T7): graph and index provably come from the same
+                # ingest — the synced node/edge counts are part of the manifest.
+                "graph": graph_stats,
             },
             indent=1,
         ),
@@ -360,6 +378,31 @@ def run_ablation(
         # Manifest + engine-set verification (red-team day4 #4, adjudicated
         # ACCEPT 2026-07-16) — replaces the count-only check.
         verify_corpus(chunks, strategy)
+    if any(m in GRAPH_MODES for m in modes):
+        # The graph route degrades to nothing when Neo4j is down (search-path
+        # semantics); under ablation that would silently score hybrid+graph as
+        # plain hybrid — refuse up front instead (fail closed, INV-5 honest rows).
+        import json as _json
+
+        from learnarken import graph
+
+        if not graph.is_up():
+            raise ValueError(
+                "Neo4j is unreachable but a graph mode was requested — the graph "
+                "route would silently degrade to plain hybrid, producing a "
+                "dishonest ablation row (fail closed); start the neo4j container"
+            )
+        # The manifest's `graph` block is what `learnarken index` synced;
+        # comparing it against the graph's live counts catches a stale graph
+        # from a previous, different ingest (red-team day11 #1) — defense in
+        # depth alongside sync() now being corpus-authoritative.
+        manifest_graph = _json.loads(MANIFEST_PATH.read_text(encoding="utf-8")).get("graph")
+        if manifest_graph is not None and manifest_graph != graph.stats():
+            raise ValueError(
+                f"graph state {graph.stats()} does not match the manifest's recorded "
+                f"sync {manifest_graph} — the graph is stale relative to the last "
+                "`learnarken index` run (fail closed); re-run `learnarken index`"
+            )
 
     results: dict[str, dict] = {}
     latencies: dict[str, float] = {}

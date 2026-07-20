@@ -1,9 +1,11 @@
 # 03 · 配置全景：工具链、本地服务与外部 API
 
-> **AI-drafted，待人审**。快照：2026-07-17（Day 5 已接线 Vespa/Neo4j/MiniMax；
-> Day 6 加 FastAPI + Streamlit）。密钥值一律不出现在仓库（只在本地 `.env`，
-> git-ignored）；本文只记录变量名、端口与拓扑。服务操作细节的权威文档是
-> [docs/local-services.md](../local-services.md)。
+> **AI-drafted，待人审**。快照：2026-07-18（Day 1–10 全部合并，`v1.0.0`；
+> Day 10 加 GCP 按需部署面）。密钥值一律不出现在仓库（只在本地 `.env`，
+> git-ignored）；本文只记录变量名、端口与拓扑。本地服务操作细节的权威文档是
+> [docs/local-services.md](../local-services.md)，部署操作的权威文档是
+> [deploy/DEPLOY-GUIDE.zh.md](../../deploy/DEPLOY-GUIDE.zh.md) 与
+> [deploy/runbook.md](../../deploy/runbook.md)。
 
 ## 1. 配置拓扑图
 
@@ -33,6 +35,11 @@ flowchart LR
         MM["MiniMax-M3 chat API<br/>Bearer key + X-Proxy-Token"]
     end
 
+    subgraph GCP["GCP（Day 10，按需）"]
+        CF["Cloud Function gen2<br/>token 状态页 + instances.start"]
+        VM["停机 VM（同 make demo 拓扑）<br/>:8501 Streamlit · :8110 状态 shim<br/>API 保持 loopback<br/>watchdog 30min 自关"]
+    end
+
     CODE --- UV & RUFF & PYTEST
     PC -->|"提交前"| CODE
     CODE -->|push/PR| GH
@@ -41,6 +48,7 @@ flowchart LR
     ENV -->|Day 5 chat 生成| MM
     FE -->|"HTTP（哑客户端）"| API
     API --> CODE
+    CF -->|"POST /api/start<br/>(token 门控)"| VM
 ```
 
 ## 2. 工程工具链配置
@@ -53,7 +61,8 @@ flowchart LR
 | pytest | pyproject.toml `[tool.pytest.ini_options]` | testpaths=tests，`-q` |
 | pre-commit | .pre-commit-config.yaml | ruff（--fix）+ ruff-format + 大文件/冲突/**私钥检测**/空白 |
 | CI | .github/workflows/ci.yml | push(main) + PR 触发；action 按 commit SHA 固定 |
-| 入口命令 | pyproject.toml `[project.scripts]` | `learnarken` → `cli:main`，9 个子命令（加 `index`/`query`/`eval ablation`）|
+| 入口命令 | pyproject.toml `[project.scripts]` | `learnarken` → `cli:main`；子命令收口到 Day 10：`inspect`/`validate`/`dm`/`chunk`/`search`/`index`/`query`/`repair`/`eval retrieval`/`eval ablation`/`eval adversarial`/`graph impact` |
+| Day 7 修复预算 | pyproject.toml `[tool.learnarken.repair]` | 迭代/token/no-progress 熔断、沙箱超时/内存、import 与 shell 白名单——版本化保证复现（INV-5），CLI flags 可覆盖 |
 | 运行时依赖 | pyproject.toml | Day 4/5/6 增至含 langchain 全家 + sentence-transformers + fastapi/uvicorn/python-multipart，**全部带上界**；`streamlit` 在独立 `demo` 组、`httpx` 在 `dev` 组。CI 三处均 `--locked`（红队 day6 #10:锁文件是唯一事实源）|
 | Day 6 一键 demo | Makefile `demo` → tools/run_demo.sh | fail-closed 预检 → uvicorn 单 worker → 轮询就绪(超时非零退出) → Streamlit |
 
@@ -78,7 +87,7 @@ flowchart LR
 | 凭证 | `neo4j` / `learnarken`（一次性本地开发口令，可留在文档；一旦暴露到 localhost 之外必须挪进 `.env`） |
 | 验证 | `docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1;'` |
 | 凭证来源 | `NEO4J_USER`/`NEO4J_PASSWORD` 走 `.env`（`.env.example` 已列） |
-| **当前状态** | ✅ **已接线**（Day 5，ADR-0002）:`index` 时 `graph.sync` 幂等 upsert DM 节点 + dmRef/ICN 边;`query` 经 `graph.facts` 做接口③ 上下文注入。多跳依赖查询留 Day 9。 |
+| **当前状态** | ✅ **已接线**（Day 5，ADR-0002）:`index` 时 `graph.sync` 幂等 upsert DM 节点 + dmRef/ICN 边;`query` 经 `graph.facts` 做接口③ 上下文注入。**Day 9 加多跳**:`graph impact` 反向依赖 BFS（限深+环去重+fail-closed）。 |
 
 ## 4. MiniMax-M3 chat API（Day 5 生成供应商）
 
@@ -112,7 +121,10 @@ flowchart LR
 **CSRF Origin 门**守 `/upload` `/query`（server 端客户端无 Origin 头放行,浏览器
 跨源 403）;上传 Content-Length 预检 + 2 MiB 上限 + `DMC-*.xml` 文件名服务端重铸;
 `var/uploads/`（git-ignored）是上传落盘区,事务化 staging 在 `.staging/` 子目录。
-不做鉴权/限流/JWT——loopback 前提下属超范围。
+loopback 前提下不做鉴权/限流/JWT;**公网模式（Day 10）** 另有两枚环境变量:
+`DEMO_PUBLIC=1` 启用 demo_guard 围栏（LLM 配额/并发/上传闸）,`DEMO_GATE_KEY`
+是 token 状态页发放给访客的共享门钥（后端校验 `X-Demo-Key` 头）。二者不设时
+本地 demo 与测试行为零改变。
 
 ## 6. 配置层级与密钥红线
 
@@ -127,3 +139,18 @@ flowchart LR
 
 红线执行有三道机器防护：`.gitignore`（第一 commit 即配,含 `.env`/`var/`）、
 pre-commit `detect-private-key`、以及"文档只记形状不记值"的写作纪律。
+Day 10 部署侧同一纪律：`deploy/trigger/tokens.example.json` 只提交形状,真实
+token 表与 SMTP 凭证只进 Cloud Function 环境变量。
+
+## 7. Day 10 按需部署拓扑（GCP，选型 D）
+
+选型与决策出处见 [04 §4.11](04-tech-selection.md) 与
+[specs/day10](../specs/day10.md)。要点（操作权威在 deploy/ 两份文档）:
+
+| 组件 | 形态 | 要点 |
+| --- | --- | --- |
+| 触发闸 | Cloud Function gen2（`deploy/trigger/`） | 邮件里的 token URL → 静态状态/导览页;`/api/start` 限流拉起停机 VM;点击与首次就绪各通知 Yi Xin 一封（邮件失败不破页面）|
+| 演示 VM | 停机 GCP VM（`deploy/vm/`） | 开机即拉起**与 `make demo` 同一拓扑**的完整真栈（Vespa+Neo4j+本地嵌入/重排+MiniMax）——部署物=基准物,零 INV-5 口径漂移 |
+| 公网暴露面 | 仅 `:8501`（Streamlit）与 `:8110`（状态 shim） | FastAPI 后端保持 loopback,Day 6 安全信封原样;shim 只 GET 代理 `/demo/status` 粗粒度布尔 |
+| 费用围栏 | VM 内看门狗 + demo_guard + 预算警报 | 闲置 ≥30 min / 开机 ≥3 h / 自检失联 ⇒ 关机（歧义朝关机解）;demo_guard 拦 MiniMax 花费（GCP 账单看不见它）;$20 GCP 预算警报兜底 |
+| 状态机 | closed / starting(带自检深度) / running(闲置倒计时) | 页面任何状态都有下一步动作;closed 态提供重启并诚实说明费用动机 |

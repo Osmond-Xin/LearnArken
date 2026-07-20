@@ -11,7 +11,14 @@ from learnarken.chunking import STRATEGIES, PartialPackageError, chunk_package
 from learnarken.graph import store as graph_store
 from learnarken.models import DataModule, PackageModel
 from learnarken.package import NotAPackageError, _sanitize, scan_package
-from learnarken.retrieval import MODES, index_package, run_ablation, run_eval, search_package
+from learnarken.retrieval import (
+    DEFAULT_ABLATION_MODES,
+    MODES,
+    index_package,
+    run_ablation,
+    run_eval,
+    search_package,
+)
 from learnarken.validation import ValidationReport, analyze_package
 from learnarken.validation.rules import BREX_RULES
 
@@ -393,7 +400,9 @@ def _cmd_eval_ablation(args: argparse.Namespace) -> int:
     categories: dict[str, str] = {}
     try:
         for line in Path(args.golden).read_text(encoding="utf-8").splitlines():
-            if line.strip():
+            # Same comment/blank handling as load_golden (day11 sets carry a
+            # provenance header).
+            if line.strip() and not line.strip().startswith("#"):
                 row = json.loads(line)
                 if "category" in row:
                     categories[row["query_id"]] = row["category"]
@@ -837,7 +846,9 @@ def main(argv: list[str] | None = None) -> int:
     retrieval_parser.set_defaults(func=_cmd_eval_retrieval)
 
     ablation_parser = eval_sub.add_parser(
-        "ablation", help="Day 4 mode ablation: bm25 / dense / hybrid / hybrid-rerank"
+        "ablation",
+        help="mode ablation: bm25 / dense / hybrid / hybrid-rerank "
+        "(add hybrid-graph* via --modes for Day 11, needs Neo4j)",
     )
     ablation_parser.add_argument(
         "--package",
@@ -846,7 +857,16 @@ def main(argv: list[str] | None = None) -> int:
         help="package directories (default: package-a + package-c)",
     )
     ablation_parser.add_argument("--golden", default="eval/golden/day4.jsonl")
-    ablation_parser.add_argument("--modes", nargs="+", choices=list(MODES), default=list(MODES))
+    ablation_parser.add_argument(
+        "--modes",
+        nargs="+",
+        choices=list(MODES),
+        default=list(DEFAULT_ABLATION_MODES),
+        help="default is the Day 4 set (Vespa only); pass hybrid-graph / "
+        "hybrid-graph-rerank explicitly to include the Day 11 graph route "
+        "(needs Neo4j up) — kept opt-in so the existing command doesn't "
+        "silently gain a Neo4j dependency (red-team day11 #9)",
+    )
     ablation_parser.add_argument("--k", nargs="+", type=_positive_int, default=[5, 10])
     ablation_parser.add_argument("--strategy", choices=sorted(STRATEGIES), default="structure")
     ablation_parser.add_argument(

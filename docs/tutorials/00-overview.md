@@ -18,7 +18,7 @@
 
 ## 全书脉络图：一条缺陷链、一个地基、两条支线
 
-十二篇不是并列的十二个主题，而是一张有向图——**主线每一篇都在解决上一篇留下的缺陷**：
+十六篇不是并列的十六个主题，而是一张有向图——**主线每一篇都在解决上一篇留下的缺陷**：
 
 ```mermaid
 flowchart TD
@@ -32,6 +32,11 @@ flowchart TD
         T06["06 知识图谱<br/>接 05 的多跳缺陷"]
         T09["09 智能体<br/>接 05 的多步任务缺陷"]
     end
+    subgraph EXT["扩展切片（Day 11–13）"]
+        T14["14 KG-RAG<br/>图谱进检索路径"]
+        T15["15 多模态RAG<br/>插图进检索与问答"]
+        T16["16 性能工程<br/>并发版图与热点优化"]
+    end
     subgraph BASE["地基与生产"]
         T07["07 LLM 原理"] --> T08["08 推理服务"]
     end
@@ -40,10 +45,14 @@ flowchart TD
     end
     T05 --> T06
     T05 --> T09
+    T06 --> T14
+    T05 --> T15
+    T10 --> T16
     T07 -.->|理论支撑| T05
     T07 -.->|工具调用机制| T09
     T10 -.->|底座| MAIN
     T05 & T09 & T11 --> T12["12 面试准备<br/>全部知识兑换成三种武器"]
+    T12 --> T13["13 RAG 系统面试手册<br/>项目实现逐点对应"]
 ```
 
 每篇教程开头的「脉络位置」小图就是这张总图的局部放大。迷路时回来看这张。
@@ -72,7 +81,7 @@ flowchart TD
 | 推理服务（vLLM 等） | 应用服务器调优：连接池、批处理、缓存 | 08 |
 | Python 工程 + 合规审计 | 你最熟悉的部分，只是场景换了 | 10, 11 |
 
-最后一篇 12 是纯面试准备。
+12 是通用面试准备，13 是把本项目 RAG 系统逐模块拆成面试知识点、实现路径和选型理由。14、15、16 是 Day 11–13 扩展切片的配套教程：14 接 06 留下的缺口（图谱进检索路径），15 接 05（插图进检索与问答），16 接 10（并发版图变成基准数字）。
 
 ## 文件清单（含执行计划对应节点）
 
@@ -90,6 +99,10 @@ flowchart TD
 | [10-python-engineering.md](10-python-engineering.md) | Python 工程 | 并发模型版图、asyncio、FastAPI、Pydantic、性能路径 | Day 1、6 |
 | [11-compliance-observability.md](11-compliance-observability.md) | 合规与可观测 | 信任栈五层、审计哈希链、数据分级、OTel、签批 | Day 6、9 |
 | [12-interview-prep.md](12-interview-prep.md) | 面试准备 | 招聘漏斗版图、讲述脚本、问题库、AI-first 应答、降落术 | Day 9-10 |
+| [13-rag-system-interview-guide.md](13-rag-system-interview-guide.md) | RAG 系统面试手册 | LearnArken RAG 全链路知识点、代码实现、选型原因、追问话术 | Day 5、8、9 |
+| [14-kg-rag.md](14-kg-rag.md) | KG-RAG | 图谱进检索路径版图、实体链接、邻域扩展、消融设计 | Day 11 |
+| [15-multimodal-rag.md](15-multimodal-rag.md) | 多模态 RAG | 三条路线版图、受控描述生成、编排与成本、图引用与拒答 | Day 12 |
+| [16-performance-engineering.md](16-performance-engineering.md) | 性能工程 | 并发版图选型、asyncio、multiprocessing、numba/Cython、PyO3、free-threading | Day 13 |
 
 ## 四条贯穿全书的主线
 

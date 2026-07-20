@@ -38,7 +38,7 @@ from learnarken.chunking.base import Chunk
 from learnarken.chunking.documents import from_document, to_document
 from learnarken.config import REPO_ROOT
 from learnarken.llm import LLMContractError, chat_json, chat_json_stream
-from learnarken.retrieval import MODES, _dedupe_chunks, verify_corpus
+from learnarken.retrieval import GRAPH_MODES, MODES, _dedupe_chunks, verify_corpus
 from learnarken.retrieval.bm25 import BM25Index
 
 PLACEHOLDER = "I don't know — no answer was found in the indexed corpus."
@@ -87,7 +87,9 @@ def _candidates(question: str, chunks: list[Chunk], mode: str) -> list:
     if mode == "bm25":
         hits = BM25Index(chunks).search(question, k=CANDIDATE_K)
         return [to_document(h.chunk) for h in hits]
-    base = "hybrid" if mode == "hybrid-rerank" else mode
+    # The engine reranks itself (rerank_scored), so a *-rerank mode retrieves
+    # through its fusion base rather than double-reranking.
+    base = {"hybrid-rerank": "hybrid", "hybrid-graph-rerank": "hybrid-graph"}.get(mode, mode)
     retriever = _mode_retriever(base, chunks, k=CANDIDATE_K, strategy="structure")
     return retriever.invoke(question)
 
@@ -136,6 +138,23 @@ def answer_question(
         "candidates": [d.metadata.get("chunk_id") for d in candidates],
         "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
     }
+    if mode in GRAPH_MODES:
+        # Day 11 explainability: which entities linked and which candidates the
+        # graph route contributed, with hop/direction provenance (spec §3).
+        from learnarken.retrieval.entity_link import build_lexicon, link_entities
+
+        spans["graph"] = {
+            "entities": [e.model_dump() for e in link_entities(question, build_lexicon(chunks))],
+            "candidates": [
+                {
+                    "chunk_id": d.metadata.get("chunk_id"),
+                    "hop": d.metadata["graph_hop"],
+                    "direction": d.metadata["graph_direction"],
+                }
+                for d in candidates
+                if "graph_hop" in d.metadata
+            ],
+        }
     spans["rerank"] = {
         "threshold": threshold,
         "ranked": [(d.metadata.get("chunk_id"), s) for d, s in ranked],
@@ -171,7 +190,11 @@ def answer_question(
     by_id = {c.chunk_id: c for c in evidence}
 
     facts = graph.facts([c.dmc for c in evidence])  # GraphError propagates: fail closed
-    spans["graph"] = {"facts": [f.model_dump() for f in facts]}
+    # Merge into the Day 11 span (entities/candidates set above) rather than
+    # overwrite it — both provenance views must survive to an answered trace
+    # (red-team day11 #5: the graph explainability was being lost on every
+    # non-refused answer).
+    spans.setdefault("graph", {})["facts"] = [f.model_dump() for f in facts]
 
     delimiter = make_delimiter()
     emit("status", {"stage": "generating"})

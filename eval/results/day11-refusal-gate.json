@@ -1,0 +1,162 @@
+{
+ "threshold": 0.0004002201894763857,
+ "n_traps": 18,
+ "modes": {
+  "hybrid": {
+   "refused": 1,
+   "refusal_rate": 0.0556
+  },
+  "hybrid-graph": {
+   "refused": 1,
+   "refusal_rate": 0.0556
+  }
+ },
+ "per_query": [
+  {
+   "query_id": "C113",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.4771,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.4771
+  },
+  {
+   "query_id": "C114",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.6039,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.6039
+  },
+  {
+   "query_id": "C115",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.4324,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.4324
+  },
+  {
+   "query_id": "C116",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.3356,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.3356
+  },
+  {
+   "query_id": "C117",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.5824,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.5824
+  },
+  {
+   "query_id": "C118",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0028,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0028
+  },
+  {
+   "query_id": "C119",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.3586,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.3586
+  },
+  {
+   "query_id": "C148",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0012,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0012
+  },
+  {
+   "query_id": "C149",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0156,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0156
+  },
+  {
+   "query_id": "C150",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0287,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0287
+  },
+  {
+   "query_id": "MH-08",
+   "set": "day11-multihop",
+   "hybrid": false,
+   "hybrid_top1": 0.6379,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.6379
+  },
+  {
+   "query_id": "MH-09",
+   "set": "day11-multihop",
+   "hybrid": false,
+   "hybrid_top1": 0.0096,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0096
+  },
+  {
+   "query_id": "MH-10",
+   "set": "day11-multihop",
+   "hybrid": false,
+   "hybrid_top1": 0.55,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.55
+  },
+  {
+   "query_id": "Q020",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0351,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0351
+  },
+  {
+   "query_id": "Q021",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0011,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0011
+  },
+  {
+   "query_id": "Q022",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.001,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.001
+  },
+  {
+   "query_id": "Q023",
+   "set": "day4",
+   "hybrid": true,
+   "hybrid_top1": 0.0002,
+   "hybrid-graph": true,
+   "hybrid-graph_top1": 0.0002
+  },
+  {
+   "query_id": "Q032",
+   "set": "day4",
+   "hybrid": false,
+   "hybrid_top1": 0.0165,
+   "hybrid-graph": false,
+   "hybrid-graph_top1": 0.0165
+  }
+ ],
+ "regressions": [],
+ "pass": true
+}

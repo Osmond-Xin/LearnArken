@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 
 ABLATION = Path("eval/results/day4-ablation.json")
+DAY11 = Path("eval/results/day11-ablation.json")
+DAY11_REFUSAL = Path("eval/results/day11-refusal-gate.json")
 BAKEOFF = Path("eval/results/day4-bakeoff.json")
 # Rows that can no longer be regenerated (provider removed from the
 # architecture) live in their own artifact with provenance — the generator
@@ -31,6 +33,8 @@ MODE_LABELS = {
     "dense": "dense (Vespa + Qwen3-8B)",
     "hybrid": "hybrid (RRF)",
     "hybrid-rerank": "hybrid + rerank",
+    "hybrid-graph": "hybrid + graph (3-way RRF)",
+    "hybrid-graph-rerank": "hybrid + graph + rerank",
 }
 
 PROVIDER_LABELS = {
@@ -57,7 +61,6 @@ def _short_revisions(revisions: dict[str, str]) -> str:
 
 def render_ablation(report: dict) -> list[str]:
     results = report["results"]
-    _check_monotonic(results, ABLATION)
     n_eval = {r["n_evaluated"] for r in results.values()}
     n_na = {r["n_no_answer"] for r in results.values()}
     if len(n_eval) != 1 or len(n_na) != 1:  # not `assert` — must survive python -O (C11)
@@ -67,24 +70,8 @@ def render_ablation(report: dict) -> list[str]:
         f"Ranking metrics over **answerable n={n_eval.pop()}**; zero-hit rate over "
         f"the **{n_na.pop()} no-answer traps** (red-team day4 #2 labeling).",
         "",
-        "| Mode | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate | p50 |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        *_mode_table(report, ABLATION),
     ]
-    best = {
-        k: max(r[k] for r in results.values()) for k in ("recall@5", "recall@10", "mrr", "ndcg@10")
-    }
-    for mode, r in results.items():
-        cells = []
-        for key in ("recall@5", "recall@10", "mrr", "ndcg@10"):
-            value = f"{r[key]:.2f}"
-            cells.append(f"**{value}**" if abs(r[key] - best[key]) < 1e-9 else value)
-        p50 = report["p50_ms"][mode]
-        p50_text = "<1 ms" if p50 < 1 else f"{p50:.0f} ms"
-        zero_hit = f"{r['zero_hit_rate']:.2f}"
-        if mode == "bm25":
-            zero_hit = f"**{zero_hit}**"
-        label = MODE_LABELS.get(mode, mode)
-        lines.append(f"| {label} | " + " | ".join(cells) + f" | {zero_hit} | {p50_text} |")
 
     per_cat = report.get("per_category_recall")
     if per_cat:
@@ -110,6 +97,63 @@ def render_ablation(report: dict) -> list[str]:
             lines.append(f"| {mode} | " + " | ".join(cells) + " |")
 
     revisions = report.get("model_revisions")
+    if revisions:
+        lines += ["", f"Model snapshots pinned (INV-5): {_short_revisions(revisions)}."]
+    return lines
+
+
+def _mode_table(report: dict, source: Path) -> list[str]:
+    """The mode-metrics table body shared by the day4 and day11 blocks."""
+    results = report["results"]
+    _check_monotonic(results, source)
+    lines = [
+        "| Mode | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate | p50 |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    best = {
+        k: max(r[k] for r in results.values()) for k in ("recall@5", "recall@10", "mrr", "ndcg@10")
+    }
+    for mode, r in results.items():
+        cells = []
+        for key in ("recall@5", "recall@10", "mrr", "ndcg@10"):
+            value = f"{r[key]:.2f}"
+            cells.append(f"**{value}**" if abs(r[key] - best[key]) < 1e-9 else value)
+        p50 = report["p50_ms"][mode]
+        p50_text = "<1 ms" if p50 < 1 else f"{p50:.0f} ms"
+        zero_hit = f"{r['zero_hit_rate']:.2f}"
+        if mode == "bm25":
+            zero_hit = f"**{zero_hit}**"
+        label = MODE_LABELS.get(mode, mode)
+        lines.append(f"| {label} | " + " | ".join(cells) + f" | {zero_hit} | {p50_text} |")
+    return lines
+
+
+def render_day11(artifact: dict, refusal: dict) -> list[str]:
+    lines: list[str] = []
+    for title, key in (
+        ("Old golden set (day4, regression guard — dense R@10 was already 1.00)", "old_set"),
+        ("New multi-hop set (day11, human-authored, answers span 2-3 DMs)", "multihop_set"),
+    ):
+        report = artifact[key]
+        n_eval = {r["n_evaluated"] for r in report["results"].values()}
+        n_na = {r["n_no_answer"] for r in report["results"].values()}
+        if len(n_eval) != 1 or len(n_na) != 1:
+            raise SystemExit("REFUSING to emit table: modes evaluated different query sets")
+        lines += [
+            f"**{title}** — answerable n={n_eval.pop()}, no-answer traps n={n_na.pop()}:",
+            "",
+            *_mode_table(report, DAY11),
+            "",
+        ]
+    gate = refusal["modes"]
+    lines += [
+        f"T3 refusal-regression gate (deterministic threshold gate over "
+        f"{refusal['n_traps']} no-answer traps): hybrid "
+        f"{gate['hybrid']['refusal_rate']:.2f} vs hybrid+graph "
+        f"{gate['hybrid-graph']['refusal_rate']:.2f} — "
+        + ("**pass** (not lower)." if refusal["pass"] else "**FAIL**."),
+    ]
+    revisions = artifact["multihop_set"].get("model_revisions")
     if revisions:
         lines += ["", f"Model snapshots pinned (INV-5): {_short_revisions(revisions)}."]
     return lines
@@ -153,10 +197,13 @@ def replace_block(text: str, name: str, lines: list[str], path: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     check_only = "--check" in (argv if argv is not None else sys.argv[1:])
     ablation = json.loads(ABLATION.read_text(encoding="utf-8"))
+    day11 = json.loads(DAY11.read_text(encoding="utf-8"))
+    day11_refusal = json.loads(DAY11_REFUSAL.read_text(encoding="utf-8"))
     bakeoff = json.loads(BAKEOFF.read_text(encoding="utf-8"))
     historical = json.loads(BAKEOFF_HISTORICAL.read_text(encoding="utf-8"))
     current = README.read_text(encoding="utf-8")
     text = replace_block(current, "day4-ablation", render_ablation(ablation), README)
+    text = replace_block(text, "day11-ablation", render_day11(day11, day11_refusal), README)
     text = replace_block(text, "day4-bakeoff", render_bakeoff(bakeoff, historical), README)
     if check_only:
         if text != current:
@@ -168,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{README} tables match the eval artifacts")
         return 0
     README.write_text(text, encoding="utf-8")
-    print(f"rewrote gen:day4-ablation and gen:day4-bakeoff blocks in {README}")
+    print(f"rewrote gen:day4-ablation, gen:day11-ablation and gen:day4-bakeoff blocks in {README}")
     return 0
 
 

@@ -72,3 +72,36 @@ Row schema: `id`, `category`, `question`, `expected_behavior`
 (`answer|refuse|clarify`), `attack_note`, and `anchor`
 (`must_cite_dmc` / `must_state` for answerable; `must_not_state` for
 perturbation/trap rows).
+
+## `day11-multihop.jsonl` — cross-module multi-hop set (Day 11)
+
+10 queries: **MH-01…07** are multi-hop questions whose answers span 2-3
+distinct Data Modules; **MH-08…10** are no-answer traps (two applicability
+traps, one missing-attribute trap). New and old sets are always **reported
+separately** (spec day11 Key Decision 3): the Day 4 set's dense R@10 is already
+1.00, so any graph-route gain can only show here; the old set guards
+regression.
+
+**Authorship & anti-circularity protocol (spec day11 T4, ruling (a)):** the
+questions were written by **Yi Xin** (2026-07-19, from real S1000D maintenance
+scenarios, worksheet: `day11-multihop.worksheet.md`) under the protocol:
+no consulting the reference-edge list while authoring — no `graph impact`
+runs, no Neo4j browsing, no dmRef enumeration; reading DM titles/content is
+allowed. This prevents the evaluation circularity where questions enumerated
+from edges would mechanically favor the graph route. **AI (Claude) afterwards**
+verified every fact against the corpus, checked that each multi-hop item's
+anchors span ≥2 reference-connected DMs, and formatted the anchors — question
+text is verbatim from the worksheet, unedited (不改题、不补题).
+
+**Verification outcome, disclosed:** MH-01/02/03/05/06/07 anchors lie on real
+`REFS` chains; **MH-04's two DMs (24-50 battery / 29-10 pump) share no
+reference edge** — a genuine cross-ATA comparison the graph route cannot help.
+It is kept (`"graph_connected": false`) and reported honestly rather than
+dropped or rewritten to fit the graph. The worksheet's expected DM paths were
+treated as claims and re-derived from the XML, not trusted.
+
+Row schema: the standard `query_id`/`query`/`relevant` plus `hops` (distinct
+anchor DMs), `graph_connected`, `human_authored`, `ai_formatted`, and
+`trap_note` on no-answer rows. n=7 answerable clears the <5-item *indicative*
+threshold (spec day11 §5), but at this scale per-query deltas are still coarse
+— read the ablation rows with that in mind.

@@ -192,9 +192,66 @@ def sync(chunks: list[Chunk], owner: dict[str, str]) -> dict[str, int]:
                 )
             )
             edges += 1
+    # MERGE alone is append-only: edges/nodes from a previous, different corpus
+    # would survive and silently feed the Day 11 retrieval route (red-team
+    # day11 #1). Make the sync corpus-authoritative in the same transaction:
+    # drop edges the current chunks no longer assert, orphan nodes nobody
+    # references, and the `package` mark on DMs that are no longer indexed.
+    indexed = sorted(dms)
+    known_dms = sorted(set(dms) | {r for dm in dms.values() for r in dm["refs"]})
+    known_icns = sorted({i for dm in dms.values() for i in dm["icns"]})
+    for dm in dms.values():
+        statements.append(
+            (
+                "MATCH (d:DM {dmc: $dmc})-[r:REFS]->(t:DM) WHERE NOT t.dmc IN $refs DELETE r",
+                {"dmc": dm["dmc"], "refs": sorted(dm["refs"])},
+            )
+        )
+        statements.append(
+            (
+                "MATCH (d:DM {dmc: $dmc})-[r:USES_ICN]->(i:ICN) "
+                "WHERE NOT i.ident IN $icns DELETE r",
+                {"dmc": dm["dmc"], "icns": sorted(dm["icns"])},
+            )
+        )
+    statements.append(
+        ("MATCH (d:DM) WHERE NOT d.dmc IN $known DETACH DELETE d", {"known": known_dms})
+    )
+    statements.append(
+        ("MATCH (i:ICN) WHERE NOT i.ident IN $known DETACH DELETE i", {"known": known_icns})
+    )
+    statements.append(
+        # A previously-indexed DM that is now only referenced must stop
+        # claiming corpus membership (exists_in_corpus semantics, day9 #6).
+        ("MATCH (d:DM) WHERE NOT d.dmc IN $indexed REMOVE d.package", {"indexed": indexed})
+    )
     _cypher(statements)
     logger.info("graph sync: %d DM nodes, %d edges", len(dms), edges)
     return {"dm_nodes": len(dms), "edges": edges}
+
+
+def stats() -> dict[str, int]:
+    """Live counts in the same shape `sync` returns, for manifest verification.
+
+    `dm_nodes` counts only indexed modules (carrying a package); `edges` is
+    REFS + USES_ICN. After a corpus-authoritative `sync` these must equal the
+    manifest's recorded `graph` block — a mismatch means the graph did not
+    come from the manifest's ingest (red-team day11 #1, fail closed).
+    """
+    rows = _cypher(
+        [
+            ("MATCH (d:DM) WHERE d.package IS NOT NULL RETURN count(d)", {}),
+            ("MATCH ()-[r:REFS]->() RETURN count(r)", {}),
+            ("MATCH ()-[r:USES_ICN]->() RETURN count(r)", {}),
+        ]
+    )
+    try:
+        dm_nodes = rows[0]["data"][0]["row"][0]
+        refs = rows[1]["data"][0]["row"][0]
+        icns = rows[2]["data"][0]["row"][0]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise GraphError(f"stats: unexpected response shape ({exc!r})") from exc
+    return {"dm_nodes": dm_nodes, "edges": refs + icns}
 
 
 MAX_IMPACT_DEPTH = 10
@@ -275,6 +332,99 @@ def impact(dmc: str, depth: int = 3) -> ImpactResult:
         truncated=truncated,
         affected=affected,
     )
+
+
+MAX_EXPAND_DEPTH = 2  # spec Key Decision 2: 1-2 hops, nothing deeper
+GRAPH_FANOUT_CAP = 20  # hub guard: per-node neighbor cap, deterministic (ORDER BY dmc)
+MAX_EXPAND_NODES = 100  # overall bound on one expansion (INV-2)
+MAX_EXPAND_SEEDS = 25  # bound on the seed list itself (red-team day11 #2)
+
+
+class NeighborDM(BaseModel):
+    """A DM discovered by `neighborhood`, with how it was reached."""
+
+    dmc: str
+    hops: int  # 1..depth (seeds themselves are not emitted)
+    direction: str  # "out" = frontier-[:REFS]->node, "in" = node-[:REFS]->frontier
+
+
+def neighborhood(seeds: list[str], depth: int = MAX_EXPAND_DEPTH) -> tuple[list[NeighborDM], bool]:
+    """DMs within `depth` REFS-hops of `seeds`, both directions, deterministic.
+
+    Same per-hop BFS shape as `impact` (cycle-safe by construction, never
+    enumerates paths). Ordering is fully deterministic (INV-5): per hop,
+    out-edges before in-edges (edge-direction priority, spec T1), then by
+    (frontier dmc, neighbor dmc). The hub guard is a per-node fan-out cap of
+    `GRAPH_FANOUT_CAP` neighbors, cut on the same deterministic order — a
+    runtime equivalent of the spec's static `is_hub` marking with the same
+    bound and less machinery (divergence noted in the day's notes). Fails
+    closed (`GraphError`) when Neo4j is unreachable; the *caller* decides
+    whether that degrades (search path) or aborts (ablation).
+    """
+    if type(depth) is not int or not (1 <= depth <= MAX_EXPAND_DEPTH):
+        raise ValueError(f"depth must be an int in 1..{MAX_EXPAND_DEPTH}, got {depth!r}")
+    if len(set(seeds)) > MAX_EXPAND_SEEDS:
+        # The node cap bounds discovery, not the seed lists shipped to Neo4j —
+        # an over-broad entity link must be cut by the caller, deterministically,
+        # before it reaches the wire (red-team day11 #2).
+        raise ValueError(f"{len(set(seeds))} seeds exceed MAX_EXPAND_SEEDS={MAX_EXPAND_SEEDS}")
+    visited = set(seeds)
+    frontier = sorted(visited)
+    found: list[NeighborDM] = []
+    truncated = False
+    for hop in range(1, depth + 1):
+        if not frontier or truncated:
+            break
+        next_frontier: list[str] = []
+        for pattern, direction in (
+            ("(s:DM)-[:REFS]->(n:DM)", "out"),
+            ("(n:DM)-[:REFS]->(s:DM)", "in"),
+        ):
+            rows = _cypher(
+                [
+                    (
+                        f"MATCH {pattern} "
+                        "WHERE s.dmc IN $frontier AND NOT n.dmc IN $visited "
+                        "WITH s, n ORDER BY n.dmc "
+                        "WITH s, collect(DISTINCT n.dmc)[0..$fanout] AS ns "
+                        "RETURN s.dmc, ns ORDER BY s.dmc",
+                        {
+                            "frontier": frontier,
+                            "visited": sorted(visited),
+                            "fanout": GRAPH_FANOUT_CAP,
+                        },
+                    )
+                ]
+            )
+            try:
+                parsed = [(row["row"][0], list(row["row"][1])) for row in rows[0].get("data", [])]
+            except (KeyError, IndexError, TypeError) as exc:
+                # A proxy / wrong service answering with unexpected JSON must
+                # surface as GraphError (degradable), not KeyError (day11 #7).
+                raise GraphError(f"neighborhood: unexpected response shape ({exc!r})") from exc
+            for _, neighbor_dmcs in parsed:
+                for ndmc in neighbor_dmcs:
+                    if ndmc in visited:  # reached via an earlier frontier node/direction
+                        continue
+                    visited.add(ndmc)
+                    found.append(NeighborDM(dmc=ndmc, hops=hop, direction=direction))
+                    next_frontier.append(ndmc)
+                    if len(found) >= MAX_EXPAND_NODES:
+                        truncated = True
+                        break
+                if truncated:
+                    break
+            if truncated:
+                break
+        frontier = next_frontier
+    logger.info(
+        "graph neighborhood: seeds=%d depth=%d found=%d truncated=%s",
+        len(seeds),
+        depth,
+        len(found),
+        truncated,
+    )
+    return found, truncated
 
 
 def facts(dmcs: list[str]) -> list[GraphFacts]:

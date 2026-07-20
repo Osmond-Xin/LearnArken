@@ -5,9 +5,12 @@ from learnarken.graph.store import (
     GraphFacts,
     ImpactedDM,
     ImpactResult,
+    NeighborDM,
     facts,
     impact,
     is_up,
+    neighborhood,
+    stats,
     sync,
 )
 
@@ -16,8 +19,11 @@ __all__ = [
     "GraphFacts",
     "ImpactResult",
     "ImpactedDM",
+    "NeighborDM",
     "facts",
     "impact",
     "is_up",
+    "neighborhood",
+    "stats",
     "sync",
 ]

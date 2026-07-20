@@ -69,7 +69,7 @@ model, reviews are read-only, and every number a red team reports is re-run by
 me before merge. See [docs/redteam.md](docs/redteam.md) and
 [docs/execution-plan.md](docs/execution-plan.md).
 
-## Progress (Day 1–10)
+## Progress (Day 1–11)
 
 | Day | Node | Tag | Status |
 | --- | --- | --- | --- |
@@ -83,6 +83,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | 8 | Adversarial evaluation: attacking my own RAG ⚑ heavy red team | `v0.8.0` | ✅ 2026-07-18 |
 | 9 | Evidence chain & machine readability | `v0.9.0` | ✅ 2026-07-18 |
 | 10 | On-demand real-stack deployment & wrap-up | `v1.0.0` | ✅ 2026-07-18 |
+| 11 | Graph-augmented retrieval (KG-RAG slice) | `v1.1.0` | ✅ 2026-07-19 |
 
 Benchmark tables, ablations, and adversarial-evaluation results will appear
 below this section as the corresponding nodes complete. Every number comes
@@ -282,6 +283,83 @@ distribution: `uv run python tools/adversarial_eval.py --repeat 3 --label after`
 (needs the local services, `MINIMAX_*` in `.env`, and the `codex` + `agy` CLIs;
 exact values drift run-to-run — the frozen artifact is the record).
 
+### Graph-augmented retrieval — Day 11 (entity linking → REFS expansion → third RRF route)
+
+A **deterministic** query-side entity linker (regex + corpus-derived lexicons
+for DMC / part-number / task entities — no LLM, fail-closed on unknown
+entities) seeds a 1-2-hop traversal of the Neo4j `REFS` citation graph (both
+directions, cycle-safe, hub-capped); the expanded neighborhood's chunks join
+BM25 and dense as a **third RRF route** (`hybrid-graph` /
+`hybrid-graph-rerank`). New and old golden sets are reported separately: the
+old set's ceiling was already 1.00, so it guards regression; the new
+multi-hop set (questions human-authored under an anti-circularity protocol —
+see [eval/golden/README.md](eval/golden/README.md)) is where gains could show.
+
+<!-- BEGIN gen:day11-ablation -->
+**Old golden set (day4, regression guard — dense R@10 was already 1.00)** — answerable n=67, no-answer traps n=15:
+
+| Mode | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate | p50 |
+| --- | --- | --- | --- | --- | --- | --- |
+| bm25 (in-process) | 0.83 | 0.88 | 0.74 | 0.77 | **0.40** | <1 ms |
+| dense (Vespa + Qwen3-8B) | **0.99** | **1.00** | **0.87** | **0.90** | 0.00 | 55 ms |
+| hybrid (RRF) | 0.93 | **1.00** | 0.85 | 0.88 | 0.00 | 5 ms |
+| hybrid + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 122 ms |
+| hybrid + graph (3-way RRF) | 0.93 | **1.00** | 0.84 | 0.88 | 0.00 | 6 ms |
+| hybrid + graph + rerank | **0.99** | 0.99 | 0.85 | 0.88 | 0.00 | 129 ms |
+
+**New multi-hop set (day11, human-authored, answers span 2-3 DMs)** — answerable n=7, no-answer traps n=3:
+
+| Mode | Recall@5 | Recall@10 | MRR | nDCG@10 | Zero-hit rate | p50 |
+| --- | --- | --- | --- | --- | --- | --- |
+| bm25 (in-process) | 0.58 | 0.65 | 0.73 | 0.58 | **0.00** | <1 ms |
+| dense (Vespa + Qwen3-8B) | **0.82** | **0.95** | 0.74 | 0.74 | 0.00 | 66 ms |
+| hybrid (RRF) | 0.65 | 0.83 | 0.81 | 0.72 | 0.00 | 6 ms |
+| hybrid + rerank | 0.73 | 0.81 | 0.71 | 0.69 | 0.00 | 170 ms |
+| hybrid + graph (3-way RRF) | 0.64 | 0.83 | **0.89** | **0.75** | 0.00 | 17 ms |
+| hybrid + graph + rerank | 0.73 | 0.81 | 0.71 | 0.69 | 0.00 | 206 ms |
+
+T3 refusal-regression gate (deterministic threshold gate over 18 no-answer traps): hybrid 0.06 vs hybrid+graph 0.06 — **pass** (not lower).
+
+Model snapshots pinned (INV-5): `BAAI/bge-m3 @ 5617a9f61`, `BAAI/bge-reranker-v2-m3 @ 953dc6f6f`, `Qwen/Qwen3-Embedding-8B @ 1d8ad4ca9`.
+<!-- END gen:day11-ablation -->
+
+Honest readings (details:
+[docs/notes/day11-neighbor-noise.md](docs/notes/day11-neighbor-noise.md)):
+
+- **Post-rerank, the graph route changes nothing at this scale** — the
+  `hybrid+graph+rerank` row is bit-identical to `hybrid+rerank`: with 43
+  chunks and 20 candidates per arm, the pool already covers nearly the whole
+  corpus, so the route's rescue mechanism (pulling chunks the other arms
+  missed entirely) has nothing to rescue. Its measured value here is the
+  **pre-rerank ranking signal on multi-hop queries** (MRR 0.81→0.89, nDCG
+  0.72→0.75) plus citation-path explainability (traces carry linked entities
+  and per-candidate hop/direction).
+- **Neighbor noise, measured**: on the old set the graph route dilutes
+  pre-rerank MRR/nDCG slightly (0.850→0.842 / 0.883→0.879) and costs ~13 ms
+  p50 on entity-dense queries; recall never regresses.
+- **The deterministic threshold gate held, per-query (T3)**: over all 18
+  no-answer traps, every trap `hybrid` correctly refuses is still refused
+  under `hybrid-graph` — no trap flipped from refuse to answer (checked
+  per-query, not just as an aggregate rate, since offsetting flips could
+  otherwise hide a regression)
+  ([eval/results/day11-refusal-gate.json](eval/results/day11-refusal-gate.json)).
+  This measures only the **first** of the answer layer's three fail-closed
+  gates (Day 5: threshold → citation → LLM contract); it shows structure-
+  pulled "high-quality noise" did not clear the reranker threshold on its
+  own, not that the full answer pipeline is regression-free under load —
+  that would need an end-to-end no-answer run, not yet done for graph modes.
+- One multi-hop question (MH-04, a genuine cross-ATA comparison) has **no
+  reference chain between its answer DMs** — kept and flagged
+  (`graph_connected: false`) rather than dropped: real questions do not
+  promise to follow the graph.
+
+Reproduce: `learnarken index samples/package-a samples/package-c`, then
+`learnarken eval ablation --golden eval/golden/day4.jsonl --json` and
+`--golden eval/golden/day11-multihop.jsonl --json` (combined into
+[eval/results/day11-ablation.json](eval/results/day11-ablation.json)),
+`uv run python tools/day11_refusal_gate.py`, and
+`uv run python tools/gen_benchmark_tables.py`.
+
 ## Live Demo (On-Demand)
 
 The full stack (Vespa + Neo4j + local embedding/rerank models + MiniMax) is too
@@ -336,7 +414,11 @@ deploy slice is [docs/reviews/day10.md](docs/reviews/day10.md).
   boots a stopped GCP VM running the full `make demo` topology behind a
   static status/guide page, with layered fail-closed cost fences (in-VM idle +
   hard-cap shutdown, in-process LLM spend quota, shared-key gate, public-mode
-  upload/trace kill switches) — see [deploy/](deploy/runbook.md) (Day 10)
+  upload/trace kill switches) — see [deploy/](deploy/runbook.md) (Day 10);
+  **graph-augmented retrieval** — deterministic entity linking (regex +
+  corpus lexicons, no LLM) + 1-2-hop `REFS` expansion fused as a third RRF
+  route (`hybrid-graph` modes), with a human-authored multi-hop golden set
+  and an honestly-flat post-rerank ablation (Day 11)
 - **Toy-scale**: synthetic sample-package size; single-machine simulation of
   distributed behavior; the repair agent's sandbox is an application-layer fence
   (import/argv allow-list + temp-dir jail + resource limits), not OS-level

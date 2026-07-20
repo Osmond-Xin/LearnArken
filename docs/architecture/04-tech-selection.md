@@ -1,6 +1,6 @@
 # 04 · 选型说明：候选、决定、理由、出处
 
-> **AI-drafted，待人审**。快照：2026-07-17（含 Day 5/6 选型）。本文只汇总
+> **AI-drafted，待人审**。快照：2026-07-18（Day 1–10 全部合并，`v1.0.0`）。本文只汇总
 > **已经做出**的选型决策；每条给出决策出处（spec / discussion / review 裁决）。
 > 新决策不在这里做——在讨论里做、在这里登记。
 
@@ -55,7 +55,7 @@
 | --- | --- | --- | --- |
 | **答案 LLM = MiniMax-M3 chat** | Claude API（原执行计划） | Yi Xin 裁决改用 M3;配置走既有 `MINIMAX_*`。注意边界:Day 4 移除的是 MiniMax *embedding*,不覆盖 chat/生成 | [specs/day5 决策2](../specs/day5.md) |
 | **严格二分拒答**（带引用回答 xor 占位符） | 分级低置信带 | INV-4 洁净 + 缩小 Day 8 攻击面;深调研的 graceful-degradation 备选被否 | specs/day5 Q2 |
-| **图集成 = 索引时同步 + 接口③注入** | 图邻居检索扩展 | DM 节点 + dmRef/ICN 边幂等 upsert;检索 DM 的图谱事实作结构化列表进 prompt;多跳留 Day 7/9 | [ADR-0002](../adr/0002-minimal-graph-query-slice.md)、specs/day5 Q1 |
+| **图集成 = 索引时同步 + 接口③注入** | 图邻居检索扩展 | DM 节点 + dmRef/ICN 边幂等 upsert;检索 DM 的图谱事实作结构化列表进 prompt;多跳于 Day 9 落地（§4.10）| [ADR-0002](../adr/0002-minimal-graph-query-slice.md)、specs/day5 Q1 |
 | **拒答阈值 = 实测 artifact** | 手挑常数 | 从 golden 分数分布测出(INV-5),加载时校验有限且 ∈[0,1](红队 day5 #6) | specs/day5 |
 | **答案固定英文** | 跟随问题语言 | 与对外产物一致;证据语料是英文合成 XML,避免跨语引用对齐噪声 | specs/day5 Q3 |
 
@@ -70,21 +70,58 @@
 | **CSRF = Origin/Referer 门** | demo token / 自定义头 | 无需改客户端/测试;server 端客户端无 Origin 头放行,浏览器跨源带外源头 403 | [reviews/day6 #4](../reviews/day6.md) |
 | **上传事务化 = staging + 原子换入** | 直接写 active | active 在校验且索引都过前不动;重传失败保住旧的有效模块(红队 #1) | reviews/day6 #1 |
 
+## 4.8 自愈修复 Agent 选型（Day 7，v0.7.0）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **ReAct 结构化 JSON 循环（自研）** | LangChain/LangGraph agent、原生 function-calling | 工具面/沙箱/熔断/人工闸是领域安全逻辑,通用框架的自由工具调用面反而扩大攻击面;M3 的 function-calling 非标准,结构化 JSON 契约更可控 | [specs/day7](../specs/day7.md)、[discussions/day7](../discussions/day7.md) |
+| **受约束工具面（6 个）** | 自由字符串/正则替换工具 | ACI 防呆:`propose_patch` 是唯一写路径且绑定锚定节点,4 个扁平 `EditOp` 由 lxml 拼 DOM——消灭"忘闭合标签"类崩溃(神经符号分工) | specs/day7 |
+| **信任来源 = 校验器确定性复跑** | LLM 自评修复成功 | 生成器-验证器不共谋;修没修好由 Day 2 校验器说了算 | specs/day7 决策 |
+| **默认 dry-run + `--apply` 人工闸** | 自动写入 | 宪法 §1.3 绝不静默改数据;apply 时按 rule_id 重算风险 tier + TOCTOU 复检 + 原子写入/回滚 | specs/day7 |
+| 沙箱 = 应用层围栏 | OS 级隔离（容器/gVisor） | 玩具层诚实标注（INV-7）:temp-dir jail + 白名单 + setrlimit 够本切片;真隔离在切片外 | specs/day7 |
+
+## 4.9 对抗评估选型（Day 8，v0.8.0）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **异构双裁判 Codex + agy(Gemini)** | 单裁判、MiniMax 自评 | 生成器绝不当裁判（`FORBIDDEN_JUDGES`,同族 self-preference 共谋）;裁判是"异构+人工锚定的抽查放大器",不是信任来源 | [specs/day8](../specs/day8.md)、[reviews/day8](../reviews/day8.md) |
+| **交集判定（两裁判皆过才算有据）** | 并集/多数决/人工兜底 | 严格口径作 headline,分歧行显式列出 | specs/day8 决策 C |
+| **行为判分确定性、不用 LLM** | LLM 判全部维度 | 答/拒/澄清 + must_not_state 是可确定性检查的;LLM 只用在非判不可的有据性上 | specs/day8 决策 A |
+| **Cohen's κ 人工锚定** | 直接信裁判 | Yi Xin 标 n=30,κ codex 0.737 / agy 0.667,0.60 软门双过;单类退化显式 κ=None(偏斜陷阱) | eval/results/day8-kappa.json |
+| **裁判 stdout 冻结进 artifact** | 只存分数 | 活体 CLI 会漂移;冻结原始输出使数字可从 artifact 复现（INV-5,决策 D） | specs/day8 |
+
+## 4.10 证据链与机器可读性选型（Day 9，v0.9.0）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **llms.txt + EVIDENCE.md 主张矩阵** | 只靠 README | 验收口径:陌生 AI agent（MiniMax）只读这两个文件,5 分钟内定位任一数字的复跑命令;守卫测试防死链/数字漂移 | [specs/day9](../specs/day9.md) |
+| **EVIDENCE.md 只放抽象能力声明** | 简历数字入库 | INV-1:求职私档留 `resume-master/` 指回公共锚点,公共侧绝不外指（T1 裁决） | specs/day9 决策 1 |
+| **graph impact = 独立 CLI 并联选项** | 并入答案管线 | 限深 `REFS*1..N` + 环去重(VIO-7 环免疫) + fail-closed;作 Graph-RAG 并联接口**不**扩主管线（T3 裁决,INV-8 防滑点） | specs/day9 决策 2、ADR-0002 |
+
+## 4.11 部署选型（Day 10，v1.0.0）
+
+| 选型 | 候选 | 决定与理由 | 出处 |
+| --- | --- | --- | --- |
+| **选型 D:按需真栈（停机 GCP VM）** | A 免费层简化切片（执行计划原案/DR 前提）、B 托管服务替换、C 纯录播 | Yi Xin 裁决推翻免费层前提:预期流量≈0,触发本身就是兴趣信号,按需付费恰好只在有人看时花钱;**部署物=基准物**,零 INV-5 口径漂移、零 INV-7"替换后端"脚注 | [specs/day10 决策 1](../specs/day10.md)、[discussions/day10 D1](../discussions/day10.md) |
+| **GCP（us-central1）** | AWS | 同规格(8 vCPU/64 GB)约便宜 20%;本地 gcloud 已认证、配额/预算权限已核 | specs/day10 决策 2 |
+| **token 状态页触发** | 常驻公网、手动邮件联系 | 每收件方一 token(点击可归因到公司);页面三态(closed/starting/running)任何状态都有下一步动作;点击+就绪各通知一封 | specs/day10 决策 3 |
+| **费用围栏在 VM 内** | 只靠云端预算警报 | 看门狗不依赖外部服务存活;任何歧义朝关机解;demo_guard 补 MiniMax 花费盲区(GCP 账单看不见 LLM 调用) | specs/day10 决策 4、reviews/day10 |
+
 ## 5. 有意不做的（负选型）
 
 | 不做 | 理由 | 重新评估点 |
 | --- | --- | --- |
 | SPLADE / ColBERT 实现 | 切片外（Planned）；Vespa 选型已保留 ColBERT 通路 | 切片完成后 |
-| RDF/SPARQL 全量知识图谱 | 切片外；**最小图查询已于 Day 5 拉入**(ADR-0002),多跳依赖查询留 Day 9 | Day 9 |
+| RDF/SPARQL 全量知识图谱 | 切片外；最小图查询 Day 5 拉入(ADR-0002)、**多跳依赖查询 Day 9 已落地**(`graph impact`);全量 KG 仍不做 | 切片完成后 |
 | S1000D → 图数据库直接映射 | 业界做法（跳过文本分块），受限于 INV-1 无真实数据，本项目走传统 RAG 分块 | discussions/day3 D5 |
-| 语义 groundedness（引用蕴含判定） | 当前引用确证只卡逐字子串必要条件 | **Day 8 对抗评估** |
+| 语义 groundedness（引用蕴含判定） | ~~切片外~~ → **Day 8 已落地**(异构双裁判,评估管线);**运行时门**仍只卡逐字子串必要条件 | 运行时蕴含判定:切片外 |
 | index epoch / content-hash manifest | 语料小、每请求重验够用 | 缓存化或多写并发时（红队 #8） |
-| Demo 公网化(鉴权/限流/JWT/熔断) | loopback 单用户前提下超范围 | 真要对外部署时 |
+| Demo 公网化 | loopback 前提原判超范围;**Day 10 公网模式已加最小围栏**(门钥/LLM 配额/上传闸,demo_guard)。JWT/限流/多租户仍不做 | 真多租户部署时 |
 | vLLM 本地 serving、Rust 扩展、GNN、形式化验证 | 切片外 Roadmap | 切片完成后 |
 
 ## 6. 决策模式备忘
 
-六天下来的选型决策呈现一个稳定模式，后续变更时应沿用：
+十天下来的选型决策呈现一个稳定模式，后续变更时应沿用：
 
 1. **人决策、AI 供选项**：Vespa 一案 AI 推荐 Qdrant 被否；Day 6 的 SSE×fail-closed
    三选项(不流式/进度事件/召回)也由 Yi Xin 裁——决策权在人，理由完整留痕；
@@ -93,5 +130,9 @@
 3. **每个选型带否决候选**：没有被拒绝的候选就不算选型，只是默认；
 4. **测量推翻直觉要留痕**：MiniMax 因实测长度偏置被换掉、拒答门在玩具规模弱,
    都诚实登记——"我测出缺陷并换掉/标注它"是比隐藏更强的故事;
-5. **红队发现回填选型**：Day 6 的 CSRF 门、上传事务化是两轮红队裁决的产物,
-   决策出处指向 reviews/day6——评审不是走过场,是选型的一部分。
+5. **红队发现回填选型**：Day 6 的 CSRF 门、上传事务化,Day 10 的 demo_guard
+   三闸,都是红队裁决的产物,决策出处指向 reviews/——评审不是走过场,是选型的
+   一部分;
+6. **继承的约束要先核实再优化**：Day 10 执行计划写的"免费层"被 Yi Xin 一句
+   "付费 GCP 在手"推翻——差点在假前提里做次优选型。动手前显式列约束、问清
+   真实资源（discussions/day10 D1）。
