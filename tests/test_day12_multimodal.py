@@ -38,6 +38,23 @@ PUMP_HOTSPOTS = {"01", "02", "03"}
 PUMP_PARTS = ["LA-29-4711-1", "LA-29-4711-9", "LA-29-0025-4"]
 
 
+@pytest.fixture(autouse=True)
+def _stub_vlm_config(monkeypatch):
+    """Hermetic: the VLM tests build a real payload (`describe_figure` reads the
+    model name from config) before the mocked transport runs — stub the config
+    so no `.env` is needed (CI has none; the transport is mocked anyway)."""
+    monkeypatch.setattr(
+        vlm,
+        "load_minimax_config",
+        lambda *a, **k: {
+            "MINIMAX_API_URL": "https://example.invalid",
+            "MINIMAX_MODEL_NAME": "test-model",
+            "MINIMAX_API_KEY": "k",
+            "MINIMAX_API_PROXY_TOKEN": "t",
+        },
+    )
+
+
 def _desc(
     hotspots=("01", "02", "03"), parts=PUMP_PARTS, summary="pump", warnings=("W",), refused=False
 ):
