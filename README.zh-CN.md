@@ -18,7 +18,7 @@ AI agent)沿证据链核查。
 所有基准都同时报告这两项。输入材料是该公司的培训手册(S1000D 风格数据包),
 其中会累积过期旧版本,必须建模区分并过滤。
 
-规划中的系统(按下方 10 日进度表逐日构建,当前已有内容见进度表)将提供:
+规划中的系统(按下方 13 日进度表逐日构建,当前已有内容见进度表)将提供:
 
 1. **Fail-closed 入库闸门** — 每份文档入库前经 S1000D 结构与基础 BREX
    (Schematron)规则校验。过期、不合规、错领域文档(如混入的舰船维修模块)
@@ -50,7 +50,7 @@ AI agent)沿证据链核查。
 红队纪律:评审模型与实现模型必须不同、只读不写、报出的数字本人复跑。
 详见 [docs/redteam.md](docs/redteam.md) 与 [docs/execution-plan.md](docs/execution-plan.md)。
 
-## 进度(Day 1–10)
+## 进度(Day 1–13)
 
 | Day | 节点 | Tag | 状态 |
 | --- | --- | --- | --- |
@@ -63,10 +63,13 @@ AI agent)沿证据链核查。
 | 7 | 校验修复 agent | `v0.7.0` | ✅ 2026-07-17 |
 | 8 | 评估红队:攻击自己的 RAG ⚑重型红队 | `v0.8.0` | ✅ 2026-07-18 |
 | 9 | 证据链与机器可读性 | `v0.9.0` | ✅ 2026-07-18 |
-| 10 | 上线与收尾 | `v1.0.0` | ⬜ |
+| 10 | 按需真栈部署与收尾 | `v1.0.0` | ✅ 2026-07-18 |
+| 11 | 图谱增强检索(KG-RAG 切片) | `v1.1.0` | ✅ 2026-07-19 |
+| 12 | 多模态入库与问答(describe-then-index + G15 二次看图)⚑重型红队 | `v1.2.0` | ✅ 2026-07-20 |
+| 13 | 性能与推理策略实验(mp / profile→numba / ToT / asyncio)⚑重型红队 | `v1.3.0` | ✅ 2026-07-21 |
 
-基准表、消融表、对抗评估结果将随对应节点完成后出现在本节下方,
-每个数字附复跑命令(不可复现的数字不进 README — INV-5)。
+基准表、消融表、对抗评估结果附在英文 README 对应节点下方(中文版为压缩镜像,
+不重复搬运基准表);每个数字附复跑命令(不可复现的数字不进 README — INV-5)。
 
 ## Roadmap(诚实分层)
 
@@ -81,29 +84,52 @@ AI agent)沿证据链核查。
   (FastAPI 后端 + Streamlit 哑客户端、SSE 流式带召回回撤、上传事务化)
   `make demo`(Day 6);LLM 主导的 ReAct **修复 agent**,诊断 L0–L3 校验 finding
   并提议最小结构化 patch,仅当确定性校验器复跑通过才采信,默认 dry-run、
-  批准后写入 `--apply`(逐 patch 人工闸、绝不静默——宪法 §1.3)`repair`(Day 7)
+  批准后写入 `--apply`(逐 patch 人工闸、绝不静默——宪法 §1.3)`repair`(Day 7);
+  **对抗评估** harness——32 例 golden 集、异构双裁判(Codex + agy)+ Cohen's κ
+  人工锚定 + 行为确定性判分——`eval adversarial`(Day 8);Neo4j 依赖图**影响查询**
+  (反向 `dmRef` 遍历、环安全、限深)`graph impact` + 机器可读证据链(`llms.txt`、
+  [docs/EVIDENCE.md](docs/EVIDENCE.md)、[docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md))
+  (Day 9);**按需真栈部署**——token 门控 Cloud Function 拉起停机 GCP VM 跑完整
+  `make demo` 拓扑,多层 fail-closed 费用围栏(VM 内闲置 + 硬顶关机、进程内 LLM 花费
+  配额、共享门钥、公网模式上传/trace 熔断)见 [deploy/](deploy/runbook.md)(Day 10);
+  **图谱增强检索**——确定性实体链接(regex + 语料词典、无 LLM)+ 1-2 跳 `REFS` 扩展
+  作第三路 RRF(`hybrid-graph` 模式),人工标注多跳 golden 集,消融诚实结论:rerank
+  后逐位不变(Day 11);**多模态入库/问答**——describe-then-index(VLM 描述离线相
+  SHA-256 绑定、索引相无 VLM 只 ground 声明集)+ G15 二次看图多采样共识 fail-closed
+  拒答(Day 12);**性能与推理策略实验**——多进程分片(INV-2 逐字节等价)、asyncio
+  I/O 编排、ToT best-of-N 确定性验证器选优(Day 13)
 - **Toy-scale**:合成样本包规模、单机模拟分布式;修复 agent 的沙箱是应用层围栏
   (import/argv 白名单 + 临时目录 jail + 资源上限),非 OS 级隔离;demo 单用户、
-  仅 loopback、无鉴权
+  仅 loopback、无鉴权;**按需公网部署单访客 + 共享门钥 + 明文 HTTP**(TLS/逐收件方
+  会话鉴权切片外,见 [docs/reviews/day10.md](docs/reviews/day10.md));VLM 通道
+  (MiniMax 代理)不稳定,靠重试 + 多采样共识兜底(Day 12);Day 13 是实验日——玩具
+  语料 CPU 不够重,mp 无加速、ToT repeat=3 无提升但 2.76× 成本(诚实登记)
 - **基于证据否决**:SPLADE 与 ColBERT——Day 4b 闸在复核的消融上保持关闭
-  (决策 + 复评触发见 [docs/adr/0001-day4b-gate-stays-shut.md](docs/adr/0001-day4b-gate-stays-shut.md))
-- **Planned**:RDF/SPARQL 知识图谱(最小依赖图查询切片已拉入 Day 9,见
-  [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md))、
-  vLLM 本地 serving、Rust 扩展、GNN、形式化验证(见
-  [docs/project-design.md](docs/project-design.md))
+  (决策 + 复评触发见 [docs/adr/0001-day4b-gate-stays-shut.md](docs/adr/0001-day4b-gate-stays-shut.md));
+  **numba / 自写 Rust·PyO3 / Python free-threading**(Day 13)——profiler 显示本语料
+  无纯数值/Python 侧 CPU 瓶颈,numba"无靶"、Rust·free-threading 保持证据门/叙事
+  (见 [docs/adr/0003-day13-rust-gate.md](docs/adr/0003-day13-rust-gate.md));latency
+  关键路径**已消费** Rust(Tantivy BM25、向量库)——以 informed-consumer 方式取得
+  Rust 性能而非自写扩展
+- **Planned**:完整 RDF/SPARQL 知识图谱(最小依赖图查询切片已 Day 9 落地、图谱检索
+  第三路已 Day 11 落地,见 [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md);
+  完整图谱 / 版本语义建模 / 多跳 SPARQL 仍规划中)、vLLM 本地 serving、GNN、形式化验证
+  (见 [docs/project-design.md](docs/project-design.md));**Day 8 红队遗留**:数字/单位
+  感知匹配(`125 Nm` 不应满足 `25 Nm`)、裁判熔断、index content-hash/epoch
+  (见 [docs/reviews/day8.md](docs/reviews/day8.md))
 
 ## 仓库导览
 
 | 入口 | 内容 |
 | --- | --- |
 | [docs/constitution.md](docs/constitution.md) | 业务场景设定 + 8 条项目不变式(最高约束) |
-| [docs/execution-plan.md](docs/execution-plan.md) | 10 日执行主计划与每日验收标准 |
+| [docs/execution-plan.md](docs/execution-plan.md) | 执行主计划与每日验收标准 |
 | [docs/project-design.md](docs/project-design.md) | 完整设计、JD 覆盖矩阵、里程碑 |
 | [docs/specs/](docs/specs/) · [docs/reviews/](docs/reviews/) · [docs/journal/](docs/journal/) | 每日证据链:SPEC / 红队+裁决 / 学习日志 |
 | [docs/discussions/](docs/discussions/) | 蒸馏的设计讨论:问题 → 选项 → 决定 → 理由 |
 | [docs/architecture/](docs/architecture/README.md) | 架构快照与变更基准(文件清单、数据流、配置、选型、API/demo) |
 | [docs/research/](docs/research/README.md) · [docs/gemini-deepresearch/](docs/gemini-deepresearch/) | 每日深度调研报告 + 未知点扫描(研→读→扫 学习循环) |
-| [docs/adr/](docs/adr/) | 架构决策记录(Day 4b 关门、最小图查询切片) |
+| [docs/adr/](docs/adr/) | 架构决策记录(Day 4b 关门、最小图查询切片、Day 13 Rust/free-threading 证据门) |
 | [docs/redteam.md](docs/redteam.md) · [docs/local-services.md](docs/local-services.md) | 红队 recipe;本地 Vespa/Neo4j/MiniMax 服务手册 |
 | [docs/tutorials/00-overview.md](docs/tutorials/00-overview.md) | 零基础教程系列(中文) |
 | [samples/](samples/README.md) | S1000D 样本说明与许可证核查记录 |
