@@ -145,8 +145,13 @@ def test_small_edit_is_not_vetoed(tmp_path):
     src.write_text("\n".join(f"<line{i}/>" for i in range(20)) + "\n")
     small_diff = "-<line0/>\n+<line0 fixed='1'/>\n"
     patch = ProposedPatch(
-        rule_id="XREF-001", layer="L3", file="DMC-x.xml", message="m",
-        risk_tier=RiskTier.APPLY_ELIGIBLE, status=PatchStatus.PATCHED, diff=small_diff,
+        rule_id="XREF-001",
+        layer="L3",
+        file="DMC-x.xml",
+        message="m",
+        risk_tier=RiskTier.APPLY_ELIGIBLE,
+        status=PatchStatus.PATCHED,
+        diff=small_diff,
     )
     candidate = _make_candidate(DEFAULT_ROLES[0], tmp_path, patch, RiskTier.APPLY_ELIGIBLE)
     assert not candidate.vetoed and candidate.selectable
@@ -191,8 +196,13 @@ def test_veto_on_unreadable_source_fails_closed(tmp_path):
     """If the source file can't be read, the deletion veto cannot verify the
     patch — it vetoes rather than assuming 0% deleted (red-team P2)."""
     patch = ProposedPatch(
-        rule_id="XREF-001", layer="L3", file="MISSING.xml", message="m",
-        risk_tier=RiskTier.APPLY_ELIGIBLE, status=PatchStatus.PATCHED, diff="-<a/>\n",
+        rule_id="XREF-001",
+        layer="L3",
+        file="MISSING.xml",
+        message="m",
+        risk_tier=RiskTier.APPLY_ELIGIBLE,
+        status=PatchStatus.PATCHED,
+        diff="-<a/>\n",
     )
     c = _make_candidate(DEFAULT_ROLES[0], tmp_path, patch, RiskTier.APPLY_ELIGIBLE)
     assert c.vetoed and not c.selectable and "unreadable" in c.veto_reason

@@ -257,9 +257,7 @@ def _make_candidate(
         )
     else:
         vetoed, deleted, veto_reason = False, (deleted or 0.0), ""
-    risk_note = (
-        f"tier={tier}; reward-hack check: {'VETOED — ' + veto_reason if vetoed else 'ok'}"
-    )
+    risk_note = f"tier={tier}; reward-hack check: {'VETOED — ' + veto_reason if vetoed else 'ok'}"
     return Candidate(
         role=role.name,
         target_finding=f"{patch.rule_id}@{patch.file}",

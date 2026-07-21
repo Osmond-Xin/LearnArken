@@ -261,8 +261,10 @@ def main() -> None:
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     _OUT.write_text(json.dumps(result, indent=2) + "\n")
     print(f"wrote {_OUT}")
-    print(f"  baseline {_kn(base_solved, n)} vs ToT {_kn(tot_solved, n)} majority-solved "
-          f"(R={repeats}, {len(roles)} cand/case)")
+    print(
+        f"  baseline {_kn(base_solved, n)} vs ToT {_kn(tot_solved, n)} majority-solved "
+        f"(R={repeats}, {len(roles)} cand/case)"
+    )
     print(f"  {nondeterminism}")
     print(f"  {verdict}")
 
