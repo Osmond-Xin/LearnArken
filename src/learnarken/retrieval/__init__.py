@@ -97,7 +97,7 @@ def search_package(
     """
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; choose from {MODES}")
-    chunks = chunk_package(package_dir, strategy=strategy, skip_bad=skip_bad)
+    chunks = corpus_chunks(package_dir, strategy=strategy, skip_bad=skip_bad)
     if mode == "bm25":
         if context:
             chunks = [c for c in chunks if applies_to(c, context)]
@@ -169,6 +169,37 @@ def _mode_retriever(
 MANIFEST_PATH = Path(".vespa-manifest.json")  # git-ignored; written by index_package
 
 
+def figure_chunks_for_package(package_dir: str | Path, strategy: str) -> list[Chunk]:
+    """Build figure chunks for a package from its committed describe records
+    (Day 12). No VLM here; each record is re-verified against the current PNG +
+    DM XML inside `ingest.figure_chunks` (red-team P1). Missing records ⇒ none."""
+    from learnarken.loader import load_package
+    from learnarken.multimodal import ingest
+
+    package_dir = Path(package_dir)
+    records = ingest.load_records(package_dir)
+    if not records:
+        return []
+    package = load_package(package_dir)
+    chunks: list[Chunk] = []
+    for dm in package.data_modules:
+        chunks.extend(ingest.figure_chunks(dm, records, strategy, package_dir))
+    return chunks
+
+
+def corpus_chunks(
+    package_dir: str | Path, strategy: str = "structure", skip_bad: bool = False
+) -> list[Chunk]:
+    """The one true corpus builder: text chunks (`chunk_package`) PLUS Day 12
+    figure chunks. Every retrieval/verification path — index, search, query,
+    ablation, corpus-identity verification — MUST build the local corpus through
+    this, or figure chunks fed to the engine look 'foreign' and the query fails
+    closed (red-team P1: index-vs-query corpus mismatch)."""
+    return chunk_package(
+        package_dir, strategy=strategy, skip_bad=skip_bad
+    ) + figure_chunks_for_package(package_dir, strategy)
+
+
 def index_package(
     package_dirs: list[str | Path], strategy: str = "structure", skip_bad: bool = False
 ) -> int:
@@ -197,16 +228,22 @@ def index_package(
         )
     raw: list[Chunk] = []
     owner: dict[str, str] = {}  # chunk_id → owning package name (red-team #5)
+
+    def _own(c: Chunk, name: str) -> None:
+        if owner.get(c.chunk_id, name) != name:
+            raise ValueError(
+                f"chunk {c.chunk_id} appears in both {owner[c.chunk_id]!r} and "
+                f"{name!r} — cannot assign a package scope; index them separately"
+            )
+        owner[c.chunk_id] = name
+        raw.append(c)
+
     for pkg in package_dirs:
         name = Path(pkg).name
-        for c in chunk_package(pkg, strategy=strategy, skip_bad=skip_bad):
-            if owner.get(c.chunk_id, name) != name:
-                raise ValueError(
-                    f"chunk {c.chunk_id} appears in both {owner[c.chunk_id]!r} and "
-                    f"{name!r} — cannot assign a package scope; index them separately"
-                )
-            owner[c.chunk_id] = name
-            raw.append(c)
+        # corpus_chunks = text + Day 12 figure chunks, the same builder the query
+        # and verification paths use, so index and query never disagree (P1).
+        for c in corpus_chunks(pkg, strategy=strategy, skip_bad=skip_bad):
+            _own(c, name)
     chunks = _dedupe_chunks(raw)
     if not vespa.is_up():
         vespa.deploy()
@@ -325,7 +362,7 @@ def run_eval(
     for strategy in strategies:
         raw: list[Chunk] = []
         for pkg in package_dirs:
-            raw.extend(chunk_package(pkg, strategy=strategy, skip_bad=skip_bad))
+            raw.extend(corpus_chunks(pkg, strategy=strategy, skip_bad=skip_bad))
         chunks = _dedupe_chunks(raw)
         index = BM25Index(chunks)
         results[strategy] = evaluate_strategy(chunks, index.search, golden, resolved, ks=ks)
@@ -370,7 +407,7 @@ def run_ablation(
 
     raw: list[Chunk] = []
     for pkg in package_dirs:
-        raw.extend(chunk_package(pkg, strategy=strategy))
+        raw.extend(corpus_chunks(pkg, strategy=strategy))
     chunks = _dedupe_chunks(raw)
 
     needs_vespa = any(m != "bm25" for m in modes)

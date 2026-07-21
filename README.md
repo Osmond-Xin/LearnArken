@@ -84,6 +84,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | 9 | Evidence chain & machine readability | `v0.9.0` | ✅ 2026-07-18 |
 | 10 | On-demand real-stack deployment & wrap-up | `v1.0.0` | ✅ 2026-07-18 |
 | 11 | Graph-augmented retrieval (KG-RAG slice) | `v1.1.0` | ✅ 2026-07-19 |
+| 12 | Multimodal ingest & QA (describe-then-index + G15 second-look) ⚑ heavy red team | `v1.2.0` | ✅ 2026-07-20 |
 
 Benchmark tables, ablations, and adversarial-evaluation results will appear
 below this section as the corresponding nodes complete. Every number comes
@@ -282,6 +283,26 @@ Reproduce: `learnarken eval adversarial --seed 42` (live judges); behavior
 distribution: `uv run python tools/adversarial_eval.py --repeat 3 --label after`
 (needs the local services, `MINIMAX_*` in `.env`, and the `codex` + `agy` CLIs;
 exact values drift run-to-run — the frozen artifact is the record).
+
+### Multimodal ingest & QA — Day 12 (describe-then-index + G15 fail-closed)
+
+Synthetic ICN figures (self-drawn SVG → PNG, INV-1) are described **offline** by
+a VLM into a schema-constrained structure, **mechanically diffed** against the
+DM-declared hotspot set, and **SHA-256-bound** to the image (re-verified at index
+time — a swapped image or edited label mints a new chunk id and fails corpus
+verification). Verified figures join the **same** retrieval corpus as text and
+are cited as `[ICN-…, Hotspot NN]`. Query-time **second-look** re-reads the image
+with a **multi-sample consensus** (a single read of the unstable VLM channel is
+not trusted). Fail-closed throughout (**G15**): a question asking for a visual
+detail the figure cannot support — or an answer that would assert content
+ungrounded in the cited figure (a fabricated colour, material, or part/torque
+value) — is **refused at citation confirmation, never fabricated**. The
+hallucination-boundary is deliberately fail-safe (occasional over-refusal); a
+tiered severity policy is a [Roadmap topic](docs/notes/day12-hallucination-boundary.md).
+Honest scope (INV-7): measured on synthetic wireframes; description-quality
+numbers do not extrapolate to real scans. Three-class eval + regression:
+[eval/results/day12-multimodal.json](eval/results/day12-multimodal.json),
+[docs/notes/day12-figure-noise.md](docs/notes/day12-figure-noise.md).
 
 ### Graph-augmented retrieval — Day 11 (entity linking → REFS expansion → third RRF route)
 

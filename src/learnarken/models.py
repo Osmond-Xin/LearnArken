@@ -101,6 +101,18 @@ class IcnRef(BaseModel):
     line: int | None = None
 
 
+class HotspotDecl(BaseModel):
+    """One declared hotspot on a figure — the canonical ground truth the Day 12
+    VLM description is mechanically diffed against (docs/specs/day12.md Decision
+    3a / default 1(c)). `<hotspot>` is a labeled non-standard extension (INV-1
+    synthetic), scoped to the figure's `<graphic infoEntityIdent>`."""
+
+    icn_ident: str
+    hotspot_id: str
+    part_number: str = ""
+    label: str = ""
+
+
 class DataModule(BaseModel):
     file: str
     dm_code: DmCode
@@ -120,6 +132,7 @@ class DataModule(BaseModel):
     cautions: int = 0
     dm_refs: list[DmRef] = []
     icn_refs: list[IcnRef] = []
+    hotspots: list[HotspotDecl] = []
 
     @property
     def dmc(self) -> str:

@@ -68,8 +68,13 @@
           Cap both terminals.</para>
         </proceduralStep>
         <proceduralStep>
-          <para>Release the hold-down clamps and lift the battery out of the
-          tray.</para>
+          <!-- Day 12 DELIBERATE synthetic figure-vs-text conflict (Class B trap,
+               docs/specs/day12.md Decision 3b): the battery-housing part number
+               here (LA-24-9002-3) intentionally differs from figure
+               ICN-LA100-24-002-01 hotspot 02 (LA-24-5002-6). Synthetic (INV-1);
+               documented so it is not mistaken for a defect. -->
+          <para>Release the hold-down clamps and lift the battery housing (part
+          LA-24-9002-3) out of the tray.</para>
         </proceduralStep>
       </mainProcedure>
       <closeRqmts>
@@ -78,5 +83,13 @@
         </reqCondGroup>
       </closeRqmts>
     </procedure>
+    <figure>
+      <title>Main battery installation</title>
+      <graphic infoEntityIdent="ICN-LA100-24-002-01"/>
+      <!-- learnarkenExtension (NOT S1000D): canonical hotspot set for the
+           Day 12 multimodal describe-then-index diff. Synthetic (INV-1). -->
+      <hotspot hotspotId="01" partNumberValue="LA-24-5001-2">positive terminal</hotspot>
+      <hotspot hotspotId="02" partNumberValue="LA-24-5002-6">battery housing</hotspot>
+    </figure>
   </content>
 </dmodule>

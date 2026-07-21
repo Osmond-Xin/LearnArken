@@ -162,7 +162,7 @@ def wired(monkeypatch, tmp_path):
     """Wire the engine hermetically: two evidence chunks, score 0.9, threshold 0.5."""
     monkeypatch.chdir(tmp_path)  # traces land in tmp, not the repo
     chunks = [_chunk("c1", "Release the pressure."), _chunk("c2", "Remove the bolts.")]
-    monkeypatch.setattr(engine, "chunk_package", lambda pkg, strategy: list(chunks))
+    monkeypatch.setattr(engine, "corpus_chunks", lambda pkg, strategy: list(chunks))
     monkeypatch.setattr(engine, "verify_corpus", lambda c, s: None)
     monkeypatch.setattr(engine, "load_threshold", lambda: 0.5)
     monkeypatch.setattr(
@@ -302,7 +302,7 @@ class TestAnswerGates:
             _chunk("c1", "WARNING: disconnect power first. Then release pressure."),
             _chunk("c2", "WARNING: disconnect power first. Then remove the bolts."),
         ]
-        monkeypatch.setattr(engine, "chunk_package", lambda pkg, strategy: list(chunks))
+        monkeypatch.setattr(engine, "corpus_chunks", lambda pkg, strategy: list(chunks))
         monkeypatch.setattr(
             engine,
             "_candidates",

@@ -40,6 +40,11 @@
       <figure>
         <title>Hydraulic pump installation</title>
         <graphic infoEntityIdent="ICN-LA100-29-001-01"/>
+        <!-- learnarkenExtension (NOT S1000D): canonical hotspot set for the
+             Day 12 multimodal describe-then-index diff. Synthetic (INV-1). -->
+        <hotspot hotspotId="01" partNumberValue="LA-29-4711-1">inlet port</hotspot>
+        <hotspot hotspotId="02" partNumberValue="LA-29-4711-9">pump body</hotspot>
+        <hotspot hotspotId="03" partNumberValue="LA-29-0025-4">outlet port</hotspot>
       </figure>
       <catalogSeqNumber catalogSeqNumberValue="29-10-00-01">
         <itemSeqNumber itemSeqNumberValue="010">

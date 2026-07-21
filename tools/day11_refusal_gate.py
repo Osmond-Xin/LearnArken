@@ -32,11 +32,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from learnarken import graph  # noqa: E402
 from learnarken.answer.engine import load_threshold  # noqa: E402
-from learnarken.chunking import chunk_package  # noqa: E402
 from learnarken.retrieval import (  # noqa: E402
     MANIFEST_PATH,
     _dedupe_chunks,
     _mode_retriever,
+    corpus_chunks,  # noqa: E402
     verify_corpus,
 )
 from learnarken.retrieval.evaluate import load_golden  # noqa: E402
@@ -69,7 +69,7 @@ def main() -> int:
             "`learnarken index` run (fail closed, mirrors run_ablation)"
         )
     chunks = _dedupe_chunks(
-        [c for pkg in PACKAGES for c in chunk_package(pkg, strategy="structure")]
+        [c for pkg in PACKAGES for c in corpus_chunks(pkg, strategy="structure")]
     )
     verify_corpus(chunks, "structure")  # same fail-closed gate as the ablation
     threshold = load_threshold()

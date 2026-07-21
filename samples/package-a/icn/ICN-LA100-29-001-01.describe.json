@@ -1,0 +1,34 @@
+{
+  "icn_id": "ICN-LA100-29-001-01",
+  "source_dm": "DMC-LA100-A-29-10-00-00A-941A-D",
+  "png_path": "samples/package-a/icn/ICN-LA100-29-001-01.png",
+  "sha256": "bfe8528398ed960d0eea3cd218010478f6d74c6595b1842d597f2eb779753d12",
+  "declared_hotspots": [
+    "01",
+    "02",
+    "03"
+  ],
+  "described_hotspots": [
+    "01",
+    "02",
+    "03"
+  ],
+  "part_numbers": [
+    "LA-29-0025-4",
+    "LA-29-4711-1",
+    "LA-29-4711-9"
+  ],
+  "declared_map": [
+    "01|inlet port|LA-29-4711-1",
+    "02|pump body|LA-29-4711-9",
+    "03|outlet port|LA-29-0025-4"
+  ],
+  "summary": "Simplified schematic of an LA100 hydraulic pump (synthetic) showing a rectangular pump body with an internal circular symbol and left/right connection lines. Three numbered hotspots identify input, pump body, and output components, each with an associated LA part number. A red warning instructs to depressurise the system before removing the pump.",
+  "safety_warnings": [
+    "WARNING: Depressurise the system before removing the pump."
+  ],
+  "hotspots_matched": true,
+  "corroborated": true,
+  "verified": true,
+  "degraded_reason": ""
+}

@@ -1,0 +1,13 @@
+# Day 12 multimodal golden set (spec day12). Three classes: answer_in_figure,
+# no_answer_figure (G15 trap), conflict (figure-vs-text). AI-drafted candidates,
+# CONFIRMED by Yi Xin 2026-07-20 in day12-multimodal.worksheet.md (labels human-
+# owned, scan T8). n=9 (A=4, C=3, B=2); report k/n, not percentages (INV-7).
+{"query_id": "A1", "category": "answer_in_figure", "query": "What part number is at hotspot 02 of the hydraulic pump figure?", "expect": "answer", "answer_contains": ["LA-29-4711-9"], "figure_ref": "[ICN-LA100-29-001-01, Hotspot 02]", "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "A2", "category": "answer_in_figure", "query": "Which hotspot marks the inlet port on the hydraulic pump?", "expect": "answer", "answer_contains": ["01"], "figure_ref": "[ICN-LA100-29-001-01, Hotspot 01]", "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "A3", "category": "answer_in_figure", "query": "What is the part number of the main battery positive terminal shown in its figure?", "expect": "answer", "answer_contains": ["LA-24-5001-2"], "figure_ref": "[ICN-LA100-24-002-01, Hotspot 01]", "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "A4", "category": "answer_in_figure", "query": "How many hotspots are called out on the hydraulic pump illustration?", "expect": "answer", "answer_contains": ["3", "three"], "answer_contains_any": true, "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "C1", "category": "no_answer_figure", "query": "What surface finish or coating is specified for the pump body shown in the figure?", "expect": "refuse", "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "C2", "category": "no_answer_figure", "query": "What colour is the battery housing in the illustration?", "expect": "refuse", "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "C3", "category": "no_answer_figure", "query": "What are the dimensions in millimetres of the hydraulic pump in the figure?", "expect": "refuse", "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "B1", "category": "conflict", "query": "What is the part number of the battery housing?", "expect": "present_both_or_refuse", "conflict_parts": ["LA-24-5002-6", "LA-24-9002-3"], "confirmed_by": "Yi Xin 2026-07-20"}
+{"query_id": "B2", "category": "conflict", "query": "The figure and the text give different part numbers for the battery housing; which is correct?", "expect": "present_both_or_refuse", "conflict_parts": ["LA-24-5002-6", "LA-24-9002-3"], "confirmed_by": "Yi Xin 2026-07-20"}

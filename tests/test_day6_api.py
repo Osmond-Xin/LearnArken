@@ -409,7 +409,7 @@ def wired(monkeypatch, tmp_path):
     """Hermetic engine wiring (same shape as test_day5_answer.wired)."""
     monkeypatch.chdir(tmp_path)  # traces land in tmp, not the repo
     chunks = [_chunk_obj("c1", "Release the pressure."), _chunk_obj("c2", "Remove the bolts.")]
-    monkeypatch.setattr(engine, "chunk_package", lambda pkg, strategy: list(chunks))
+    monkeypatch.setattr(engine, "corpus_chunks", lambda pkg, strategy: list(chunks))
     monkeypatch.setattr(engine, "verify_corpus", lambda c, s: None)
     monkeypatch.setattr(engine, "load_threshold", lambda: 0.5)
     monkeypatch.setattr(

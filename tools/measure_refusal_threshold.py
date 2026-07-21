@@ -29,8 +29,7 @@ import json
 from pathlib import Path
 
 from learnarken.answer.engine import CANDIDATE_K, DEFAULT_PACKAGES
-from learnarken.chunking import chunk_package
-from learnarken.retrieval import _dedupe_chunks, _mode_retriever, verify_corpus
+from learnarken.retrieval import _dedupe_chunks, _mode_retriever, corpus_chunks, verify_corpus
 from learnarken.retrieval.evaluate import load_golden
 from learnarken.retrieval.hybrid import RERANKER_MODEL, RERANKER_REVISION, rerank_scored
 
@@ -55,7 +54,7 @@ def choose_threshold(answerable: list[float], no_answer: list[float]) -> tuple[f
 def main() -> int:
     golden = load_golden(GOLDEN)
     chunks = _dedupe_chunks(
-        [c for pkg in DEFAULT_PACKAGES for c in chunk_package(pkg, "structure")]
+        [c for pkg in DEFAULT_PACKAGES for c in corpus_chunks(pkg, "structure")]
     )
     verify_corpus(chunks, "structure")
     retriever = _mode_retriever("hybrid", chunks, k=CANDIDATE_K, strategy="structure")

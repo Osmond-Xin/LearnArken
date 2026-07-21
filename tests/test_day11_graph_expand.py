@@ -286,7 +286,7 @@ def test_answer_trace_preserves_graph_span_alongside_facts(monkeypatch, tmp_path
     graph_document = to_document(chunk)
     graph_document.metadata["graph_hop"] = 1
     graph_document.metadata["graph_direction"] = "out"
-    monkeypatch.setattr(engine, "chunk_package", lambda pkg, strategy: [chunk])
+    monkeypatch.setattr(engine, "corpus_chunks", lambda pkg, strategy: [chunk])
     monkeypatch.setattr(engine, "verify_corpus", lambda c, s: None)
     monkeypatch.setattr(engine, "load_threshold", lambda: 0.5)
     monkeypatch.setattr(engine, "_candidates", lambda question, c, mode: [graph_document])

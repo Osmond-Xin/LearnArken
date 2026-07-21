@@ -33,12 +33,11 @@ from learnarken.answer.models import AnswerResult, Citation
 from learnarken.answer.prompt import build_system, build_user, make_delimiter
 from learnarken.answer.stream import AnswerFieldExtractor
 from learnarken.answer.trace import new_trace_id, write_trace
-from learnarken.chunking import chunk_package
 from learnarken.chunking.base import Chunk
 from learnarken.chunking.documents import from_document, to_document
 from learnarken.config import REPO_ROOT
 from learnarken.llm import LLMContractError, chat_json, chat_json_stream
-from learnarken.retrieval import GRAPH_MODES, MODES, _dedupe_chunks, verify_corpus
+from learnarken.retrieval import GRAPH_MODES, MODES, _dedupe_chunks, corpus_chunks, verify_corpus
 from learnarken.retrieval.bm25 import BM25Index
 
 PLACEHOLDER = "I don't know — no answer was found in the indexed corpus."
@@ -78,6 +77,62 @@ def _normalize(text: str) -> str:
     """Whitespace-collapsed, case-folded — the substring test tolerates
     reflowed spacing/newlines but not invented content (red-team day5 #1)."""
     return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+_HOTSPOT_RE = re.compile(r"\bHotspot\s+([A-Za-z0-9-]+)", re.I)
+_PART_RE = re.compile(r"\b[A-Z]{1,4}-\d+(?:-\d+)+\b")
+_MEASURE_RE = re.compile(r"\b\d+(?:\.\d+)?\s?(?:mm|cm|nm|kg|Nm|°|deg|degrees?)\b", re.I)
+_WORD_RE = re.compile(r"[a-z][a-z-]+")
+# Grammatical scaffolding + generic RAG-answer words that carry no visual claim,
+# so they are not treated as "content" needing grounding. Deliberately excludes
+# any attribute vocabulary (colours, materials, shapes) — those MUST be grounded.
+_STOPWORD_TEXT = (
+    "a an the this that these those is are was were be been being of to in on at for and "
+    "or but not no its it their there here as with from by into onto per each any one two "
+    "three four five six seven eight nine ten zero first second third only both which what "
+    "where when who whom how many much number numbers value values figure figures "
+    "illustration illustrations image images diagram drawing shown show shows showing "
+    "depicts depicted marks marked mark called call callout callouts identified identifies "
+    "identify labelled labeled label labels part parts hotspot hotspots item items "
+    "component components section point points area areas"
+)
+_ANSWER_STOPWORDS = frozenset(_STOPWORD_TEXT.split())
+
+
+def _ungrounded_figure_tokens(answer: str, cited_text: str, question: str) -> list[str]:
+    """Tokens a figure-only-cited answer ASSERTS that are grounded in neither the
+    cited figure chunk(s) nor the user's question — the free-text hallucination
+    this project must block at citation-confirmation time (Yi Xin 2026-07-20).
+
+    Grounding pool = full cited figure chunk text ∪ the question ∪ number-words /
+    stopwords. A content word (e.g. a colour "blue", a material "steel") or a
+    part-number / measurement token outside that pool means the answer invented
+    visual detail the figure cannot support ⇒ refuse. Numbers/counts and
+    question-echo are allowed, so a legitimate answer ("three hotspots are called
+    out: 01 …, in figure ICN-…") passes.
+    """
+    grounded_text = _normalize(cited_text) + " \n " + _normalize(question)
+    grounded_words = set(_WORD_RE.findall(grounded_text))
+    bad: set[str] = set()
+    for w in _WORD_RE.findall(answer.lower()):
+        if w not in _ANSWER_STOPWORDS and w not in grounded_words:
+            bad.add(w)
+    # concrete part-number / measurement tokens must also be in the quote pool
+    for t in _PART_RE.findall(answer) + _MEASURE_RE.findall(answer):
+        if _normalize(t) not in grounded_text:
+            bad.add(t)
+    return sorted(bad)
+
+
+def _figure_ref(chunk: Chunk, quote: str) -> str | None:
+    """Day 12 figure citation: "[ICN-…, Hotspot NN]" only when the grounded quote
+    names EXACTLY ONE hotspot (an ambiguous multi-hotspot quote must not guess —
+    red-team R2 P2); else "[ICN-…]"; None for non-figure chunks."""
+    if chunk.chunk_type != "figure" or not chunk.icn_refs:
+        return None
+    icn = chunk.icn_refs[0]
+    ids = _HOTSPOT_RE.findall(quote)
+    return f"[{icn}, Hotspot {ids[0]}]" if len(ids) == 1 else f"[{icn}]"
 
 
 def _candidates(question: str, chunks: list[Chunk], mode: str) -> list:
@@ -124,7 +179,7 @@ def answer_question(
     emit("status", {"stage": "retrieval"})
     raw: list[Chunk] = []
     for package in packages:
-        raw.extend(chunk_package(package, strategy="structure"))
+        raw.extend(corpus_chunks(package, strategy="structure"))  # text + Day 12 figures (P1)
     chunks = _dedupe_chunks(raw)
     if mode != "bm25":
         verify_corpus(chunks, "structure")  # fail closed on stale/mixed index
@@ -247,6 +302,17 @@ def answer_question(
     ):
         return refuse("llm-contract", {"keys": sorted(parsed)})
     if not parsed["is_answerable"]:
+        # only re-look when a figure is the TOP evidence — a stray figure lower
+        # in top-k must not trigger VLM calls (red-team R2 P2 cost bound)
+        fig = evidence[0] if evidence and evidence[0].chunk_type == "figure" else None
+        if fig is not None:
+            # G15 (Day 12): a figure was the evidence but its description did not
+            # cover the question — re-read the image with a consensus second-look
+            # before refusing, never guess (Decision 2 + 7).
+            from learnarken.answer.figure_relook import figure_second_look
+
+            sl = figure_second_look(question, fig, packages)
+            return refuse("figure-out-of-description", {"second_look": sl})
         return refuse("llm")
 
     # Validate EVERY citation (not just the first per chunk — red-team day5 #1
@@ -272,18 +338,47 @@ def answer_question(
         ):
             bad.append(cid)
     if bad or not citations_raw or not parsed["answer"].strip():
+        fig = evidence[0] if evidence and evidence[0].chunk_type == "figure" else None
+        if fig is not None:
+            from learnarken.answer.figure_relook import figure_second_look
+
+            sl = figure_second_look(question, fig, packages)
+            return refuse(
+                "figure-out-of-description", {"second_look": sl, "invalid_or_ungrounded": bad}
+            )
         return refuse("citation-validation", {"invalid_or_ungrounded": bad})
 
     # All quotes validated; de-dup by chunk id (keep the first) for display.
     seen: dict[str, str] = {}
     for c in citations_raw:
         seen.setdefault(c["chunk_id"], c["supporting_quote"])
+
+    # G15 positive-answer grounding gate (red-team R2 P1; Yi Xin 2026-07-20:
+    # free-text visual hallucination is a KEY thing this project must block, and
+    # it must be blocked HERE, at citation confirmation). When EVERY cited chunk
+    # is a figure, every content token the answer asserts must be grounded in the
+    # **full cited figure chunk(s)** (the answer may reference any declared field
+    # or the ICN id, not only the quoted span) or the user's question; numbers/
+    # counts and scaffolding words are excepted. Any ungrounded token — a colour,
+    # material, or fabricated part/measurement — ⇒ re-look and refuse.
+    cited_chunks = {cid: by_id[cid] for cid in seen}
+    if cited_chunks and all(c.chunk_type == "figure" for c in cited_chunks.values()):
+        grounding = " \n ".join(c.text for c in cited_chunks.values())
+        ungrounded = _ungrounded_figure_tokens(parsed["answer"], grounding, question)
+        if ungrounded:
+            from learnarken.answer.figure_relook import figure_second_look
+
+            sl = figure_second_look(question, next(iter(cited_chunks.values())), packages)
+            return refuse(
+                "figure-out-of-description", {"second_look": sl, "ungrounded_tokens": ungrounded}
+            )
     citations = [
         Citation(
             chunk_id=cid,
             dmc=by_id[cid].dmc,
             source_path=by_id[cid].source_path,
             supporting_quote=quote,
+            figure_ref=_figure_ref(by_id[cid], quote),
         )
         for cid, quote in seen.items()
     ]

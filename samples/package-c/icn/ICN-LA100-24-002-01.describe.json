@@ -1,0 +1,30 @@
+{
+  "icn_id": "ICN-LA100-24-002-01",
+  "source_dm": "DMC-LA100-A-24-50-00-00A-520A-A",
+  "png_path": "samples/package-c/icn/ICN-LA100-24-002-01.png",
+  "sha256": "f288cfef2f7aa15bbbd55e0a487863c689d273b6493744ddb9b6645ace7fd810",
+  "declared_hotspots": [
+    "01",
+    "02"
+  ],
+  "described_hotspots": [
+    "01",
+    "02"
+  ],
+  "part_numbers": [
+    "LA-24-5001-2",
+    "LA-24-5002-6"
+  ],
+  "declared_map": [
+    "01|positive terminal|LA-24-5001-2",
+    "02|battery housing|LA-24-5002-6"
+  ],
+  "summary": "S1000D maintenance illustration showing the LA100 main battery as a synthetic (simplified) schematic. A rectangular symbol represents the battery with two connection lines extending from its left and right sides. Two part callouts are associated with the battery: hotspot 01 identifies LA-24-5001-2 at the top of the battery, and hotspot 02 identifies LA-24-5002-6 at the bottom. A corrosion/eye-protection warning is displayed above the figure.",
+  "safety_warnings": [
+    "WARNING: Battery acid is corrosive. Wear eye protection."
+  ],
+  "hotspots_matched": true,
+  "corroborated": true,
+  "verified": true,
+  "degraded_reason": ""
+}

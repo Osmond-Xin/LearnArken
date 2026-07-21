@@ -32,8 +32,7 @@ from pathlib import Path
 
 from learnarken.answer import answer_question
 from learnarken.answer.engine import DEFAULT_PACKAGES
-from learnarken.chunking import chunk_package
-from learnarken.retrieval import _dedupe_chunks
+from learnarken.retrieval import _dedupe_chunks, corpus_chunks
 from learnarken.retrieval.evaluate import _anchor_chunk_sets, load_golden, resolve_anchors
 
 GOLDEN = "eval/golden/day4.jsonl"
@@ -48,7 +47,7 @@ def main() -> int:
 
     golden = load_golden(GOLDEN)
     chunks = _dedupe_chunks(
-        [c for pkg in DEFAULT_PACKAGES for c in chunk_package(pkg, "structure")]
+        [c for pkg in DEFAULT_PACKAGES for c in corpus_chunks(pkg, "structure")]
     )
     anchors = {a for q in golden for a in q.relevant}
     resolved = resolve_anchors(list(DEFAULT_PACKAGES), anchors)

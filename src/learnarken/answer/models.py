@@ -17,6 +17,7 @@ class Citation(BaseModel):
     dmc: str
     source_path: str  # XPath (structure chunks) — the trace-back anchor
     supporting_quote: str  # verbatim span from the chunk (groundedness floor, #1)
+    figure_ref: str | None = None  # Day 12: "[ICN-…, Hotspot NN]" for figure chunks
 
 
 class AnswerResult(BaseModel):
@@ -24,7 +25,8 @@ class AnswerResult(BaseModel):
     answer_text: str
     refused: bool
     # Which fail-closed gate fired: "threshold" | "llm" | "llm-contract" |
-    # "citation-validation"; None when answered.
+    # "citation-validation" | "figure-out-of-description" (G15, Day 12); None
+    # when answered.
     refusal_gate: str | None = None
     citations: list[Citation] = []
     graph_facts: list[GraphFacts] = []

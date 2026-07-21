@@ -68,6 +68,15 @@
 | S1000D `dmRef` relations sync into Neo4j and answer reverse-dependency impact queries | — (behavioural, tested) | [src/learnarken/graph/store.py](../src/learnarken/graph/store.py) (`impact`); [tests/test_day9_evidence.py](../tests/test_day9_evidence.py) | `learnarken graph impact <DMC>` *(needs services)* | `Toy-scale` |
 | Impact traversal is cycle-safe against VIO-7 reference loops and depth-bounded | — (tested) | [tests/test_day9_evidence.py](../tests/test_day9_evidence.py) | `uv run pytest tests/test_day9_evidence.py -q` | `Implemented` |
 
+## Multimodal figure ingest & second-look (Day 12)
+
+| Claim | Number(s) | Evidence | Reproduce | Layer |
+| --- | --- | --- | --- | --- |
+| Synthetic ICN figures are described by a VLM into a schema-constrained structure, mechanically diffed against the DM-declared hotspot set, and bound to the image by SHA-256 | — (behavioural, tested) | [src/learnarken/multimodal/ingest.py](../src/learnarken/multimodal/ingest.py); [samples/package-a/icn/](../samples/package-a/icn/) (`*.describe.json` + `.png`) | `uv run pytest tests/test_day12_multimodal.py -q` | `Toy-scale` |
+| A figure's description is re-bindable: re-render the SVG, recompute SHA-256, re-describe, diff the committed record | — (behavioural) | [tools/gen_figures.py](../tools/gen_figures.py); [src/learnarken/multimodal/figures.py](../src/learnarken/multimodal/figures.py) | `uv run python tools/gen_figures.py` then diff the `.describe.json` sha256 | `Toy-scale` |
+| Figure chunks join the same index/query/verification corpus and are cited as `[ICN-…, Hotspot NN]` | — (behavioural, tested) | [src/learnarken/retrieval/__init__.py](../src/learnarken/retrieval/__init__.py) (`corpus_chunks`); [src/learnarken/answer/engine.py](../src/learnarken/answer/engine.py) (`_figure_ref`) | `uv run pytest tests/test_day12_multimodal.py -q` | `Toy-scale` |
+| Out-of-description visual questions fail closed via a G15 second-look consensus refusal, never fabricate | — (behavioural, tested) | [src/learnarken/answer/figure_relook.py](../src/learnarken/answer/figure_relook.py); [src/learnarken/multimodal/second_look.py](../src/learnarken/multimodal/second_look.py) | `uv run pytest tests/test_day12_multimodal.py -q` | `Toy-scale` |
+
 ## Engineering discipline (cross-cutting)
 
 | Claim | Evidence | Reproduce | Layer |

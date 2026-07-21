@@ -172,12 +172,22 @@
         </xs:element>
         <xs:element name="content">
           <xs:complexType>
-            <xs:choice>
-              <xs:element name="description" type="descriptionType"/>
-              <xs:element name="procedure" type="procedureType"/>
-              <xs:element name="faultIsolation" type="faultIsolationType"/>
-              <xs:element name="illustratedPartsCatalog" type="ipcType"/>
-            </xs:choice>
+            <xs:sequence>
+              <xs:choice>
+                <xs:element name="description" type="descriptionType"/>
+                <xs:element name="procedure" type="procedureType"/>
+                <xs:element name="faultIsolation" type="faultIsolationType"/>
+                <xs:element name="illustratedPartsCatalog" type="ipcType"/>
+              </xs:choice>
+              <!-- Day 12: figures may follow the main content (e.g. a procedural
+                   DM that references an ICN). -->
+              <xs:element name="figure" type="figureType" minOccurs="0" maxOccurs="unbounded">
+                <xs:unique name="contentHotspotIdUnique">
+                  <xs:selector xpath="hotspot"/>
+                  <xs:field xpath="@hotspotId"/>
+                </xs:unique>
+              </xs:element>
+            </xs:sequence>
           </xs:complexType>
         </xs:element>
       </xs:sequence>
@@ -288,19 +298,43 @@
     </xs:sequence>
   </xs:complexType>
 
+  <!-- Day 12: a figure = title + graphic + an optional labeled non-standard
+       hotspot set (the canonical ground truth for the multimodal diff, INV-1). -->
+  <!-- hotspot ids are strict-syntax (no blank / path-like ids); red-team P2. -->
+  <xs:simpleType name="hotspotIdType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z0-9][A-Za-z0-9-]{0,15}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="hotspotType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="hotspotId" type="hotspotIdType" use="required"/>
+        <xs:attribute name="partNumberValue" type="xs:string"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="figureType">
+    <xs:sequence>
+      <xs:element name="title" type="xs:string" minOccurs="0"/>
+      <xs:element name="graphic">
+        <xs:complexType>
+          <xs:attribute name="infoEntityIdent" type="xs:string" use="required"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="hotspot" type="hotspotType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
   <xs:complexType name="ipcType">
     <xs:sequence>
-      <xs:element name="figure" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:sequence>
-            <xs:element name="title" type="xs:string" minOccurs="0"/>
-            <xs:element name="graphic">
-              <xs:complexType>
-                <xs:attribute name="infoEntityIdent" type="xs:string" use="required"/>
-              </xs:complexType>
-            </xs:element>
-          </xs:sequence>
-        </xs:complexType>
+      <xs:element name="figure" type="figureType" minOccurs="0" maxOccurs="unbounded">
+        <xs:unique name="ipcHotspotIdUnique">
+          <xs:selector xpath="hotspot"/>
+          <xs:field xpath="@hotspotId"/>
+        </xs:unique>
       </xs:element>
       <xs:element name="catalogSeqNumber" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>

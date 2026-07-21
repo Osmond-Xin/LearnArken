@@ -1,0 +1,93 @@
+{
+  "note": "answer-level three-class eval; k/n not %, n<3 indicative (INV-7). Non-deterministic generator (LLM); synthetic figures do not extrapolate to real scans.",
+  "golden": "eval/golden/day12-multimodal.jsonl",
+  "packages": [
+    "samples/package-a",
+    "samples/package-c"
+  ],
+  "characterization": "This frozen pass: answer_in_figure 3/4, no_answer_figure 3/3 (all G15), conflict 2/2. A1 flaked to a fail-safe over-refusal here (5/5 on direct re-characterization) — the G15 trigger cannot tell an LLM is_answerable=false flake from a genuine out-of-description question, so it errs toward refusal, never fabrication. The R2-P1a grounding gate (free-text fabrication block at citation confirmation, Yi Xin's ruling) is fail-safe: it may occasionally over-refuse an answer phrased with vocabulary beyond the cited chunk + question (a self-caught false-positive where the cited quote omitted the ICN id was fixed by grounding against the FULL cited chunk; A4 then 6/6). Honest reading: answerable-figure questions are robustly answered with occasional conservative over-refusal, never fabrication; no_answer 3/3; conflict handled by presenting both cited sources (emergent grounded-QA behaviour, not semantic-conflict detection). Not tuned to pass (Day 8 discipline).",
+  "repeat": 1,
+  "runs": [
+    {
+      "scores": {
+        "answer_in_figure": {
+          "k": 3,
+          "n": 4
+        },
+        "no_answer_figure": {
+          "k": 3,
+          "n": 3
+        },
+        "conflict": {
+          "k": 2,
+          "n": 2
+        }
+      },
+      "detail": [
+        {
+          "query_id": "A1",
+          "category": "answer_in_figure",
+          "passed": false,
+          "refused": true,
+          "gate": "figure-out-of-description"
+        },
+        {
+          "query_id": "A2",
+          "category": "answer_in_figure",
+          "passed": true,
+          "refused": false,
+          "gate": null
+        },
+        {
+          "query_id": "A3",
+          "category": "answer_in_figure",
+          "passed": true,
+          "refused": false,
+          "gate": null
+        },
+        {
+          "query_id": "A4",
+          "category": "answer_in_figure",
+          "passed": true,
+          "refused": false,
+          "gate": null
+        },
+        {
+          "query_id": "C1",
+          "category": "no_answer_figure",
+          "passed": true,
+          "refused": true,
+          "gate": "figure-out-of-description"
+        },
+        {
+          "query_id": "C2",
+          "category": "no_answer_figure",
+          "passed": true,
+          "refused": true,
+          "gate": "figure-out-of-description"
+        },
+        {
+          "query_id": "C3",
+          "category": "no_answer_figure",
+          "passed": true,
+          "refused": true,
+          "gate": "figure-out-of-description"
+        },
+        {
+          "query_id": "B1",
+          "category": "conflict",
+          "passed": true,
+          "refused": false,
+          "gate": null
+        },
+        {
+          "query_id": "B2",
+          "category": "conflict",
+          "passed": true,
+          "refused": false,
+          "gate": null
+        }
+      ]
+    }
+  ]
+}

@@ -41,7 +41,10 @@ copy-pasteable reproduction command. Paths below are relative to the repo root.
   `answer/`, `validation/`, `repair/`, `adversarial/`, `graph/` (Neo4j dependency
   graph + `impact()` query), `vespa/` (vector store).
 - [samples/](samples/): synthetic S1000D packages — `package-a` (legal),
-  `package-b` (enumerated violations), `package-c`.
+  `package-b` (enumerated violations), `package-c`. Day 12 adds synthetic ICN
+  figures under `package-*/icn/` (self-drawn SVG + PNG + SHA-256-bound
+  `.describe.json`); `src/learnarken/multimodal/` holds the VLM
+  describe-then-index pipeline and the G15 second-look consensus refusal.
 
 ## Reproduce (common commands)
 

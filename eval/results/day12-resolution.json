@@ -1,0 +1,38 @@
+{
+  "note": "INV-5 provenance for figures.RENDER_SCALE and second_look K/MAX_SAMPLES; synthetic figures only (INV-7: does not extrapolate to real scans).",
+  "repeat": 4,
+  "figures": [
+    "ICN-LA100-24-002-01",
+    "ICN-LA100-29-001-01"
+  ],
+  "measurements": [
+    {
+      "scale": 2,
+      "calls": 8,
+      "flaky_misses": 0,
+      "instability_rate": 0.0,
+      "hotspot_exact": 8,
+      "hotspot_accuracy": 1.0
+    },
+    {
+      "scale": 3,
+      "calls": 8,
+      "flaky_misses": 0,
+      "instability_rate": 0.0,
+      "hotspot_exact": 8,
+      "hotspot_accuracy": 1.0
+    },
+    {
+      "scale": 4,
+      "calls": 8,
+      "flaky_misses": 0,
+      "instability_rate": 0.0,
+      "hotspot_exact": 8,
+      "hotspot_accuracy": 1.0
+    }
+  ],
+  "measured_minimum_scale": 2,
+  "render_scale_used": 3,
+  "consensus_k": 2,
+  "max_samples": 5
+}

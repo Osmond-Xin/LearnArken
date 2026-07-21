@@ -34,13 +34,15 @@ def load_cases(path: str = GOLDEN) -> list[AdversarialCase]:
 
 
 def _evidence_map(packages: list[str]) -> dict[str, str]:
-    """chunk_id -> full chunk text, over the corpus the engine answers from."""
-    from learnarken.chunking import chunk_package
-    from learnarken.retrieval import _dedupe_chunks
+    """chunk_id -> full chunk text, over the corpus the engine answers from.
+
+    Uses `corpus_chunks` (text + Day 12 figures) so a figure-cited answer's
+    evidence is present for the judge, not skipped (red-team R2 P2)."""
+    from learnarken.retrieval import _dedupe_chunks, corpus_chunks
 
     raw = []
     for pkg in packages:
-        raw.extend(chunk_package(pkg, strategy="structure"))
+        raw.extend(corpus_chunks(pkg, strategy="structure"))
     return {c.chunk_id: c.text for c in _dedupe_chunks(raw)}
 
 

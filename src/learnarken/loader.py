@@ -26,6 +26,7 @@ from learnarken.models import (
     DmlEntry,
     DmRef,
     ExtensionDates,
+    HotspotDecl,
     IcnRef,
     IssueInfo,
     Language,
@@ -187,6 +188,7 @@ def load_data_module(path: Path, root: etree._Element) -> DataModule:
     steps = warnings = cautions = 0
     dm_refs: list[DmRef] = []
     icn_refs: list[IcnRef] = []
+    hotspots: list[HotspotDecl] = []
     if content is not None:
         for tag, ctype in _CONTENT_TYPES.items():
             if content.find(tag) is not None:
@@ -201,6 +203,22 @@ def load_data_module(path: Path, root: etree._Element) -> DataModule:
             for g in content.iter("graphic")
             if g.get("infoEntityIdent")
         ]
+        # Day 12: figure-scoped hotspot declarations (labeled non-standard,
+        # docs/specs/day12.md). Each hotspot belongs to its figure's graphic ICN.
+        for fig in content.iter("figure"):
+            graphic = fig.find("graphic")
+            icn = graphic.get("infoEntityIdent") if graphic is not None else ""
+            for hs in fig.iter("hotspot"):
+                hid = hs.get("hotspotId")
+                if hid:
+                    hotspots.append(
+                        HotspotDecl(
+                            icn_ident=icn or "",
+                            hotspot_id=hid,
+                            part_number=hs.get("partNumberValue", ""),
+                            label=(hs.text or "").strip(),
+                        )
+                    )
 
     return DataModule(
         file=path.name,
@@ -221,6 +239,7 @@ def load_data_module(path: Path, root: etree._Element) -> DataModule:
         cautions=cautions,
         dm_refs=dm_refs,
         icn_refs=icn_refs,
+        hotspots=hotspots,
     )
 
 
