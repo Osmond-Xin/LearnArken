@@ -1,0 +1,194 @@
+{
+  "experiment": "profiling \u2014 validation + chunking hotspots (Day 13, Decision 2)",
+  "tool": "cProfile (deterministic, stdlib)",
+  "pyspy": "NOT run \u2014 py-spy binary absent in this env; manual sampling cross-check `py-spy record --native -- python -m ...` is the documented follow-up. cProfile is sufficient to answer numba-eligibility (scan A3).",
+  "pyspy_present": false,
+  "workload": "analyze_package + chunk_package over ['samples/package-a', 'samples/package-b', 'samples/package-c'], 20 iterations",
+  "top_by_self_time": [
+    {
+      "func": "<method 'Parse' of 'pyexpat.xmlparser' objects>",
+      "location": "~:0",
+      "self_time_s": 0.0408,
+      "cum_time_s": 0.0706,
+      "ncalls": 1720,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "load_data_module",
+      "location": "loader.py:138",
+      "self_time_s": 0.0194,
+      "cum_time_s": 0.0353,
+      "ncalls": 760,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "build_schema",
+      "location": "engine.py:180",
+      "self_time_s": 0.0165,
+      "cum_time_s": 0.0165,
+      "ncalls": 60,
+      "numba_eligible": true,
+      "note": ""
+    },
+    {
+      "func": "parse_file",
+      "location": "loader.py:68",
+      "self_time_s": 0.0106,
+      "cum_time_s": 0.1019,
+      "ncalls": 860,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_start",
+      "location": "ElementTree.py:1641",
+      "self_time_s": 0.0106,
+      "cum_time_s": 0.021,
+      "ncalls": 32440,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "<built-in method _io.open>",
+      "location": "~:0",
+      "self_time_s": 0.0088,
+      "cum_time_s": 0.009,
+      "ncalls": 860,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_fixname",
+      "location": "ElementTree.py:1624",
+      "self_time_s": 0.0088,
+      "cum_time_s": 0.0088,
+      "ncalls": 96700,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "<method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>",
+      "location": "~:0",
+      "self_time_s": 0.0052,
+      "cum_time_s": 0.0056,
+      "ncalls": 10020,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_end",
+      "location": "ElementTree.py:1653",
+      "self_time_s": 0.005,
+      "cum_time_s": 0.0081,
+      "ncalls": 32440,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_make",
+      "location": "structure.py:45",
+      "self_time_s": 0.0044,
+      "cum_time_s": 0.0152,
+      "ncalls": 1260,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_dm_code",
+      "location": "loader.py:82",
+      "self_time_s": 0.0042,
+      "cum_time_s": 0.0058,
+      "ncalls": 2140,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_process_file",
+      "location": "engine.py:73",
+      "self_time_s": 0.0042,
+      "cum_time_s": 0.0928,
+      "ncalls": 480,
+      "numba_eligible": true,
+      "note": ""
+    },
+    {
+      "func": "<method 'join' of 'str' objects>",
+      "location": "~:0",
+      "self_time_s": 0.0039,
+      "cum_time_s": 0.0041,
+      "ncalls": 14485,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_dm_refs",
+      "location": "loader.py:122",
+      "self_time_s": 0.0036,
+      "cum_time_s": 0.0076,
+      "ncalls": 860,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "chunk_dm",
+      "location": "structure.py:67",
+      "self_time_s": 0.0033,
+      "cum_time_s": 0.0188,
+      "ncalls": 380,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "<built-in method _hashlib.openssl_md5>",
+      "location": "~:0",
+      "self_time_s": 0.0029,
+      "cum_time_s": 0.0029,
+      "ncalls": 860,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "<method 'start' of 'xml.etree.ElementTree.TreeBuilder' objects>",
+      "location": "~:0",
+      "self_time_s": 0.0027,
+      "cum_time_s": 0.0027,
+      "ncalls": 32440,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_text",
+      "location": "loader.py:117",
+      "self_time_s": 0.0026,
+      "cum_time_s": 0.0063,
+      "ncalls": 3580,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "_workload",
+      "location": "day13_profile.py:65",
+      "self_time_s": 0.0025,
+      "cum_time_s": 0.2132,
+      "ncalls": 1,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    },
+    {
+      "func": "<built-in method posix.stat>",
+      "location": "~:0",
+      "self_time_s": 0.0023,
+      "cum_time_s": 0.0035,
+      "ncalls": 1160,
+      "numba_eligible": false,
+      "note": "excluded: XML/Pydantic/regex/IO/C-ext (not a numeric loop, Decision 2c)"
+    }
+  ],
+  "screened_not_excluded": [
+    "build_schema",
+    "_process_file"
+  ],
+  "verdict": "screen flagged 2 not-obviously-excluded hotspot(s) (['build_schema', '_process_file']); NONE is a pure-numeric loop on inspection (they are XML/orchestration) \u2014 human-confirmed verdict is in docs/notes/day13-numba-decision.md (Decision 2b)."
+}

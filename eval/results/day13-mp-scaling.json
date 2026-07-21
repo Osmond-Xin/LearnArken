@@ -1,0 +1,284 @@
+{
+  "experiment": "mp-scaling \u2014 per-DM-file validation sharding (Day 13, Decision 1)",
+  "platform": {
+    "start_method": "spawn",
+    "cpu_count": 18,
+    "note": "macOS default start method is 'spawn' (re-imports per worker, costlier than fork); a Docker CPU quota can make cpu_count() overstate usable cores (scan A2)."
+  },
+  "repeats": 3,
+  "packages": {
+    "samples/package-a": {
+      "files": 10,
+      "findings": 0,
+      "serial_baseline_s": {
+        "median": 0.0019057909958064556,
+        "min": 0.001798583019990474,
+        "max": 0.0019708339823409915,
+        "samples": [
+          0.001971,
+          0.001906,
+          0.001799
+        ]
+      },
+      "scaling": [
+        {
+          "workers": 1,
+          "effective_shards": 1,
+          "wall_s": {
+            "median": 0.0019915000011678785,
+            "min": 0.0018327089783269912,
+            "max": 0.0021035410172771662,
+            "samples": [
+              0.002104,
+              0.001992,
+              0.001833
+            ]
+          },
+          "speedup": 0.957,
+          "ideal_speedup": 1.0,
+          "efficiency": 0.957,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 2,
+          "effective_shards": 2,
+          "wall_s": {
+            "median": 0.07837533301790245,
+            "min": 0.07811016699997708,
+            "max": 0.07945066699176095,
+            "samples": [
+              0.078375,
+              0.07811,
+              0.079451
+            ]
+          },
+          "speedup": 0.024,
+          "ideal_speedup": 2.0,
+          "efficiency": 0.012,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 4,
+          "effective_shards": 4,
+          "wall_s": {
+            "median": 0.08634645899292082,
+            "min": 0.08545600000070408,
+            "max": 0.08668549999129027,
+            "samples": [
+              0.086346,
+              0.085456,
+              0.086685
+            ]
+          },
+          "speedup": 0.022,
+          "ideal_speedup": 4.0,
+          "efficiency": 0.006,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 8,
+          "effective_shards": 8,
+          "wall_s": {
+            "median": 0.1066262919921428,
+            "min": 0.1053822499816306,
+            "max": 0.10988604198792018,
+            "samples": [
+              0.106626,
+              0.105382,
+              0.109886
+            ]
+          },
+          "speedup": 0.018,
+          "ideal_speedup": 8.0,
+          "efficiency": 0.002,
+          "equivalent_to_baseline": true
+        }
+      ],
+      "serial_fraction": "L3 cross-file resolution (_resolve_dm_identities + _crossfile_findings) needs the whole package and runs in the serial merge \u2014 the concrete Amdahl serial fraction.",
+      "verdict": "No speedup: best was 0.96x at 1 workers. Corpus too small \u2014 pool spawn + pickle overhead dominate work this cheap (expected, Decision 1c).",
+      "caveat": "Toy scale: 10 DM files. A too-small corpus may not speed up (Decision 1c); results do not extrapolate to a large ingestion corpus."
+    },
+    "samples/package-b": {
+      "files": 11,
+      "findings": 8,
+      "serial_baseline_s": {
+        "median": 0.0019147080020047724,
+        "min": 0.0018799169920384884,
+        "max": 0.0019410829991102219,
+        "samples": [
+          0.001941,
+          0.001915,
+          0.00188
+        ]
+      },
+      "scaling": [
+        {
+          "workers": 1,
+          "effective_shards": 1,
+          "wall_s": {
+            "median": 0.0018388750031590462,
+            "min": 0.0018227079999633133,
+            "max": 0.001957125001354143,
+            "samples": [
+              0.001957,
+              0.001839,
+              0.001823
+            ]
+          },
+          "speedup": 1.041,
+          "ideal_speedup": 1.0,
+          "efficiency": 1.041,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 2,
+          "effective_shards": 2,
+          "wall_s": {
+            "median": 0.07960283302236348,
+            "min": 0.07896650000475347,
+            "max": 0.08012674999190494,
+            "samples": [
+              0.078967,
+              0.080127,
+              0.079603
+            ]
+          },
+          "speedup": 0.024,
+          "ideal_speedup": 2.0,
+          "efficiency": 0.012,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 4,
+          "effective_shards": 4,
+          "wall_s": {
+            "median": 0.08706562500447035,
+            "min": 0.08633512500091456,
+            "max": 0.08710466700722463,
+            "samples": [
+              0.087066,
+              0.087105,
+              0.086335
+            ]
+          },
+          "speedup": 0.022,
+          "ideal_speedup": 4.0,
+          "efficiency": 0.005,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 8,
+          "effective_shards": 8,
+          "wall_s": {
+            "median": 0.10501245901104994,
+            "min": 0.10399745899485424,
+            "max": 0.11942249999265186,
+            "samples": [
+              0.105012,
+              0.103997,
+              0.119422
+            ]
+          },
+          "speedup": 0.018,
+          "ideal_speedup": 8.0,
+          "efficiency": 0.002,
+          "equivalent_to_baseline": true
+        }
+      ],
+      "serial_fraction": "L3 cross-file resolution (_resolve_dm_identities + _crossfile_findings) needs the whole package and runs in the serial merge \u2014 the concrete Amdahl serial fraction.",
+      "verdict": "No speedup: best was 1.04x at 1 workers. Corpus too small \u2014 pool spawn + pickle overhead dominate work this cheap (expected, Decision 1c).",
+      "caveat": "Toy scale: 11 DM files. A too-small corpus may not speed up (Decision 1c); results do not extrapolate to a large ingestion corpus."
+    },
+    "samples/package-c": {
+      "files": 3,
+      "findings": 0,
+      "serial_baseline_s": {
+        "median": 0.0007864579965826124,
+        "min": 0.0007538330100942403,
+        "max": 0.0008412089955527335,
+        "samples": [
+          0.000841,
+          0.000786,
+          0.000754
+        ]
+      },
+      "scaling": [
+        {
+          "workers": 1,
+          "effective_shards": 1,
+          "wall_s": {
+            "median": 0.000722832977771759,
+            "min": 0.0007195000071078539,
+            "max": 0.0007440829940605909,
+            "samples": [
+              0.000744,
+              0.000723,
+              0.00072
+            ]
+          },
+          "speedup": 1.088,
+          "ideal_speedup": 1.0,
+          "efficiency": 1.088,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 2,
+          "effective_shards": 2,
+          "wall_s": {
+            "median": 0.08683620800729841,
+            "min": 0.08498766599223018,
+            "max": 0.08685795799829066,
+            "samples": [
+              0.084988,
+              0.086836,
+              0.086858
+            ]
+          },
+          "speedup": 0.009,
+          "ideal_speedup": 2.0,
+          "efficiency": 0.005,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 4,
+          "effective_shards": 3,
+          "wall_s": {
+            "median": 0.08593687499524094,
+            "min": 0.08459295801003464,
+            "max": 0.09389949997421354,
+            "samples": [
+              0.093899,
+              0.084593,
+              0.085937
+            ]
+          },
+          "speedup": 0.009,
+          "ideal_speedup": 3.0,
+          "efficiency": 0.003,
+          "equivalent_to_baseline": true
+        },
+        {
+          "workers": 8,
+          "effective_shards": 3,
+          "wall_s": {
+            "median": 0.08369133301312104,
+            "min": 0.08273183298297226,
+            "max": 0.08459474999108352,
+            "samples": [
+              0.084595,
+              0.083691,
+              0.082732
+            ]
+          },
+          "speedup": 0.009,
+          "ideal_speedup": 3.0,
+          "efficiency": 0.003,
+          "equivalent_to_baseline": true
+        }
+      ],
+      "serial_fraction": "L3 cross-file resolution (_resolve_dm_identities + _crossfile_findings) needs the whole package and runs in the serial merge \u2014 the concrete Amdahl serial fraction.",
+      "verdict": "Best 1.09x at 1 workers (efficiency 1.09); knee where added workers stop paying is set by the L3 serial fraction + per-shard pickle/spawn overhead.",
+      "caveat": "Toy scale: 3 DM files. A too-small corpus may not speed up (Decision 1c); results do not extrapolate to a large ingestion corpus."
+    }
+  }
+}

@@ -9,6 +9,7 @@ The L3 reference graph is the future knowledge graph's groundwork.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lxml import etree
@@ -37,12 +38,10 @@ def validate_package(
     return analyze_package(package_dir, accepted_models)[0]
 
 
-def analyze_package(
-    package_dir: str | Path,
-    accepted_models: tuple[str, ...] = DEFAULT_ACCEPTED_MODELS,
-) -> tuple[ValidationReport, PackageModel]:
-    """Validate and also return the loaded canonical model (used by `dm`)."""
-    directory = Path(package_dir)
+def list_package_files(directory: Path) -> list[Path]:
+    """The recognizable S1000D-like files in a package, in deterministic
+    (sorted) order. Shared by the serial and multiprocessing paths so both see
+    the same file set and ordering (Day 13, INV-2 shard equivalence)."""
     if not directory.is_dir():
         raise NotAPackageError(f"not a directory: {directory}")
     xml_files = [
@@ -54,134 +53,222 @@ def analyze_package(
         raise NotAPackageError(
             f"no recognizable S1000D-like files (DMC-/PMC-/DML-*.xml) in: {directory}"
         )
+    return xml_files
 
-    report = ValidationReport(
-        package=str(directory),
-        files_checked=len(xml_files),
-        brex_rules_evaluated=len(BREX_RULES),
-    )
-    package = PackageModel(path=str(directory), icn_idents=loader.icn_idents(directory))
-    # Per-call schema instance: lxml XMLSchema validate()/error_log is not
-    # thread-safe on a shared object (red-team adjudication 2026-07-14, #3).
-    schema = etree.XMLSchema(etree.parse(str(_SCHEMA_PATH)))
-    dm_entries: list[tuple[DataModule, str]] = []  # (model, content digest)
-    seen_digests: dict[str, str] = {}  # digest -> first file name
 
-    for path in xml_files:
-        # --- L0: well-formedness -----------------------------------------
-        try:
-            size = path.stat().st_size
-            if size > loader.MAX_FILE_BYTES:
-                # Fail closed instead of exhausting memory (adjudication #4).
-                report.findings.append(
-                    Finding(
-                        rule_id="PARSE-002",
-                        layer=Layer.L0_WELLFORMED,
-                        severity=Severity.ERROR,
-                        file=path.name,
-                        message=f"file is {size} bytes, over the "
-                        f"{loader.MAX_FILE_BYTES}-byte cap; refused (fail closed)",
-                        fix_hint="split the module or raise MAX_FILE_BYTES; "
-                        "streaming validation is Roadmap material",
-                    )
-                )
-                continue
-            tree, digest = loader.parse_file(path)
-        except Exception as exc:  # defusedxml + lxml raise disparate types
-            report.findings.append(
+@dataclass
+class FileResult:
+    """The per-file (L0/L1/L2) outcome — the shardable unit (Day 13). Carries
+    only picklable Pydantic models + findings, never a live etree, so it can
+    cross a process boundary. Cross-file dedup and L3 are the merge's job (they
+    need whole-package state); a worker returns this and the main process folds
+    it in (`_merge_file_results`)."""
+
+    file: str
+    findings: list[Finding] = field(default_factory=list)
+    digest: str | None = None
+    model: DataModule | PublicationModule | DataModuleList | None = None
+
+
+def _process_file(path: Path, schema: etree.XMLSchema) -> FileResult:
+    """L0 well-formedness -> L1 schema -> model build -> L2 BREX for one file.
+    Pure w.r.t. cross-file state: byte-identical dedup and L3 are applied later
+    in `_merge_file_results`. Splitting this out is what lets validation shard
+    per-DM-file (Day 13, Decision 1) while the serial path stays byte-identical
+    (it calls the exact same function)."""
+    findings: list[Finding] = []
+
+    # --- L0: well-formedness ---------------------------------------------
+    try:
+        size = path.stat().st_size
+        if size > loader.MAX_FILE_BYTES:
+            # Fail closed instead of exhausting memory (adjudication #4).
+            findings.append(
                 Finding(
-                    rule_id="PARSE-001",
+                    rule_id="PARSE-002",
                     layer=Layer.L0_WELLFORMED,
                     severity=Severity.ERROR,
                     file=path.name,
-                    line=getattr(exc, "lineno", None),
-                    message=f"not well-formed XML: {exc}",
-                    fix_hint="repair the XML syntax; nothing above L0 ran for this file",
+                    message=f"file is {size} bytes, over the "
+                    f"{loader.MAX_FILE_BYTES}-byte cap; refused (fail closed)",
+                    fix_hint="split the module or raise MAX_FILE_BYTES; "
+                    "streaming validation is Roadmap material",
                 )
             )
-            continue
-
-        # Byte-identical duplicate input: same content, not re-processed
-        # (adjudication #1: md5-identical means the same document).
-        if digest in seen_digests:
-            loader.logger.info(
-                "%s is byte-identical to %s; skipped", path.name, seen_digests[digest]
+            return FileResult(file=path.name, findings=findings)
+        tree, digest = loader.parse_file(path)
+    except Exception as exc:  # defusedxml + lxml raise disparate types
+        findings.append(
+            Finding(
+                rule_id="PARSE-001",
+                layer=Layer.L0_WELLFORMED,
+                severity=Severity.ERROR,
+                file=path.name,
+                line=getattr(exc, "lineno", None),
+                message=f"not well-formed XML: {exc}",
+                fix_hint="repair the XML syntax; nothing above L0 ran for this file",
             )
-            continue
-        seen_digests[digest] = path.name
+        )
+        return FileResult(file=path.name, findings=findings)
 
-        # --- L1: structural conformance to the project mini-XSD ----------
-        schema_ok = schema.validate(tree)
-        if not schema_ok:
-            for err in schema.error_log:
-                report.findings.append(
-                    Finding(
-                        rule_id="SCHEMA-001",
-                        layer=Layer.L1_SCHEMA,
-                        severity=Severity.ERROR,
-                        file=path.name,
-                        line=err.line,
-                        path=err.path or None,
-                        message=err.message,
-                        fix_hint="align the structure with schemas/learnarken.xsd "
-                        "(project S1000D-like subset)",
-                    )
-                )
-
-        # --- model building (also feeds L3) -------------------------------
-        root = tree.getroot()
-        name = path.name.upper()
-        model_obj: DataModule | PublicationModule | DataModuleList | None = None
-        try:
-            if name.startswith("DMC-"):
-                model_obj = loader.load_data_module(path, root)
-                package.data_modules.append(model_obj)
-                dm_entries.append((model_obj, digest))
-            elif name.startswith("PMC-"):
-                model_obj = loader.load_publication_module(path, root)
-                package.publication_modules.append(model_obj)
-            elif name.startswith("DML-"):
-                model_obj = loader.load_dml(path, root)
-                package.dmls.append(model_obj)
-        except Exception as exc:  # noqa: BLE001 — any build failure becomes a finding
-            # Adjudication #9/#12: when the model cannot be built, report an
-            # error and do not force-generate a stand-in node.
-            report.findings.append(
+    # --- L1: structural conformance to the project mini-XSD --------------
+    schema_ok = schema.validate(tree)
+    if not schema_ok:
+        for err in schema.error_log:
+            findings.append(
                 Finding(
-                    rule_id="MODEL-001",
+                    rule_id="SCHEMA-001",
                     layer=Layer.L1_SCHEMA,
                     severity=Severity.ERROR,
                     file=path.name,
-                    message=f"cannot build canonical model: {exc}",
-                    fix_hint="align the structure with schemas/learnarken.xsd; "
-                    "references to this file will report XREF-001 until it loads",
+                    line=err.line,
+                    path=err.path or None,
+                    message=err.message,
+                    fix_hint="align the structure with schemas/learnarken.xsd "
+                    "(project S1000D-like subset)",
                 )
             )
-            continue
 
-        # --- L2: single-file BREX (skipped when L1 failed — fail closed) --
-        if schema_ok and isinstance(model_obj, DataModule):
-            for rule in BREX_RULES:
-                for elem, message in rule.check(root, model_obj, path):
-                    line, xpath = _elem_location(elem)
-                    report.findings.append(
-                        Finding(
-                            rule_id=rule.rule_id,
-                            layer=Layer.L2_BREX,
-                            severity=rule.severity,
-                            file=path.name,
-                            line=line,
-                            path=xpath,
-                            message=message,
-                            fix_hint=rule.fix_hint,
-                        )
+    # --- model building (also feeds L3) ----------------------------------
+    root = tree.getroot()
+    name = path.name.upper()
+    model_obj: DataModule | PublicationModule | DataModuleList | None = None
+    try:
+        if name.startswith("DMC-"):
+            model_obj = loader.load_data_module(path, root)
+        elif name.startswith("PMC-"):
+            model_obj = loader.load_publication_module(path, root)
+        elif name.startswith("DML-"):
+            model_obj = loader.load_dml(path, root)
+    except Exception as exc:  # noqa: BLE001 — any build failure becomes a finding
+        # Adjudication #9/#12: when the model cannot be built, report an error
+        # and do not force-generate a stand-in node.
+        findings.append(
+            Finding(
+                rule_id="MODEL-001",
+                layer=Layer.L1_SCHEMA,
+                severity=Severity.ERROR,
+                file=path.name,
+                message=f"cannot build canonical model: {exc}",
+                fix_hint="align the structure with schemas/learnarken.xsd; "
+                "references to this file will report XREF-001 until it loads",
+            )
+        )
+        return FileResult(file=path.name, findings=findings, digest=digest)
+
+    # --- L2: single-file BREX (skipped when L1 failed — fail closed) ------
+    if schema_ok and isinstance(model_obj, DataModule):
+        for rule in BREX_RULES:
+            # A rule exception must fail closed (report), never crash validation
+            # (INV-4). This also makes `_process_file` total w.r.t. rule errors, so
+            # running it on a byte-identical duplicate (whose findings the merge
+            # drops) can never crash where the old serial loop skipped the dup —
+            # closing the sharded-vs-serial equivalence gap (red-team #4) without
+            # pessimizing the common no-duplicate path with a pre-dedup double-parse.
+            try:
+                violations = list(rule.check(root, model_obj, path))
+            except Exception as exc:  # noqa: BLE001 — any rule bug becomes a finding
+                findings.append(
+                    Finding(
+                        rule_id="BREX-999",
+                        layer=Layer.L2_BREX,
+                        severity=Severity.ERROR,
+                        file=path.name,
+                        message=f"BREX rule {rule.rule_id} raised: {exc}",
+                        fix_hint="rule execution error — the module is treated as "
+                        "unvalidated for this rule (fail closed)",
                     )
+                )
+                continue
+            for elem, message in violations:
+                line, xpath = _elem_location(elem)
+                findings.append(
+                    Finding(
+                        rule_id=rule.rule_id,
+                        layer=Layer.L2_BREX,
+                        severity=rule.severity,
+                        file=path.name,
+                        line=line,
+                        path=xpath,
+                        message=message,
+                        fix_hint=rule.fix_hint,
+                    )
+                )
 
-    # --- L3: cross-file integrity (reference graph) -----------------------
+    return FileResult(file=path.name, findings=findings, digest=digest, model=model_obj)
+
+
+def build_schema() -> etree.XMLSchema:
+    """A fresh XMLSchema instance. Per-call because lxml XMLSchema
+    validate()/error_log is not thread-safe on a shared object (red-team
+    adjudication 2026-07-14, #3); each process/worker builds its own."""
+    return etree.XMLSchema(etree.parse(str(_SCHEMA_PATH)))
+
+
+def _merge_file_results(
+    directory: Path,
+    files: list[Path],
+    results: dict[str, FileResult],
+    accepted_models: tuple[str, ...],
+) -> tuple[ValidationReport, PackageModel]:
+    """Fold per-file results into the report + package and run L3. Byte-identical
+    dedup lives here (it is cross-file state): iterating `files` in sorted order,
+    the first occurrence of a content digest wins and later copies are dropped —
+    identical to the serial loop's `seen_digests` policy, so a sharded run is
+    byte-equivalent to the single-process baseline (Day 13, Decision 1b)."""
+    report = ValidationReport(
+        package=str(directory),
+        files_checked=len(files),
+        brex_rules_evaluated=len(BREX_RULES),
+    )
+    package = PackageModel(path=str(directory), icn_idents=loader.icn_idents(directory))
+    dm_entries: list[tuple[DataModule, str]] = []  # (model, content digest)
+    seen_digests: dict[str, str] = {}  # digest -> first file name
+
+    for path in files:
+        res = results[path.name]
+        # Byte-identical duplicate input: same content, not re-indexed
+        # (adjudication #1: md5-identical means the same document).
+        if res.digest is not None and res.digest in seen_digests:
+            loader.logger.info(
+                "%s is byte-identical to %s; skipped", path.name, seen_digests[res.digest]
+            )
+            continue
+        if res.digest is not None:
+            seen_digests[res.digest] = path.name
+        report.findings.extend(res.findings)
+        model_obj = res.model
+        if isinstance(model_obj, DataModule):
+            package.data_modules.append(model_obj)
+            dm_entries.append((model_obj, res.digest or ""))
+        elif isinstance(model_obj, PublicationModule):
+            package.publication_modules.append(model_obj)
+        elif isinstance(model_obj, DataModuleList):
+            package.dmls.append(model_obj)
+
+    # --- L3: cross-file integrity (reference graph) — serial, needs whole
+    # package (this is the concrete Amdahl serial fraction, Day 13 A2) --------
     dm_index, dm_files, dup_findings = _resolve_dm_identities(dm_entries)
     report.findings.extend(dup_findings)
     report.findings.extend(_crossfile_findings(package, dm_index, dm_files, accepted_models))
     return report, package
+
+
+def analyze_package(
+    package_dir: str | Path,
+    accepted_models: tuple[str, ...] = DEFAULT_ACCEPTED_MODELS,
+) -> tuple[ValidationReport, PackageModel]:
+    """Validate and also return the loaded canonical model (used by `dm`).
+
+    Single-process baseline. `validation.parallel.analyze_package_sharded`
+    reuses `_process_file` + `_merge_file_results` to run per-DM-file work
+    across a process pool; both share this merge so results are equivalent.
+    """
+    directory = Path(package_dir)
+    files = list_package_files(directory)
+    schema = build_schema()
+    results = {p.name: _process_file(p, schema) for p in files}
+    return _merge_file_results(directory, files, results, accepted_models)
 
 
 def _issue_key(dm: DataModule) -> tuple[int, str]:

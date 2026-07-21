@@ -78,7 +78,12 @@ class Toolbox:
             return {"error": f"unknown tool {name!r}"}
         try:
             return handler(args)
-        except (ToolError, PatchError, SandboxViolation, KeyError, ValueError) as exc:
+        except (ToolError, PatchError, SandboxViolation, KeyError, ValueError, OSError) as exc:
+            # OSError (e.g. FileNotFoundError) covers a hallucinated filename in
+            # read_module/query_xml: it must become an observation the agent can
+            # recover from, never crash the run (fail closed, INV-4). Day 13 ToT
+            # exposed this — 3 candidates at temperature>0 hallucinate filenames
+            # far more often than the single temp-0 baseline did.
             return {"error": f"{type(exc).__name__}: {exc}"}
 
     # -- individual tools --------------------------------------------------
@@ -174,7 +179,14 @@ class Toolbox:
         patched = apply_edits(original, edits)
         self.sandbox.resolve(name).write_bytes(patched)
 
-        after = self.validate()
+        try:
+            after = self.validate()
+        except Exception:
+            # A failure after the write (e.g. an OSError re-reading a truncated
+            # file) must not leave the jail in a half-mutated state that later
+            # tools see as real: restore the original and fail closed (red-team P2).
+            self.sandbox.resolve(name).write_bytes(original)
+            raise
         after_keys = Counter(finding_key(f) for f in after)
 
         cleared = sorted((before_keys - after_keys).elements())

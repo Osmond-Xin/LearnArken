@@ -1,0 +1,18 @@
+{
+  "experiment": "asyncio orchestration vs sync \u2014 I/O-bound ToT candidate fan-out (Day 13, Decision 7)",
+  "mode": "simulate \u2014 6 jobs x 0.3s I/O latency",
+  "division_of_labor": "asyncio orchestrates I/O waits only; blocking jobs run in worker threads (asyncio.to_thread). CPU-bound work stays on multiprocessing (perf.shard). No async def wraps a CPU hotspot (Decision 7a/7e).",
+  "contract": "Semaphore-bounded, per-task timeout, non fail-fast; each task recorded as success/timeout/error (Decision 7d).",
+  "task_count": 6,
+  "concurrency_limit": 3,
+  "task_timeout_s": 30.0,
+  "sync_wall_s": 1.8391,
+  "async_wall_s": 0.6169,
+  "speedup": 2.981,
+  "outcomes": {
+    "success": 6,
+    "timeout": 0,
+    "error": 0
+  },
+  "verdict": "asyncio overlapped the I/O waits: 2.98x (1.8391s \u2192 0.6169s) at limit 3 over 6 tasks. This is the win of an event loop for waiting-type work (no data race, single thread)."
+}

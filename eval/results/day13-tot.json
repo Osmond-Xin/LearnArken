@@ -1,0 +1,124 @@
+{
+  "experiment": "ToT vs single-shot repair on package-b (Day 13, Decisions 3-4)",
+  "scale": "toy-scale / directional only \u2014 small n, do not extrapolate (INV-7)",
+  "attempted_n": 8,
+  "repeats": 3,
+  "errored_findings": 0,
+  "candidates_per_case": 3,
+  "roles": [
+    "conservative",
+    "schema_focused",
+    "reference_focused"
+  ],
+  "k_over_n": {
+    "baseline_majority_solved": "3/8",
+    "tot_majority_solved": "3/8",
+    "human_review_needed": "0/8",
+    "no_fix_refused": "5/8",
+    "regression": "0/8"
+  },
+  "nondeterminism_note": "Non-deterministic generator: 2 finding(s) flipped across the 3 runs (['BREX-001', 'XREF-005']) \u2014 a single run is noise, so k/n is the majority of R (scan B5 / honest-nondeterministic-eval).",
+  "regression_note": "0 by construction: propose_patch rejects any patch that introduces a new finding, so a selected fix never regresses (Decision 4 caveat).",
+  "token_cost_two_column": {
+    "baseline": {
+      "prompt": 195711,
+      "completion": 42791,
+      "total": 238502
+    },
+    "tot": {
+      "prompt": 553030,
+      "completion": 117925,
+      "total": 670955
+    },
+    "note": "summed over 3 runs x 8 findings. ToT completion \u2248 Nx baseline (N candidates); prompt is inflated too but is cacheable in principle (shared error context) \u2014 DR A \u00a77.1."
+  },
+  "selection": "deterministic sandbox validator, never LLM self-judgment (Decision 3b)",
+  "verdict": "No improvement: ToT and baseline both 3/8 majority-solved at ~3x cost. The bottleneck is edit correctness, not sampling breadth \u2014 the findings single-shot solves are the ones ToT solves, and more candidates do not make the unsolved ones solvable. Next hypothesis: ToT should help most on complex-structural cases where a single edit path is easy to get wrong. **This is the 'when is search not worth it' result \u2014 a valid, passing outcome (Decision 4).**",
+  "per_finding": [
+    {
+      "rule_id": "BREX-001",
+      "file": "DMC-LA100-A-29-30-00-00A-520A-A_EN-CA.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "0/3",
+      "tot_pass_rate": "1/3",
+      "tot_selected_roles": [
+        "reference_focused"
+      ],
+      "unstable_across_runs": true
+    },
+    {
+      "rule_id": "BREX-002",
+      "file": "DMC-LA100-A-2X-10-00-00A-040A-D_EN-CA.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "0/3",
+      "tot_pass_rate": "0/3",
+      "tot_selected_roles": [],
+      "unstable_across_runs": false
+    },
+    {
+      "rule_id": "XREF-001",
+      "file": "DMC-LA100-A-29-10-00-00A-040A-D_EN-CA.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "0/3",
+      "tot_pass_rate": "0/3",
+      "tot_selected_roles": [],
+      "unstable_across_runs": false
+    },
+    {
+      "rule_id": "XREF-002",
+      "file": "DMC-LA100-A-32-10-00-00A-941A-D_EN-CA.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "0/3",
+      "tot_pass_rate": "0/3",
+      "tot_selected_roles": [],
+      "unstable_across_runs": false
+    },
+    {
+      "rule_id": "XREF-008",
+      "file": "DML-LA100-LEARN-C-2026-00002.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "3/3",
+      "tot_pass_rate": "3/3",
+      "tot_selected_roles": [
+        "conservative",
+        "conservative",
+        "conservative"
+      ],
+      "unstable_across_runs": false
+    },
+    {
+      "rule_id": "XREF-003",
+      "file": "DMC-LA100-A-24-10-00-00A-040A-D_EN-CA.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "3/3",
+      "tot_pass_rate": "3/3",
+      "tot_selected_roles": [
+        "conservative",
+        "conservative",
+        "conservative"
+      ],
+      "unstable_across_runs": false
+    },
+    {
+      "rule_id": "XREF-004",
+      "file": "DMC-SS200-A-58-10-00-00A-520A-A_EN-CA.xml",
+      "risk_tier": "dry-run-only",
+      "baseline_pass_rate": "0/3",
+      "tot_pass_rate": "0/3",
+      "tot_selected_roles": [],
+      "unstable_across_runs": false
+    },
+    {
+      "rule_id": "XREF-005",
+      "file": "DMC-LA100-A-24-30-00-00A-040A-D_EN-CA.xml",
+      "risk_tier": "apply-eligible",
+      "baseline_pass_rate": "2/3",
+      "tot_pass_rate": "2/3",
+      "tot_selected_roles": [
+        "schema_focused",
+        "reference_focused"
+      ],
+      "unstable_across_runs": true
+    }
+  ]
+}

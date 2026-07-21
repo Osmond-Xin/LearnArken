@@ -69,7 +69,7 @@ model, reviews are read-only, and every number a red team reports is re-run by
 me before merge. See [docs/redteam.md](docs/redteam.md) and
 [docs/execution-plan.md](docs/execution-plan.md).
 
-## Progress (Day 1–11)
+## Progress (Day 1–13)
 
 | Day | Node | Tag | Status |
 | --- | --- | --- | --- |
@@ -85,6 +85,7 @@ me before merge. See [docs/redteam.md](docs/redteam.md) and
 | 10 | On-demand real-stack deployment & wrap-up | `v1.0.0` | ✅ 2026-07-18 |
 | 11 | Graph-augmented retrieval (KG-RAG slice) | `v1.1.0` | ✅ 2026-07-19 |
 | 12 | Multimodal ingest & QA (describe-then-index + G15 second-look) ⚑ heavy red team | `v1.2.0` | ✅ 2026-07-20 |
+| 13 | Performance & inference-strategy experiments (mp / profile→numba / ToT / asyncio) ⚑ heavy red team | `v1.3.0` | ✅ 2026-07-21 |
 
 Benchmark tables, ablations, and adversarial-evaluation results will appear
 below this section as the corresponding nodes complete. Every number comes
@@ -304,6 +305,41 @@ numbers do not extrapolate to real scans. Three-class eval + regression:
 [eval/results/day12-multimodal.json](eval/results/day12-multimodal.json),
 [docs/notes/day12-figure-noise.md](docs/notes/day12-figure-noise.md).
 
+### Performance & inference-strategy experiments — Day 13 (judgment over keywords)
+
+A deliberate "**verifiable engineering judgment, not flashy optimization**" day —
+each experiment is allowed to honestly conclude *no benefit* and still count as a
+**passing** result:
+
+- **multiprocessing** validation sharding at **per-DM-file** granularity, behind an
+  abstraction and **byte-equivalent to the single-process baseline** (INV-2,
+  asserted). Result: **no speedup at toy scale** — pool spawn + pickle overhead
+  dominate work this cheap ([day13-mp-scaling.json](eval/results/day13-mp-scaling.json)).
+  The concrete Amdahl serial fraction (L3 cross-file resolution) is named, not hidden.
+- **profile → numba**: py-spy/cProfile first ([day13-hotspots.json](eval/results/day13-hotspots.json));
+  the CPU is spent in lxml / Pydantic / C-extensions, so the honest verdict is
+  **"no numba target justified"** — a passing result, and **no numba dependency is
+  added** ([docs/notes/day13-numba-decision.md](docs/notes/day13-numba-decision.md)).
+- **Tree-of-Thoughts repair** (best-of-N): 3 heterogeneous role candidates
+  (conservative / schema-focused / reference-focused) selected by the **deterministic
+  sandbox validator — never LLM self-judgment** (INV-4), with a reward-hacking
+  deletion veto. Repeat-tested because the generator is non-deterministic (2 of 8
+  findings flipped across runs): **baseline 3/8 = ToT 3/8 majority-solved, at ~2.8×
+  the completion tokens** — the honest *"when is search **not** worth it"* result
+  ([day13-tot.json](eval/results/day13-tot.json)).
+- **asyncio** orchestration for the **I/O-bound** fan-out only, strictly separated
+  from multiprocessing (no `async def` around a CPU hotspot): Semaphore-bounded,
+  per-task timeout, non fail-fast — **~3× wall-clock overlap** on the waiting-type
+  work ([day13-async.json](eval/results/day13-async.json)).
+- **Rust / Python free-threading**: gate & narrative only — no crate, no code, no
+  build change; the evidence door does not open on this corpus
+  ([ADR-0003](docs/adr/0003-day13-rust-gate.md)).
+
+Reproduce: `uv run python tools/day13_mp_bench.py`,
+`tools/day13_profile.py`, `tools/day13_tot_eval.py`, `tools/day13_async_bench.py`.
+The cross-host red team returned DO_NOT_MERGE with 12 findings — all fixed with
+regression tests ([docs/reviews/day13.md](docs/reviews/day13.md)).
+
 ### Graph-augmented retrieval — Day 11 (entity linking → REFS expansion → third RRF route)
 
 A **deterministic** query-side entity linker (regex + corpus-derived lexicons
@@ -451,7 +487,14 @@ deploy slice is [docs/reviews/day10.md](docs/reviews/day10.md).
   gates stayed shut on the reviewed ablation (the paraphrase gap SPLADE
   would treat is closed by dense at 1.00; identifier queries are not losing),
   so neither was built; decision + revisit trigger in
-  [docs/adr/0001-day4b-gate-stays-shut.md](docs/adr/0001-day4b-gate-stays-shut.md)
+  [docs/adr/0001-day4b-gate-stays-shut.md](docs/adr/0001-day4b-gate-stays-shut.md).
+  Likewise **numba, self-written Rust/PyO3, and Python free-threading** (Day 13):
+  the profiler shows no pure-numeric or Python-side CPU bottleneck on this corpus,
+  so numba records "no target justified" and the Rust/free-threading doors stay
+  gate/narrative only — [ADR-0003](docs/adr/0003-day13-rust-gate.md)
+- **Considered and preferred as an informed consumer**: the latency-critical paths
+  already *consume* Rust (Tantivy BM25, the vector store) — getting Rust performance
+  by selection rather than by writing an extension (Day 13)
 - **Planned**: full RDF/SPARQL knowledge graph (the minimal dependency-graph
   query slice landed in Day 9 —
   [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md);
