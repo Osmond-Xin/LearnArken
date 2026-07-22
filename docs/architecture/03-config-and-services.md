@@ -1,8 +1,13 @@
 # 03 · 配置全景：工具链、本地服务与外部 API
 
-> **AI-drafted，待人审**。快照：2026-07-18（Day 1–10 全部合并，`v1.0.0`；
-> Day 10 加 GCP 按需部署面）。密钥值一律不出现在仓库（只在本地 `.env`，
-> git-ignored）；本文只记录变量名、端口与拓扑。本地服务操作细节的权威文档是
+> **AI-drafted，待人审**。快照：2026-07-21（`v1.3.0`；沿用 2026-07-18 / `v1.0.0`
+> 撰写）。**Day 11–13 的配置增量很小**：(a) Day 12 多模态 VLM **复用同一 MiniMax
+> 代理**（`MINIMAX_*` 四键，仅换成多模态 `content` 数组打 `/chat/completions`，
+> **无新增环境变量/服务**，见 §4）；(b) 运行时依赖 Day 8 加 `scikit-learn`、Day 12
+> 加 `pillow`（现 16 个，§5 的"仅 4 个依赖"是 Day 1 起步值的历史陈述）；Day 11
+> 图谱第三路复用既有 Neo4j、Day 13 零新增依赖/服务（numba/Rust 证据门未开，
+> [ADR-0003](../adr/0003-day13-rust-gate.md)）。密钥值一律不出现在仓库（只在本地
+> `.env`，git-ignored）；本文只记录变量名、端口与拓扑。本地服务操作细节的权威文档是
 > [docs/local-services.md](../local-services.md)，部署操作的权威文档是
 > [deploy/DEPLOY-GUIDE.zh.md](../../deploy/DEPLOY-GUIDE.zh.md) 与
 > [deploy/runbook.md](../../deploy/runbook.md)。
