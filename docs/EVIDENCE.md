@@ -68,6 +68,13 @@
 | S1000D `dmRef` relations sync into Neo4j and answer reverse-dependency impact queries | — (behavioural, tested) | [src/learnarken/graph/store.py](../src/learnarken/graph/store.py) (`impact`); [tests/test_day9_evidence.py](../tests/test_day9_evidence.py) | `learnarken graph impact <DMC>` *(needs services)* | `Toy-scale` |
 | Impact traversal is cycle-safe against VIO-7 reference loops and depth-bounded | — (tested) | [tests/test_day9_evidence.py](../tests/test_day9_evidence.py) | `uv run pytest tests/test_day9_evidence.py -q` | `Implemented` |
 
+## Graph-augmented retrieval (Day 11)
+
+| Claim | Number(s) | Evidence | Reproduce | Layer |
+| --- | --- | --- | --- | --- |
+| A third RRF route (deterministic entity linking → `REFS` graph expansion) is fused with BM25 + dense — **candidate expansion**, no LLM on the graph path | — (behavioural, tested) | [src/learnarken/retrieval/graph_expand.py](../src/learnarken/retrieval/graph_expand.py); [src/learnarken/retrieval/entity_link.py](../src/learnarken/retrieval/entity_link.py); [tests/test_day11_graph_expand.py](../tests/test_day11_graph_expand.py) | `uv run pytest tests/test_day11_graph_expand.py -q` | `Implemented` |
+| The graph route's benchmark contribution is **honestly flat**: on the toy multi-hop set its post-rerank ablation is identical to plain hybrid — shipped as a KG-RAG capability, not a benchmark gain | — (deterministic ablation, flat) | [eval/results/day11-ablation.json](../eval/results/day11-ablation.json) (`multihop_set.results`); [docs/tutorials/14-kg-rag.md](tutorials/14-kg-rag.md) | `learnarken eval ablation --modes hybrid-graph hybrid-graph-rerank --json` *(needs services)* | `Toy-scale` |
+
 ## Multimodal figure ingest & second-look (Day 12)
 
 | Claim | Number(s) | Evidence | Reproduce | Layer |
@@ -84,6 +91,7 @@
 | Every README number has a fixed seed + versioned golden set + repro command (INV-5) | this file; [eval/golden/](../eval/golden/) | `uv run pytest tests/test_day9_evidence.py -q` | `Implemented` |
 | AI-first workflow with independent red-team + human adjudication | [docs/AI-COLLABORATION.md](AI-COLLABORATION.md); [docs/reviews/](reviews/) | read the review files | `Implemented` |
 | Fail-closed ingestion gate rejects non-compliant / out-of-domain modules | [tests/test_validation.py](../tests/test_validation.py); [samples/package-b](../samples/package-b) | `uv run learnarken validate samples/package-b` | `Implemented` |
+| Multiprocessing validation sharding is byte-equivalent to the serial baseline (INV-2 — sharding behind an abstraction, no shared-memory shortcut) | [src/learnarken/validation/parallel.py](../src/learnarken/validation/parallel.py); [tests/test_day13_perf.py](../tests/test_day13_perf.py) | `uv run pytest tests/test_day13_perf.py -q` | `Implemented` |
 | Full test suite green | [tests/](../tests/) | `make test` | `Implemented` |
 
 ## What is *not* claimed (honest boundary, INV-7)
@@ -95,3 +103,14 @@
   truth** (constitution §2 known limitation).
 - Version/issue-semantics graph, full RDF/SPARQL platform, and production serving
   are `Planned` — design notes only, see [docs/execution-plan.md](execution-plan.md).
+- **Graph-augmented retrieval (Day 11) claims no ranking gain.** The third RRF
+  route is implemented, but on the toy corpus its contribution is absorbed by the
+  cross-encoder rerank, so the post-rerank ablation is flat — an honest null. The
+  value is the KG-RAG mechanism and its deterministic entity linking, not a number.
+- **The performance day (Day 13) claims no speedup.** Multiprocessing sharding is
+  byte-equivalent to the serial baseline (above) but shows no wall-clock gain at
+  toy-corpus scale — end-to-end time is dominated by external model inference and
+  already-native parsing, not Python CPU. ToT best-of-N repair yields no quality
+  improvement at roughly 2.76× token cost. numba, self-written Rust/PyO3, and
+  Python free-threading are held as **evidence-gated non-actions** — the profiler
+  shows no target on this corpus ([docs/adr/0003-day13-rust-gate.md](adr/0003-day13-rust-gate.md)).
