@@ -49,7 +49,8 @@ risk to hide.
 
 5. **Rust = open-door gate only.** No crate, no Rust code, no build change this day
    — only the four gate conditions written as Roadmap (informed-consumer stance:
-   BM25=Tantivy, vector store already Rust).
+   the stack consumes Rust via `pydantic-core` + HuggingFace `tokenizers`; BM25 is
+   pure-Python rank-bm25 and the store is Vespa — *not* Tantivy).
 
 6. **free-threading = narrative only.** No install, no benchmark; a single
    paragraph that does **not** claim a gained benefit; 3.12 / mp / external-calls

@@ -69,7 +69,7 @@ world-model 工程雏形（dry-run 沙箱）均已有实现证据；缺口只在
 - Day 13 的定位是**把已有的正确直觉换成现代术语并配上证据**，不是从零学并发：
   "规避共享可变状态"直接对应 asyncio 单线程模型与 multiprocessing 进程隔离，
   面试叙事从"我避免并发"改写为"我避免共享可变状态"；Rust 不硬造玩具项目，
-  以"知情消费者"（Tantivy/Qdrant 即 Rust）+ 证据开门的姿态呈现，与 Roadmap
+  以"知情消费者"（本栈经 pydantic-core/tokenizers 消费 Rust;Tantivy/Qdrant 是行业例子、非本项目所用）+ 证据开门的姿态呈现，与 Roadmap
   诚实分层一致。
 - ToT 实验并入而非专开的理由：全部设施现成（候选生成 = 现有 agent 换采样，
   验证器 = Day 7 沙箱复验，评估集 = package-b 违规清单），半日可收口；

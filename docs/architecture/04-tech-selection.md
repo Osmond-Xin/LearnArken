@@ -155,7 +155,7 @@
 | Demo 公网化 | loopback 前提原判超范围;**Day 10 公网模式已加最小围栏**(门钥/LLM 配额/上传闸,demo_guard)。JWT/限流/多租户仍不做 | 真多租户部署时 |
 | 语义/NER 实体链接、LLM 抽图谱 | **Day 11 走确定性 regex+词典链接**(无 LLM 保 INV-5/fail-closed);LLM/NER 兜底是 Roadmap | 语料变大、链接召回不足时 |
 | 查询时实时 VLM、图像向量入库、从再读构造答案 | **Day 12 走 describe-then-index**(索引相无 VLM、可复现);二次看图只共识门控 G15 拒答,answering-from-relook 是 Roadmap | 真实有损图形需再读增值时 |
-| **Rust/PyO3 自写扩展** | 切片外——**Day 13 记为 ADR-0003 四条件证据门**,玩具语料一条不满足;latency 路径已消费 Rust(Tantivy/向量库) | 语料长出真 Python 侧 CPU 瓶颈、四条件满足时 |
+| **Rust/PyO3 自写扩展** | 切片外——**Day 13 记为 ADR-0003 四条件证据门**,玩具语料一条不满足;栈里已消费 Rust 的是 `pydantic-core` 与 HuggingFace `tokenizers`(非 Tantivy——BM25 是纯 Python rank-bm25、store 是 Vespa) | 语料长出真 Python 侧 CPU 瓶颈、四条件满足时 |
 | **free-threading(PEP 703)** | 切片外——**Day 13 记为叙事/未来方向**(ADR-0003);去 GIL 后 share-nothing 更值钱,跟踪不冒进 | lxml/Pydantic/ML 库兼容成熟时 |
 | numba JIT | **Day 13 profiler 无纯数值 Python 热点**(CPU 在 lxml/schema/Pydantic 已编译层)——无靶不装 | 出现纯数值热点时 |
 | vLLM 本地 serving、GNN、形式化验证 | 切片外 Roadmap | 切片完成后 |

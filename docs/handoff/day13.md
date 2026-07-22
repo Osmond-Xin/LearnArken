@@ -72,7 +72,7 @@ README 快照日期推进到 `v1.3.0`/2026-07-21。**标注 AI-drafted 待人审
 ## 4. 全项目地图(13 天产物)
 
 - **代码**:`src/learnarken/` 66 个 .py。子系统:`validation/`(四层校验 L0–L3 + mp 分片)、
-  `chunking/`、`embedding/`(Qwen3-8B 本地)、`retrieval/`(BM25=Tantivy / dense / hybrid /
+  `chunking/`、`embedding/`(Qwen3-8B 本地)、`retrieval/`(BM25=rank-bm25 / dense / hybrid /
   graph 第三路 / RRF / rerank)、`vespa/` + `graph/`(存储)、`answer/`(引用/拒答/trace/
   SSE/figure_relook)、`repair/`(Day7 ReAct agent + Day13 ToT + 沙箱)、`multimodal/`(Day12)、
   `perf/`(Day13 mp+asyncio)、`adversarial/`(Day8)、`api/`(FastAPI+demo_guard)、`llm/`(MiniMax)。
