@@ -37,8 +37,8 @@
 | 选型 | 候选 | 决定与理由 | 出处 |
 | --- | --- | --- | --- |
 | **Vespa**（向量库） | Qdrant（AI 推荐、执行计划原默认）、pgvector/Chroma/FAISS（无 ColBERT 路径，出局） | **Yi Xin 否决 AI 的 Qdrant 推荐**：late-interaction（ColBERT 类 MaxSim）在 Vespa 是原生一等公民而非附加功能；运维重量已接受（docker 现成）。ColBERT 本身仍在切片外——选型只是不封死这条路 | [discussions/day3 D2](../discussions/day3.md) |
-| **Neo4j**（图存储） | RDFLib（最小方案）、Kùzu（嵌入式） | 行业标准；docker 已在跑，"服务化太重"的反对不成立。注意：**存储已定，是否把最小图查询拉入切片仍待 Day 4 收口复评点** | discussions/day3 D3 |
-| **MiniMax**（embedding） | BGE / E5 本地模型（执行计划原方案） | Yi Xin 指定；复用 FollowTheBig 的配置模式（含非标准 X-Proxy-Token 头）。**开口项**：参考实现无 embedding 端点，端点形状待验证 | discussions/day3 D8、[local-services.md](../local-services.md) |
+| **Neo4j**（图存储） | RDFLib（最小方案）、Kùzu（嵌入式） | 行业标准；docker 已在跑，"服务化太重"的反对不成立。注意（Day 3 记）：**存储已定，是否把最小图查询拉入切片仍待复评**——**已落地**：Day 5 `graph.facts` 接口③注入(ADR-0002)、Day 9 `graph.impact` 反向依赖、Day 11 `graph.neighborhood` + 图谱检索第三路 | discussions/day3 D3、ADR-0002 |
+| ~~MiniMax（embedding）~~ **历史决策，Day 4 被测量推翻** | BGE / E5 本地模型（执行计划原方案）、Qwen3-8B | Day 3 曾定 MiniMax embedding（Yi Xin 指定，复用 FollowTheBig 的 X-Proxy-Token 配置模式）。**Day 4 dense bake-off 实测其长度偏置 → 默认 dense provider 改为本地 Qwen3-Embedding-8B**（见 §4.5、`providers.py` `DEFAULT_PROVIDER="qwen3-8b"`；历史客户端在 `b414fa4`）。这是"测出供应商缺陷并换掉"的完整故事，不是遗留开口项 | discussions/day3 D8、§4.5、[notes/day4-embedding-length-bias.md](../notes/day4-embedding-length-bias.md) |
 | 图数据来源 = 确定性序列化 | NLP 实体/关系抽取 | L3 校验器已建引用图，DMC/适用性/警告都是结构化字段——"抽取"就是序列化规范模型，不需要 NLP | discussions/day3 D3 |
 
 ## 4.5 框架与模型选型（Day 4，2026-07-16 增补）
@@ -58,7 +58,7 @@
 | **答案 LLM = MiniMax-M3 chat** | Claude API（原执行计划） | Yi Xin 裁决改用 M3;配置走既有 `MINIMAX_*`。注意边界:Day 4 移除的是 MiniMax *embedding*,不覆盖 chat/生成 | [specs/day5 决策2](../specs/day5.md) |
 | **严格二分拒答**（带引用回答 xor 占位符） | 分级低置信带 | INV-4 洁净 + 缩小 Day 8 攻击面;深调研的 graceful-degradation 备选被否 | specs/day5 Q2 |
 | **图集成 = 索引时同步 + 接口③注入** | 图邻居检索扩展 | DM 节点 + dmRef/ICN 边幂等 upsert;检索 DM 的图谱事实作结构化列表进 prompt;多跳于 Day 9 落地（§4.10）| [ADR-0002](../adr/0002-minimal-graph-query-slice.md)、specs/day5 Q1 |
-| **拒答阈值 = 实测 artifact** | 手挑常数 | 从 golden 分数分布测出(INV-5),加载时校验有限且 ∈[0,1](红队 day5 #6) | specs/day5 |
+| **拒答阈值 = 实测 artifact** | 手挑常数 | 从 golden 分数分布测出(INV-5),加载时校验有限且 `∈[0,1]`(红队 day5 #6) | specs/day5 |
 | **答案固定英文** | 跟随问题语言 | 与对外产物一致;证据语料是英文合成 XML,避免跨语引用对齐噪声 | specs/day5 Q3 |
 
 ## 4.7 服务化与 Demo 选型（Day 6，v0.6.0）
@@ -140,7 +140,7 @@
 | **asyncio 仅作 I/O 编排，CPU/IO 严格二分** | 全栈 async、asyncio 包 CPU 热点 | asyncio 只重叠 LLM/沙箱等待(`to_thread`,Decision 7e);CPU-bound 归多进程。超时只界*等待*不界线程,故每个真 job 自带硬超时(诚实标注红队 P1) | specs/day13 决策 7 |
 | **ToT = Best-of-N + 确定性验证器选优** | LLM 自评选优、蒙特卡洛树搜索全展开 | Best-of-N=深度 1 宽度 N 的 ToT(最小可用形);N 个异构角色候选(conservative/schema/reference),**验证器选优绝不 LLM 自评**(INV-4);诚实结论:repeat=3 无提升但 2.76× 成本 | specs/day13 决策 3、eval/results/day13-tot.json |
 | **reward-hack 否决 = 删除比例粗信号** | 无否决、语义级后果分级 | `REWARD_HACK_DELETE_FRACTION=0.5` 挡"删节点消 finding";诚实标注是 toy 常量(小模块合法删悬空 dmRef 就 ~25%),语义级分级是 Roadmap | specs/day13、reviews/day13 #5 |
-| **Rust/PyO3 = 证据门(不写)** | 直接写扩展凑关键词 | 四条件门(纯 CPU 热点/mp 已试/IO 边界稳定/FFI 成本<收益)在玩具语料一条不满足;latency 路径已**消费** Rust(Tantivy/向量库)——informed-consumer 立场 | [ADR-0003](../adr/0003-day13-rust-gate.md) 决策 5 |
+| **Rust/PyO3 = 证据门(不写)** | 直接写扩展凑关键词 | 四条件门(纯 CPU 热点/mp 已试/IO 边界稳定/FFI 成本<收益)在玩具语料一条不满足;栈里的热路径已**消费** Rust——`pydantic-core`(规范模型校验/序列化)、HuggingFace `tokenizers`(嵌入/重排分词,经 sentence-transformers)——informed-consumer 立场,无需自写扩展。**注**:BM25 用的是 rank-bm25(纯 Python),Tantivy 是 §3 出局候选,不算 Rust 消费 | [ADR-0003](../adr/0003-day13-rust-gate.md) 决策 5 |
 | **free-threading = 叙事/未来方向(不装不测)** | 装 3.13t 跑基准凑关键词 | 分离构建(`cp313t`)、生态未跟上、lxml/Pydantic 兼容待测;载重判断:去 GIL 后隐式原子性消失,**share-nothing 架构更值钱**——跟踪不冒进 | ADR-0003 决策 6 |
 
 ## 5. 有意不做的（负选型）

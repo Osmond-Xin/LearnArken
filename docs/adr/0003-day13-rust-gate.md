@@ -41,9 +41,13 @@ when all four hold**:
 
 **The gate does not open on the toy corpus.** None of (1)–(4) is met; end-to-end time
 is dominated by external model inference and already-native parsing. The honest
-"informed-consumer" stance stands: the latency-critical paths already **consume**
-Rust — Tantivy (BM25) and the vector store — which is a legitimate way to get Rust
-performance without writing an extension.
+"informed-consumer" stance stands: the stack already **consumes** Rust — via
+`pydantic-core` (canonical-model validation/serialization) and the HuggingFace
+`tokenizers` backend (embedding/rerank tokenization) — which is a legitimate way to
+get Rust performance without writing an extension. (Correction, 2026-07-21: an
+earlier draft cited "Tantivy (BM25) and the vector store"; this project's BM25 is
+pure-Python `rank-bm25` and its store is Vespa, so those were not accurate Rust
+consumers — the ruling is unchanged.)
 
 ## Decision (free-threading — Decision 6)
 

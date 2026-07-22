@@ -109,8 +109,9 @@ AI agent)沿证据链核查。
   **numba / 自写 Rust·PyO3 / Python free-threading**(Day 13)——profiler 显示本语料
   无纯数值/Python 侧 CPU 瓶颈,numba"无靶"、Rust·free-threading 保持证据门/叙事
   (见 [docs/adr/0003-day13-rust-gate.md](docs/adr/0003-day13-rust-gate.md));latency
-  关键路径**已消费** Rust(Tantivy BM25、向量库)——以 informed-consumer 方式取得
-  Rust 性能而非自写扩展
+  栈里已**消费** Rust(`pydantic-core` 规范模型校验/序列化、HuggingFace `tokenizers`
+  嵌入/重排分词)——以 informed-consumer 方式取得 Rust 性能而非自写扩展(本项目 BM25
+  是纯 Python 的 `rank-bm25`,Tantivy 是被否的搜索引擎候选、不是 Rust 依赖)
 - **Planned**:完整 RDF/SPARQL 知识图谱(最小依赖图查询切片已 Day 9 落地、图谱检索
   第三路已 Day 11 落地,见 [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md);
   完整图谱 / 版本语义建模 / 多跳 SPARQL 仍规划中)、vLLM 本地 serving、GNN、形式化验证

@@ -61,7 +61,7 @@ flowchart LR
 | 配置项 | 所在文件 | 要点 |
 | --- | --- | --- |
 | Python 版本 | pyproject.toml | `>=3.12`（StrEnum、新语法） |
-| 依赖策略 | pyproject.toml + uv.lock | 运行时仅 4 个依赖，全部带上界；CI `--locked` 安装。**理由**：解析器行为不许在未锁定安装下漂移（Day 2 红队裁决 #13） |
+| 依赖策略 | pyproject.toml + uv.lock | 运行时依赖 Day 1 起步 4 个 → 现 **16 个**（Day 4–6 langchain 全家 + ST + fastapi 栈、Day 8 scikit-learn、Day 12 pillow），全部带上界；CI `--locked` 安装。**理由**：解析器行为不许在未锁定安装下漂移（Day 2 红队裁决 #13） |
 | ruff | pyproject.toml `[tool.ruff]` | py312 目标、100 列、规则集 E/F/I/UP/B/SIM |
 | pytest | pyproject.toml `[tool.pytest.ini_options]` | testpaths=tests，`-q` |
 | pre-commit | .pre-commit-config.yaml | ruff（--fix）+ ruff-format + 大文件/冲突/**私钥检测**/空白 |

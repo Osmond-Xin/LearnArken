@@ -492,9 +492,12 @@ deploy slice is [docs/reviews/day10.md](docs/reviews/day10.md).
   the profiler shows no pure-numeric or Python-side CPU bottleneck on this corpus,
   so numba records "no target justified" and the Rust/free-threading doors stay
   gate/narrative only — [ADR-0003](docs/adr/0003-day13-rust-gate.md)
-- **Considered and preferred as an informed consumer**: the latency-critical paths
-  already *consume* Rust (Tantivy BM25, the vector store) — getting Rust performance
-  by selection rather than by writing an extension (Day 13)
+- **Considered and preferred as an informed consumer**: the stack already *consumes*
+  Rust through `pydantic-core` (canonical-model validation/serialization) and the
+  HuggingFace `tokenizers` backend (embedding/rerank tokenization, via
+  sentence-transformers) — getting Rust performance by selection rather than by
+  writing an extension (Day 13). (BM25 here is pure-Python `rank-bm25`; Tantivy was
+  the rejected search-engine candidate, not a Rust dependency of this project.)
 - **Planned**: full RDF/SPARQL knowledge graph (the minimal dependency-graph
   query slice landed in Day 9 —
   [docs/adr/0002-minimal-graph-query-slice.md](docs/adr/0002-minimal-graph-query-slice.md);
