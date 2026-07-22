@@ -294,8 +294,10 @@ from mp** — tagged `v1.3.0`.
 
 - **Rust open-door gate:** a Roadmap section (in this SPEC / a short ADR note) with
   the **four gate conditions** (Decision 5 i–iv) and the honest "informed consumer"
-  stance (BM25 = Tantivy, vector store already Rust — scan A5). **No crate, no
-  build change, no Rust code** (Decision 5).
+  stance (the stack consumes Rust via pydantic-core + HuggingFace tokenizers; BM25
+  is pure-Python rank-bm25 and the store is Vespa — corrected 2026-07-22, scan A5's
+  Tantivy example was inaccurate; ruling unchanged). **No crate, no build change, no
+  Rust code** (Decision 5).
 - **free-threading:** one **narrative paragraph** (Decision 6) — project centers on
   3.12 / mp / external calls; free-threading vs lxml/Pydantic/ML compat needs future
   measurement; **not written as a gained benefit**; **no install, no benchmark**.

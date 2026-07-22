@@ -59,7 +59,7 @@ flowchart TD
 三条铁律（面试和实战都是这三条）：
 
 1. **不能阻塞事件循环**。在 async 函数里调了同步的 `requests.get()`、`time.sleep()`、重型 CPU 计算 ⇒ 整个循环停摆，所有请求一起卡。这是 async 服务事故的第一大来源。修法：用异步库（httpx/asyncpg）、`asyncio.sleep`、或把同步/CPU 活儿丢出去——`await asyncio.to_thread(blocking_fn)`（IO 型同步库）或进程池（CPU 型）。
-2. **await 才有并发**。`await f1(); await f2()` 是串行；`await asyncio.gather(f1(), f2())` 才是并发。LearnArken 的多路检索（BM25/dense/ColBERT 同时查）就该 gather。
+2. **await 才有并发**。`await f1(); await f2()` 是串行；`await asyncio.gather(f1(), f2())` 才是并发。多路检索（本项目是 BM25/dense/图谱三路）在概念上就该 gather 并发查——注意本项目检索用 LangChain `EnsembleRetriever` 编排（非手写 asyncio）；真正用 asyncio.gather 式编排的是 Day 13 的 ToT 候选并发（`perf/orchestrate`）。
 3. **并发要限流**。gather 一千个下载 = 自己 DDoS 自己。用 `asyncio.Semaphore` 或 TaskGroup + 队列控制并发度，对下游（数据库、embedding 服务）保持背压（backpressure）。
 
 ### 2. GIL 与 multiprocessing：CPU 密集的正解
@@ -89,7 +89,7 @@ flowchart TD
 ### 5. 可观测性基础（衔接教程 11）
 
 - **structured logging**：日志输出 JSON（logfmt 亦可），带 request_id/trace_id，能被机器查询。print 调试的时代结束了。
-- **OpenTelemetry 三件套**：trace（跨服务调用链）、metrics（计数器/直方图）、logs。FastAPI/httpx/asyncpg 都有自动埋点库；LearnArken 的自定义 span：`retrieval.bm25`、`retrieval.rerank`、`llm.generate`——正好和答案 trace（教程 05）对齐。
+- **OpenTelemetry 三件套**：trace（跨服务调用链）、metrics（计数器/直方图）、logs。FastAPI/httpx/asyncpg 都有自动埋点库。**本项目现状**：已建的是**五跨度答案 trace**（检索/重排/LLM/生成/图，落 JSON 到 `eval/traces/`，教程 05）——概念上对应 OTel 的 `retrieval.bm25`/`retrieval.rerank`/`llm.generate` span，但**真正的 OpenTelemetry 埋点是 Roadmap**（未接 OTel SDK）。
 - **老直觉平移**：trace_id ≈ 当年打在每行日志里的"全局流水号"，OTel 只是把它标准化+可视化了。
 
 ### 6. 性能路径：profile 之前不许优化

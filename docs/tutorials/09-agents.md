@@ -64,8 +64,8 @@ Reason + Act 循环，一个 while 循环就写完：
 面试官问"你怎么设计 agent"，答案的重心应该在工具而不是 prompt：
 
 - **schema 严格**：每个工具有名字、自然语言描述（这是给 LLM 看的"API 文档"，写得好坏直接影响调用正确率）、参数 JSON Schema、返回结构。
-- **最小权限**：LearnArken 的工具全部只读或沙箱化——`search_chunks`、`sparql_query`（只读 endpoint）、`validate_package`（跑在副本上）、`diff_versions`。**没有"执行任意 SQL/写文件/发请求"这类工具**。这是"LLM 不可信"主线的落地。
-- **输出限幅**：工具返回要截断/分页（SPARQL 查出 1 万行不能全塞回上下文），并保持结构化（LLM 读 JSON 比读散文稳）。
+- **最小权限**：LearnArken 修复 agent（Day 7）的工具全部只读或沙箱化——`search_corpus`、`read_module`、`query_xml`（只读）、`run_validator`（确定性校验器复跑，反共谋）、`propose_patch`（唯一写路径，绑定锚定节点、4 个扁平 EditOp）、`exec_sandbox`（temp-dir jail）。**没有"自由字符串/正则替换、执行任意命令、写任意文件、发网络请求"这类工具**。这是"LLM 不可信"主线的落地。
+- **输出限幅**：工具返回要截断/分页（检索/查询返回上万行不能全塞回上下文），并保持结构化（LLM 读 JSON 比读散文稳）。
 - **幂等与可重放**：同样调用同样结果，trace 里记录每次调用的入参出参 ⇒ 离线可重放调试。
 
 ### 3. 推理搜索算法：从一条路到一棵树到一张图

@@ -44,18 +44,18 @@ flowchart LR
 
 ### 60 秒版（"介绍一下你的项目"）
 
-> ⚠️ **使用须知**：下面是**完整蓝图版**（覆盖 M0-M8 全部设计）。Day 10 收尾时必须按 `EVIDENCE.md` 裁剪成"已实现"版——凡是 repo 里指不出证据的名词，一律从陈述里删掉或明确标注 Planned。宁可短而全真，不可长而掺水。
+> ✅ **已按 13 日实建切片对齐**（2026-07-22）。下面是**已实现版**——每个名词在 `EVIDENCE.md` / 架构文档里都指得出证据。完整 M0-M8 蓝图（RDF/SPARQL 全量图谱、ColBERT、多智能体在线编排、vLLM 自托管、OpenTelemetry、防篡改审计日志等）见 [docs/project-design.md](../project-design.md)，那些是 **Roadmap，面试里要么不提、要么明确标 Planned**。宁可短而全真，不可长而掺水。
 
-> 我做了一个面向航空/国防技术出版物的智能问答平台。输入是 S1000D 风格的结构化维修手册，系统做四件事：**校验**（XSD/BREX 业务规则/包级引用完整性，输出结构化 findings）、**建图**（RDF/OWL 知识图谱，命名图做版本化，SPARQL 做变更影响分析）、**检索问答**（BM25+稠密+ColBERT 多路召回、RRF 融合、交叉编码器重排，答案带引用和完整 trace）、**多智能体评审**（检索/图谱/标准/批评/裁判分角色，critic 拦无据论断，fail-closed）。底座是 FastAPI+asyncio、Qdrant、vLLM 服务，全程 OpenTelemetry 追踪 + 防篡改审计日志。每个环节都有自建基准：检索有 Recall/nDCG 消融表，服务有 TTFT/吞吐压测报告。
+> 我做了一个面向航空/国防技术出版物（S1000D）的智能校验与问答平台，**AI-first** 方式建的——人写 SPEC、AI 实现、独立模型红队、人逐条裁决。输入是 S1000D 风格的结构化维修手册，系统做这几件事：**四层校验**（良构 → 项目 mini-XSD → BREX 业务规则 → 跨文件引用完整性，fail-closed，输出结构化 findings）；**混合检索**（保标识符 BM25 + 本地 Qwen3-8B 稠密 + 图谱扩展第三路，RRF 融合 + 交叉编码器重排，包级作用域，人工标注 golden 集上的 Recall/nDCG 消融）；**带引用问答**（三道 fail-closed 门——重排阈值 / LLM 可答性 / 逐字引用确证——答案要么带出处要么显式拒答，没有中间态，每次落五跨度 trace）；**依赖图影响查询**（Neo4j，反向 dmRef 遍历，环安全限深）；**自愈修复 agent**（ReAct + 受约束工具 + 沙箱 + ToT best-of-N，由确定性校验器复跑选优、人工批准才写盘）；**多模态图形入库**（VLM describe-then-index、SHA-256 绑定、二次看图共识拒答）；**对抗评估**（32 例对抗集、异构双裁判 Codex+agy、Cohen's κ 人工锚定）。底座是 **MiniMax-M3 chat + Vespa + Neo4j + LangChain 检索原语 + FastAPI/Streamlit demo**，按需 GCP VM 部署带多层费用围栏。贯穿主线是"LLM 不可信"——层层 fail-closed 围栏，且每个基准数字都带复跑命令（INV-5）。
 
 讲述技巧：说完 60 秒停住，让面试官选方向。**每个名词都是你埋的钩子**，他追哪个你就展开哪章教程的内容。
 
 ### 挑重点深讲版（按面试官背景选）
 
-- 对 **ML/检索背景**面试官：直奔混合检索消融表 → ColBERT MaxSim → 为什么 BM25 在标识符查询上不可替代（教程 02/03/04）。
-- 对**系统/平台背景**面试官：直奔 vLLM 两板斧 → KV cache 算术 → TTFT/TPOT 压测方法（教程 07/08）。
-- 对**领域/业务背景**面试官：直奔 S1000D 建模 → BREX 校验 findings → 审计与出口管制标签传播（教程 01/11）。
-- 对**架构师**：画整体数据流（visual-map 的架构图背下来，白板 90 秒画出），强调"LLM 不可信"主线下的层层围栏设计。
+- 对 **ML/检索背景**面试官：直奔六模式混合检索消融表 → 图谱扩展第三路 + RRF 融合 → 为什么 BM25 在标识符查询上不可替代（教程 02/03/04/14）。ColBERT/late-interaction MaxSim 作为 Vespa 选型保留的 **Roadmap** 展开原理即可，别说成已建。
+- 对**系统/平台背景**面试官：直奔 SSE 流式 + 召回回撤、LLM 客户端可替换接口（Claude→MiniMax 零改业务层）、fail-closed 围栏与按需部署费用闸（教程 07/08）。vLLM 两板斧 / KV cache 算术 / TTFT-TPOT 是**原理 lab**（08），讲版图与迁移方向，别说成已压测。
+- 对**领域/业务背景**面试官：直奔 S1000D 建模 → 四层 BREX 校验 findings → 密级标签随派生链传播（教程 01/11）。基于用户资质的 RBAC 过滤与防篡改审计日志是 Planned。
+- 对**架构师**：画整体数据流（**现状架构图见 [docs/architecture/02](../architecture/02-system-architecture.md)**，背下来白板 90 秒画出；visual-map 是 M0-M8 目标态愿景图，别混），强调"LLM 不可信"主线下的层层 fail-closed 围栏设计。
 
 ### 讲述铁律
 
@@ -85,7 +85,7 @@ flowchart LR
 | --- | --- | --- |
 | HNSW 原理？ | 跳表式分层图+贪心导航，M/efC/efS 三参数 | "内存放不下怎么办？"（IVF-PQ+refine，现场算压缩账） |
 | recall 怎么测？ | Flat 做真值→扫参数→recall-QPS 曲线 | "efSearch 从 64 到 256 你观察到什么？"（边际递减） |
-| 过滤+向量检索怎么做？ | pre/post-filter 权衡，Qdrant 按基数自动选 | "过滤条件很苛刻时会发生什么？"（召回坍缩） |
+| 过滤+向量检索怎么做？ | pre/post-filter 权衡，按过滤基数自动选策略（如 Qdrant；本项目是 Vespa scope 过滤） | "过滤条件很苛刻时会发生什么？"（召回坍缩） |
 | 数据更新后索引怎么办？ | HNSW 增量 vs IVF 重建窗口，一致性实验设计 | "删除呢？"（标记删除+定期重建，像 VACUUM） |
 
 ### LLM 与推理服务
