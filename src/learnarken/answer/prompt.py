@@ -18,10 +18,15 @@ Three zones with strict contract semantics:
 from __future__ import annotations
 
 import json
+import re
 import secrets
 
 from learnarken.chunking.base import Chunk
 from learnarken.graph import GraphFacts
+
+#: The `<` of an opening or closing think tag, in any case the model might
+#: copy. Only this `<` is escaped — see `build_user`.
+_THINK_TAG = re.compile(r"<(?=/?think\b)", re.IGNORECASE)
 
 SYSTEM_TEMPLATE = """You are a rigorous aviation-maintenance documentation assistant.
 
@@ -79,6 +84,14 @@ def build_user(
     `question` stays outside the fence (it is the user's own input, not
     untrusted corpus data); everything corpus- or graph-derived goes inside,
     JSON-escaped so no value can terminate a tag or the delimiter.
+
+    `json.dumps` does not escape `<`, so a data module could put a literal
+    `</think>` into the prompt and have the model copy it into its reasoning —
+    where the transport layer treats that tag as structural (red-team round 8
+    P1). Only the think-tag sequences are escaped, not every angle bracket:
+    evidence legitimately contains `<` and `>` (a tolerance of `< 0.05 mm`),
+    and a citation's `supporting_quote` must later match the chunk text
+    verbatim, so a blanket escape risked refusing honest answers (round 9 P2).
     """
     evidence = {
         "documents": [{"id": c.chunk_id, "dm_title": c.dm_title, "text": c.text} for c in chunks],
@@ -93,7 +106,7 @@ def build_user(
             for f in graph_facts
         ],
     }
-    evidence_json = json.dumps(evidence, ensure_ascii=False, indent=1)
+    evidence_json = _THINK_TAG.sub("\\\\u003c", json.dumps(evidence, ensure_ascii=False, indent=1))
     return (
         f"Question: {question}\n\n"
         f"{delimiter}\n{evidence_json}\n{delimiter}\n\n"
