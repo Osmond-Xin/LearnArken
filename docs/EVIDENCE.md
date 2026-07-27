@@ -40,7 +40,7 @@
 
 | Claim | Number(s) | Evidence | Reproduce | Layer |
 | --- | --- | --- | --- | --- |
-| Structure-aware chunking leads the BM25 baseline on the versioned golden set | `Recall@10 0.93`, `nDCG@10 0.83`, `zero-hit 0.40` | [README](../README.md) retrieval section; [eval/golden/day3.jsonl](../eval/golden/day3.jsonl) | `learnarken eval retrieval` *(needs services)* | `Toy-scale` |
+| Structure-aware chunking leads the BM25 baseline on the versioned golden set | `Recall@10 0.93`, `nDCG@10 0.83`, `zero-hit 0.40` | [BENCHMARKS](BENCHMARKS.md#1-chunking--bm25--day-3); [eval/golden/day3.jsonl](../eval/golden/day3.jsonl) | `learnarken eval retrieval` *(needs services)* | `Toy-scale` |
 | Dense retrieval reaches full recall at 10 on the hybrid golden set | `Recall@10 1.00`, `Recall@5 0.99`, `nDCG@10 0.90` | [eval/results/day4-ablation.json](../eval/results/day4-ablation.json) (`results.dense`) | `learnarken eval ablation --json` *(needs services)* | `Toy-scale` |
 | BM25 stays indispensable for identifier queries despite lower semantic recall | `Recall@5 0.83`, `Recall@10 0.88` | [eval/results/day4-ablation.json](../eval/results/day4-ablation.json) (`results.bm25`) | `learnarken eval ablation --json` *(needs services)* | `Toy-scale` |
 | Local Qwen3-Embedding-8B leads the local embedding bake-off over BGE-M3 | Qwen3 `Recall@5 0.99 / Recall@10 1.00`; BGE-M3 `0.92 / 0.97` | [eval/results/day4-bakeoff.json](../eval/results/day4-bakeoff.json) (`results.qwen3-8b`, `results.bge-m3`) | `uv run python tools/dense_bakeoff.py` *(needs services)* | `Toy-scale` |
@@ -83,6 +83,14 @@
 | A figure's description is re-bindable: re-render the SVG, recompute SHA-256, re-describe, diff the committed record | — (behavioural) | [tools/gen_figures.py](../tools/gen_figures.py); [src/learnarken/multimodal/figures.py](../src/learnarken/multimodal/figures.py) | `uv run python tools/gen_figures.py` then diff the `.describe.json` sha256 | `Toy-scale` |
 | Figure chunks join the same index/query/verification corpus and are cited as `[ICN-…, Hotspot NN]` | — (behavioural, tested) | [src/learnarken/retrieval/__init__.py](../src/learnarken/retrieval/__init__.py) (`corpus_chunks`); [src/learnarken/answer/engine.py](../src/learnarken/answer/engine.py) (`_figure_ref`) | `uv run pytest tests/test_day12_multimodal.py -q` | `Toy-scale` |
 | Out-of-description visual questions fail closed via a G15 second-look consensus refusal, never fabricate | — (behavioural, tested) | [src/learnarken/answer/figure_relook.py](../src/learnarken/answer/figure_relook.py); [src/learnarken/multimodal/second_look.py](../src/learnarken/multimodal/second_look.py) | `uv run pytest tests/test_day12_multimodal.py -q` | `Toy-scale` |
+
+## Gaps as a distinct output class (Arken alignment, 2026-07-26)
+
+| Claim | Number(s) | Evidence | Reproduce | Layer |
+| --- | --- | --- | --- | --- |
+| A declared-but-absent data module becomes a first-class gap object with a deterministic signature (the DMC), its declaration path, and a routed owner | 2 gaps on package-b (1 via `dmRef`, 1 via DML registration) | [src/learnarken/gaps.py](../src/learnarken/gaps.py); [tests/test_arken_alignment.py](../tests/test_arken_alignment.py) | `uv run learnarken gaps samples/package-a samples/package-b` | `Toy-scale` |
+| Ownership routes or explicitly refuses to guess — an unknown owner surfaces as unknown with a reason | 1 routed, 1 unknown in the same run | [src/learnarken/owners.py](../src/learnarken/owners.py); [samples/package-b/owners.json](../samples/package-b/owners.json) | `uv run learnarken gaps samples/package-b` | `Toy-scale` |
+| Arken's *admitted*-knowledge gap is not reachable here: a declared-but-absent module is an ingest error, so its package is rejected and never admitted. Computed over admitted packages, the class is empty and reported empty | 0 admitted gaps | [tests/test_arken_alignment.py](../tests/test_arken_alignment.py) (`test_gap_from_a_rejected_package_is_not_claimed_as_an_admitted_gap`) | `uv run pytest tests/test_arken_alignment.py -q` | `Planned` |
 
 ## Engineering discipline (cross-cutting)
 
