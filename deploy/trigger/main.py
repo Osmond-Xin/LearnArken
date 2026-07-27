@@ -17,6 +17,7 @@ SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS, NOTIFY_EMAIL.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -26,11 +27,8 @@ import urllib.request
 from email.message import EmailMessage
 from pathlib import Path
 
-import hashlib
-
 import functions_framework
 from google.cloud import compute_v1
-
 from logic import is_rate_limited, page_state, record_start, resolve_token
 
 logger = logging.getLogger("demo-trigger")

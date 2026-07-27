@@ -53,8 +53,10 @@ def _passed(item: dict, result) -> bool:
         return False
     text = result.answer_text.lower()
     contains = [c.lower() for c in item.get("answer_contains", [])]
-    hit = any(c in text for c in contains) if item.get("answer_contains_any") else all(
-        c in text for c in contains
+    hit = (
+        any(c in text for c in contains)
+        if item.get("answer_contains_any")
+        else all(c in text for c in contains)
     )
     if item.get("figure_ref"):
         hit = hit and any(c.figure_ref == item["figure_ref"] for c in result.citations)
