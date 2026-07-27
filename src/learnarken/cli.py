@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
 import sys
 from pathlib import Path
 
@@ -23,6 +25,62 @@ from learnarken.retrieval import (
 )
 from learnarken.validation import ValidationReport, analyze_package
 from learnarken.validation.rules import BREX_RULES
+
+#: Divider between whatever the model loaders wrote and the command's answer.
+#: Same width as the citation table's rule, so the block reads as one unit.
+_RULE = "\n" + "─" * 102
+
+
+class _DropAnonymousHubWarning(logging.Filter):
+    """Drop only the hub's "you are anonymous" notice, keeping the rest.
+
+    The hub returns it in an `X-HF-Warning` header on every anonymous read and
+    `huggingface_hub` re-logs it verbatim, several times per model load.
+    """
+
+    #: Matched from the start of the message, so a *different* warning that
+    #: merely mentions anonymous reads (a 429 explaining the rate limit, say)
+    #: is not swallowed with it.
+    NOTICE = "Warning: You are sending unauthenticated requests to the HF Hub"
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not record.getMessage().startswith(self.NOTICE)
+
+
+def _quiet_model_loading() -> None:
+    """Keep local model loading out of the command's own output.
+
+    Two things interleaved with the answer and its citations:
+
+    * a per-shard ``Loading weights`` bar. `transformers` fixes whether its
+      tqdm is live when ``transformers.utils.logging`` is imported — which has
+      already happened by the time this module finishes importing — so the
+      switch is thrown through its API rather than the environment variable
+      that only works pre-import.
+    * ``Warning: You are sending unauthenticated requests to the HF Hub…`` —
+      neither ours nor actionable: the hub returns it in an ``X-HF-Warning``
+      response header on anonymous reads and `huggingface_hub` re-logs it once
+      per request. The models are public and cached; a token would only raise a
+      rate limit we never approach.
+
+    The environment variable is still set (with `setdefault`, so an operator's
+    own export wins) because hub *download* bars are a separate switch.
+
+    The hub warning is dropped with a **filter on that one message**, not by
+    raising the logger's level: the same logger carries 429 backoff, retry and
+    connection-failure warnings, which are exactly what explains a run that
+    looks stuck (red-team 2026-07-27 P2).
+    """
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    hub_log = logging.getLogger("huggingface_hub.utils._http")
+    if not any(isinstance(f, _DropAnonymousHubWarning) for f in hub_log.filters):
+        hub_log.addFilter(_DropAnonymousHubWarning())  # idempotent: called per entry
+    try:
+        from transformers.utils import logging as hf_logging
+
+        hf_logging.disable_progress_bar()
+    except (ImportError, AttributeError) as exc:  # cosmetic: never fail a command over it
+        logging.getLogger("learnarken").debug("could not disable the transformers bar: %s", exc)
 
 
 def _positive_int(raw: str) -> int:
@@ -574,6 +632,9 @@ def _cmd_query(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
         return 3 if result.refused else 0
+    # Anything the model loaders printed on the way here stops at this line, so
+    # the answer and its evidence are never read as a continuation of it.
+    print(_RULE)
     if result.refused:
         print(_sanitize(result.answer_text))
         print(f"\n  (refused · gate={result.refusal_gate} · trace={result.trace_id})")
@@ -721,6 +782,11 @@ def _print_repair_report(report) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Here rather than at module import: importing the CLI must not mutate the
+    # environment, the hub's logger and the transformers progress-bar switch
+    # for a whole process that only wanted `main` (red-team 2026-07-27 P2).
+    # Everything it silences is emitted later, when a command loads a model.
+    _quiet_model_loading()
     parser = argparse.ArgumentParser(prog="learnarken")
     subparsers = parser.add_subparsers(dest="command", required=True)
 

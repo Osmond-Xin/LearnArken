@@ -82,3 +82,111 @@ class TestDmCli:
         err = capsys.readouterr().err
         assert "not found" in err
         assert "DMC-LA100-A-29-10-00-00A-520A-A" in err
+
+
+class TestQueryOutputContract:
+    """The human output separates the model loaders' noise from the answer; the
+    machine-readable output stays parseable (red-team 2026-07-27 P3)."""
+
+    def _answer(self, refused: bool):
+        from learnarken.answer import AnswerResult
+        from learnarken.refusal import RefusalAction
+
+        return AnswerResult(
+            question="q",
+            answer_text="Release the pressure.",
+            refused=refused,
+            refusal_gate="llm" if refused else None,
+            action=RefusalAction(
+                gate="llm", why="w", what_would_resolve="supply a module", owner_reason="none"
+            )
+            if refused
+            else None,
+            trace_id="t-1",
+            model="MiniMax-M3",
+        )
+
+    def _run(self, monkeypatch, argv, refused=False):
+        # The CLI imports the engine inside the command, so patch it at source.
+        import learnarken.answer as answer
+
+        monkeypatch.setattr(answer, "answer_question", lambda *a, **k: self._answer(refused))
+        return main(argv)
+
+    def test_json_output_is_parseable_and_undivided(self, monkeypatch, capsys):
+        code = self._run(monkeypatch, ["query", "q", "--json"])
+        out = capsys.readouterr().out
+        assert code == 0
+        assert cli_rule() not in out, "the divider must never enter machine-readable output"
+        assert json.loads(out)["trace_id"] == "t-1"
+
+    def test_answered_output_is_divided_once(self, monkeypatch, capsys):
+        assert self._run(monkeypatch, ["query", "q"]) == 0
+        out = capsys.readouterr().out
+        assert out.count(cli_rule()) == 1
+        assert out.index(cli_rule()) < out.index("Release the pressure.")
+
+    def test_refusal_output_is_divided_too(self, monkeypatch, capsys):
+        assert self._run(monkeypatch, ["query", "q"], refused=True) == 3
+        out = capsys.readouterr().out
+        assert out.count(cli_rule()) == 1
+        assert "what would resolve it" in out
+
+
+def cli_rule() -> str:
+    from learnarken.cli import _RULE
+
+    return _RULE.strip()
+
+
+class TestQuietModelLoading:
+    """Pinned through the real logger, not just the filter object: a test that
+    only exercised the filter would still pass if it were never attached, or if
+    the whole logger were muted again (red-team 2026-07-27 P2)."""
+
+    NOTICE = (
+        "Warning: You are sending unauthenticated requests to the HF Hub. "
+        "Please set a HF_TOKEN to enable higher rate limits and faster downloads."
+    )
+    RETRY = "Retrying in 2s [Retry 1/5]. HTTP 429 Too Many Requests"
+
+    def test_the_notice_is_dropped_and_retries_survive(self, caplog):
+        import logging
+
+        from learnarken.cli import _quiet_model_loading
+
+        _quiet_model_loading()
+        hub = logging.getLogger("huggingface_hub.utils._http")
+        assert hub.level < logging.ERROR or hub.level == logging.NOTSET, (
+            "the logger must stay audible; only the one notice is filtered"
+        )
+        with caplog.at_level(logging.WARNING, logger=hub.name):
+            hub.warning(self.NOTICE)
+            hub.warning(self.RETRY)
+        assert self.NOTICE not in caplog.text
+        assert "429" in caplog.text
+
+    def test_attaching_twice_does_not_stack_filters(self):
+        import logging
+
+        from learnarken.cli import _DropAnonymousHubWarning, _quiet_model_loading
+
+        _quiet_model_loading()
+        _quiet_model_loading()
+        hub = logging.getLogger("huggingface_hub.utils._http")
+        attached = [f for f in hub.filters if isinstance(f, _DropAnonymousHubWarning)]
+        assert len(attached) == 1
+
+    def test_importing_the_cli_does_not_mutate_the_process(self):
+        """`import learnarken.cli` must stay side-effect free: the quieting is
+        an entrypoint concern, not an import-time one."""
+        import importlib
+        import logging
+        import os
+
+        os.environ.pop("HF_HUB_DISABLE_PROGRESS_BARS", None)
+        hub = logging.getLogger("huggingface_hub.utils._http")
+        hub.filters = [f for f in hub.filters if type(f).__name__ != "_DropAnonymousHubWarning"]
+        importlib.reload(importlib.import_module("learnarken.cli"))
+        assert "HF_HUB_DISABLE_PROGRESS_BARS" not in os.environ
+        assert not [f for f in hub.filters if type(f).__name__ == "_DropAnonymousHubWarning"]
