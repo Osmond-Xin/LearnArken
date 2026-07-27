@@ -26,8 +26,61 @@ the section it illustrates, and let a viewer absorb one idea at a time.
 
 Each GIF ships with **the trace of the run inside it** (red-team F-19): the
 GIF is the only artifact with no reproduction path, so the trace is what makes
-it checkable. Copy it out of `eval/traces/<trace_id>.json` — that directory is
-git-ignored, so nothing lands in the repo by itself.
+it checkable.
+
+## Getting the trace of the take you kept
+
+**The id is on screen, inside the recording.** That is deliberate — it is what
+ties the GIF to its evidence. The UI prints it on both outcomes:
+
+- answered → `✅ Citations verified · model=MiniMax-M3 · trace=20260727T172528-d9f28528`
+- refused → `⛔ Refused: … Gate: … · trace=20260727T172541-3da6dab5`
+
+**The file is on disk**, written by the backend to `eval/traces/<trace_id>.json`
+(git-ignored, so nothing enters the repo on its own). `make demo` runs the
+backend from the repo root, so the path is `<repo>/eval/traces/`.
+
+Read the id off the recording — not off the directory listing — and copy that
+one:
+
+```bash
+cp eval/traces/20260727T172528-d9f28528.json docs/assets/demo-answer.trace.json
+```
+
+**Do not reach for the newest file.** A recording session is mostly retakes;
+the most recent trace is the last run, which is usually not the take you kept.
+The id visible in the frame is the only thing that identifies the right one.
+
+Check the copy before moving on — it prints the question and the outcome, which
+you can compare against what the GIF actually shows:
+
+```bash
+uv run python -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+o=d.get('outcome',{})
+print('trace_id :', d['trace_id'])
+print('question :', d['question'])
+print('outcome  :', 'REFUSED at ' + str(o.get('gate')) if o.get('refused') else 'ANSWERED')
+print('citations:', len(o.get('citations') or []))
+print('tokens   : streamed text appears in the trace only when generation ran')
+" docs/assets/demo-answer.trace.json
+```
+
+Fields the caption plans below refer to:
+
+| Path | Holds |
+| --- | --- |
+| `outcome.refused` | whether this run answered |
+| `outcome.gate` | which fail-closed gate fired (refusals) |
+| `outcome.action` | the routed refusal: what would resolve it, who should act |
+| `outcome.citations` | every citation: `chunk_id`, `dmc`, `source_path`, `supporting_quote` |
+| `authorisation`, `sources_excluded` | what was withheld, and why |
+| `rerank`, `retrieval` | scores behind the threshold decision |
+
+One way to end up with an id and no file: `LEARNARKEN_TRACE_DISABLED=1`, which
+the public demo sets so a visitor's question is never persisted. Local
+`make demo` does not set it.
 
 ## Shared setup (once, before any recording)
 
