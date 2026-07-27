@@ -431,7 +431,9 @@ def test_g15_figure_out_of_description(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         engine,
         "_candidates",
-        lambda q, c, mode: [Document(page_content=fig.text, metadata={"chunk_id": fig.chunk_id})],
+        lambda q, c, mode, clearance=None: [
+            Document(page_content=fig.text, metadata={"chunk_id": fig.chunk_id})
+        ],
     )
     monkeypatch.setattr(hybrid, "rerank_scored", lambda q, docs, k=10: [(to_document(fig), 0.9)])
     monkeypatch.setattr(

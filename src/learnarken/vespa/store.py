@@ -12,6 +12,7 @@ no caller reaches around it.
 
 from __future__ import annotations
 
+import hashlib
 import http.client
 import json
 import logging
@@ -32,6 +33,8 @@ logger = logging.getLogger("learnarken")
 # registry, package names against a conservative charset, top_k clamped.
 _SAFE_PACKAGE = re.compile(r"^[A-Za-z0-9._-]+$")
 MAX_TOP_K = 400
+#: An unused classification code, so the capability probe matches nothing.
+CLASSIFICATION_PROBE = "00"
 
 APP_DIR = Path(__file__).parent / "app"
 CONFIG_URL = "http://localhost:19071"
@@ -69,6 +72,52 @@ def is_up(url: str = QUERY_URL) -> bool:
         return True
     except VespaError:
         return False
+
+
+def schema_digest(app_dir: Path = APP_DIR) -> str:
+    """Content hash of the **local** application package.
+
+    Recorded in the corpus manifest so an index fed under a different schema
+    revision is detectable. **It proves local consistency, not what the engine
+    is serving** — `index` only deploys when Vespa is down, so editing the
+    schema and re-indexing a running engine would refresh this digest while the
+    content node still served the old schema (red-team P1, 2026-07-27).
+    `assert_attribute_filtering_supported` is the check that covers that gap.
+    """
+    files = sorted(p for p in app_dir.rglob("*") if p.is_file())
+    digest = hashlib.sha256()
+    for path in files:
+        digest.update(path.relative_to(app_dir).as_posix().encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def assert_attribute_filtering_supported() -> None:
+    """Prove the *serving* engine can filter on `security_classification`.
+
+    The decisive check is behavioural, not declarative. On 2026-07-27 the schema
+    change deployed, the config server reported the new generation, and the
+    content node still answered "attribute not found: security_classification"
+    until the container was restarted — so neither the local file nor the config
+    server proved the capability. Issuing the filter is the only thing that does.
+
+    Costs one hits=0 query. Called before feeding, so a corpus manifest is never
+    written claiming a capability the engine does not have.
+    """
+    yql = (
+        f'select * from {DOC_TYPE} where security_classification contains "{CLASSIFICATION_PROBE}"'
+    )
+    try:
+        _request(f"{QUERY_URL}/search/", {"yql": yql, "hits": 0}, method="POST")
+    except VespaError as exc:
+        if "attribute not found" in str(exc):
+            raise VespaError(
+                "the running Vespa cannot filter on security_classification — the "
+                "deployed schema is behind src/learnarken/vespa/app/schemas/chunk.sd. "
+                "Redeploy, then RESTART the container (a redeploy alone does not "
+                "rebuild the attribute), then re-run `learnarken index` (fail closed)"
+            ) from exc
+        raise
 
 
 def deploy(app_dir: Path = APP_DIR, wait: int = 120) -> None:
@@ -243,6 +292,7 @@ def search(
     strategy: str | None = None,
     package: str | None = None,
     approximate: bool = False,
+    clearance: str | None = None,
 ) -> list[tuple[Chunk, float]]:
     """Nearest-neighbour search. Returns (chunk, relevance) ranked best first.
 
@@ -268,6 +318,17 @@ def search(
         conditions.append(f'strategy contains "{strategy}"')
     if package:
         conditions.append(f'package contains "{package}"')
+    if clearance is not None:
+        # Authorisation constrains the query, not the result set: an
+        # inadmissible chunk must never be a nearestNeighbor candidate in the
+        # first place (red-team F-01). Values come from a closed vocabulary in
+        # `clearance.CLASSIFICATIONS`, so nothing caller-supplied is
+        # interpolated into YQL.
+        from learnarken.clearance import admissible_classifications
+
+        allowed = admissible_classifications(clearance)
+        allowed_yql = " or ".join(f'security_classification contains "{c}"' for c in allowed)
+        conditions.append(f"({allowed_yql})")
     payload = {
         "yql": f"select * from {DOC_TYPE} where {' and '.join(conditions)}",
         "ranking.profile": "dense",
@@ -285,4 +346,8 @@ def search(
                 f"{fields.get('package')!r} outside requested scope {package!r} (fail closed)"
             )
         results.append((_chunk_from_fields(fields), float(h.get("relevance", 0.0))))
+    if clearance is not None:
+        from learnarken.clearance import assert_admissible
+
+        assert_admissible([c for c, _ in results], clearance)
     return results

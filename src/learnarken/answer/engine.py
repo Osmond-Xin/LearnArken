@@ -35,8 +35,15 @@ from learnarken.answer.stream import AnswerFieldExtractor
 from learnarken.answer.trace import new_trace_id, write_trace
 from learnarken.chunking.base import Chunk
 from learnarken.chunking.documents import from_document, to_document
+from learnarken.citation_status import statuses_for
+from learnarken.clearance import (
+    assert_documents_admissible,
+    partition,
+    redact_graph_facts,
+)
 from learnarken.config import REPO_ROOT
 from learnarken.llm import LLMContractError, chat_json, chat_json_stream
+from learnarken.refusal import route as route_refusal
 from learnarken.retrieval import GRAPH_MODES, MODES, _dedupe_chunks, corpus_chunks, verify_corpus
 from learnarken.retrieval.bm25 import BM25Index
 
@@ -135,8 +142,16 @@ def _figure_ref(chunk: Chunk, quote: str) -> str | None:
     return f"[{icn}, Hotspot {ids[0]}]" if len(ids) == 1 else f"[{icn}]"
 
 
-def _candidates(question: str, chunks: list[Chunk], mode: str) -> list:
-    """Mode-selected candidate documents (package=None: corpus is verified)."""
+def _candidates(
+    question: str, chunks: list[Chunk], mode: str, clearance: str | None = None
+) -> list:
+    """Mode-selected candidate documents (package=None: corpus is verified).
+
+    `clearance` must reach the retriever, not just the chunk list: `chunks`
+    constrains the in-process BM25 arm, but the dense arm queries Vespa, which
+    holds the whole corpus and will return inadmissible chunks unless the
+    constraint is in the YQL (red-team P1, 2026-07-27).
+    """
     from learnarken.retrieval import _mode_retriever
 
     if mode == "bm25":
@@ -145,7 +160,9 @@ def _candidates(question: str, chunks: list[Chunk], mode: str) -> list:
     # The engine reranks itself (rerank_scored), so a *-rerank mode retrieves
     # through its fusion base rather than double-reranking.
     base = {"hybrid-rerank": "hybrid", "hybrid-graph-rerank": "hybrid-graph"}.get(mode, mode)
-    retriever = _mode_retriever(base, chunks, k=CANDIDATE_K, strategy="structure")
+    retriever = _mode_retriever(
+        base, chunks, k=CANDIDATE_K, strategy="structure", clearance=clearance
+    )
     return retriever.invoke(question)
 
 
@@ -155,6 +172,7 @@ def answer_question(
     k: int = ANSWER_K,
     mode: str = "hybrid-rerank",
     on_event: Callable[[str, dict], None] | None = None,
+    clearance: str | None = None,
 ) -> AnswerResult:
     """Answer over the verified indexed corpus, or refuse. Never in between.
 
@@ -182,10 +200,40 @@ def answer_question(
         raw.extend(corpus_chunks(package, strategy="structure"))  # text + Day 12 figures (P1)
     chunks = _dedupe_chunks(raw)
     if mode != "bm25":
+        # Verify the FULL corpus against the manifest before any clearance cut:
+        # the index legitimately holds chunks this caller may not see, so
+        # verifying a filtered set would fail the identity check and abort an
+        # authorised query (red-team P1, 2026-07-27).
         verify_corpus(chunks, "structure")  # fail closed on stale/mixed index
+    # Authorisation before reasoning: withheld chunks are removed before any
+    # index is built or any engine query is issued — they never reach a
+    # candidate list, the reranker, or the prompt (Arken pillar 1).
+    chunks, withheld = partition(chunks, clearance)
+    # An absent clearance is not an authorised query: record which it was, so a
+    # trace can never be mistaken for one that enforced access control.
+    spans["authorisation"] = {
+        "clearance": clearance,
+        "enforced": clearance is not None,
+        "withheld": len(withheld),
+    }
+    # Sources excluded is a first-class span, not a by-product: Arken's trace
+    # documents "sources used/**excluded**". Authorisation exclusions are
+    # recorded before retrieval; the rerank cut is appended after it.
+    # The DMC is dropped from authorisation exclusions: it names the system and
+    # subject of a module this caller may not see, so listing it would let the
+    # trace enumerate classified identifiers to someone denied their content
+    # (red-team P2, 2026-07-27). `chunk_id` is already an opaque digest, so it
+    # stays and an auditor with corpus access can still correlate.
+    excluded: list[dict] = [
+        {**w.model_dump(), "dmc": "[redacted — above caller clearance]"} for w in withheld
+    ]
 
     t0 = time.perf_counter()
-    candidates = _candidates(question, chunks, mode)
+    candidates = _candidates(question, chunks, mode, clearance=clearance)
+    # The engine-side YQL constraint is the enforcement; this is the check that
+    # it held. Without it the dense arm could return an inadmissible chunk
+    # straight into the candidate list (red-team P1, 2026-07-27).
+    assert_documents_admissible(candidates, clearance)
     emit("status", {"stage": "rerank"})
     ranked = rerank_scored(question, candidates, k=k)
     spans["retrieval"] = {
@@ -214,6 +262,31 @@ def answer_question(
         "threshold": threshold,
         "ranked": [(d.metadata.get("chunk_id"), s) for d, s in ranked],
     }
+    # The rerank cut, with the deterministic reason each source lost: either it
+    # scored below the measured threshold, or it did not survive into the top-k
+    # the reranker returns. Both are reasons a human can check.
+    kept = {d.metadata.get("chunk_id") for d, _ in ranked}
+    excluded += [
+        {
+            "chunk_id": d.metadata.get("chunk_id"),
+            "dmc": d.metadata.get("dmc", ""),
+            "reason": "rerank-cut",
+            "detail": f"not in the reranker's top {k} candidates",
+        }
+        for d in candidates
+        if d.metadata.get("chunk_id") not in kept
+    ]
+    excluded += [
+        {
+            "chunk_id": d.metadata.get("chunk_id"),
+            "dmc": d.metadata.get("dmc", ""),
+            "reason": "below-threshold",
+            "detail": f"rerank score {score:.4f} < measured threshold {threshold}",
+        }
+        for d, score in ranked
+        if score < threshold
+    ]
+    spans["sources_excluded"] = excluded
 
     def refuse(gate: str, extra: dict | None = None) -> AnswerResult:
         if gate != "threshold":
@@ -226,13 +299,26 @@ def answer_question(
                     "message": f"generated content failed the {gate} gate and has been retracted",
                 },
             )
-        spans["outcome"] = {"refused": True, "gate": gate, **(extra or {})}
+        # Arken pillar 3: a refusal is a routed action item — why, what would
+        # resolve it, and who should act. The owner is only ever filled when the
+        # question names a module the corpus declares and does not have
+        # (ruling 2026-07-27, option A); otherwise it is an explicit unknown,
+        # because inferring an owner from free text is the fabrication gate 10
+        # exists to prevent.
+        action = route_refusal(question, gate, packages)
+        spans["outcome"] = {
+            "refused": True,
+            "gate": gate,
+            "action": action.model_dump(),
+            **(extra or {}),
+        }
         write_trace(trace_id, spans)
         return AnswerResult(
             question=question,
             answer_text=PLACEHOLDER,
             refused=True,
             refusal_gate=gate,
+            action=action,
             trace_id=trace_id,
         )
 
@@ -245,6 +331,10 @@ def answer_question(
     by_id = {c.chunk_id: c for c in evidence}
 
     facts = graph.facts([c.dmc for c in evidence])  # GraphError propagates: fail closed
+    # The graph is not covered by the corpus partition: its REFS edges name
+    # data modules by DMC, and those DMCs go into the prompt. Redact the ones
+    # outside the admitted corpus before they reach the model (red-team P0).
+    facts = redact_graph_facts(facts, {c.dmc for c in chunks}, clearance)
     # Merge into the Day 11 span (entities/candidates set above) rather than
     # overwrite it — both provenance views must survive to an answered trace
     # (red-team day11 #5: the graph explainability was being lost on every
@@ -385,6 +475,14 @@ def answer_question(
     spans["outcome"] = {
         "refused": False,
         "citations": [c.model_dump() for c in citations],
+        # Arken pillar 2: the trace carries the *current status* of each source
+        # it used, re-derived from the DML registry on this run.
+        "citation_status": [
+            s.model_dump()
+            for s in statuses_for(
+                [(c.dmc, by_id[c.chunk_id].issue_info) for c in citations], packages
+            )
+        ],
     }
     write_trace(trace_id, spans)
     return AnswerResult(

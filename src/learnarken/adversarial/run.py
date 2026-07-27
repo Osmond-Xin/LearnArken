@@ -72,6 +72,15 @@ def evaluate(
     pkgs = packages or list(DEFAULT_PACKAGES)
     answer = answer_fn or answer_question
     id_to_text = _evidence_map(pkgs)
+    # Adversarial results are frozen into committed artifacts, so the same rule
+    # applies here as to the retrieval eval: a mixed-class corpus must not be
+    # judged unscoped (red-team P1, 2026-07-27).
+    from learnarken.clearance import assert_uniform_or_scoped
+    from learnarken.retrieval import _dedupe_chunks, corpus_chunks
+
+    assert_uniform_or_scoped(
+        _dedupe_chunks([c for p in pkgs for c in corpus_chunks(p, strategy="structure")]), None
+    )
 
     rows: list[RowResult] = []
     for case in cases:

@@ -109,6 +109,13 @@ _corpus_lock = threading.Lock()
 
 class QueryRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+    # Caller clearance (S1000D securityClassification). Sources above it are
+    # withheld before retrieval. Omitted = no authorisation enforced and none
+    # claimed; the trace records which it was (red-team P0, 2026-07-27).
+    # NOTE: this is *scoping*, not authentication — the demo has no identity
+    # model, so a caller states its own clearance. Honest limitation, recorded
+    # in README §6 rather than dressed up as access control.
+    clearance: str | None = Field(default=None, pattern="^0[1-5]$")
 
 
 def _jsonable(obj: object) -> object:
@@ -370,6 +377,7 @@ def create_app() -> FastAPI:
                             body.question,
                             package_dirs=_query_packages(),
                             on_event=on_event,
+                            clearance=body.clearance,
                         )
                 except Exception as exc:  # reported below, fail closed
                     outcome["error"] = exc

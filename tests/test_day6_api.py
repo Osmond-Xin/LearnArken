@@ -265,7 +265,9 @@ class TestQuerySSE:
     def _fake_answer(self, script):
         """script(on_event) -> AnswerResult, wired as answer_question."""
 
-        def fake(question, package_dirs=None, k=5, mode="hybrid-rerank", on_event=None):
+        def fake(
+            question, package_dirs=None, k=5, mode="hybrid-rerank", on_event=None, clearance=None
+        ):
             return script(question, on_event)
 
         return fake
@@ -415,7 +417,7 @@ def wired(monkeypatch, tmp_path):
     monkeypatch.setattr(
         engine,
         "_candidates",
-        lambda question, c, mode: [
+        lambda question, c, mode, clearance=None: [
             Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id}) for ch in chunks
         ],
     )

@@ -22,6 +22,7 @@ from pathlib import Path
 from learnarken.chunking import chunk_package
 from learnarken.chunking.base import Chunk, applies_to
 from learnarken.chunking.documents import from_document
+from learnarken.clearance import assert_admissible, assert_uniform_or_scoped, partition
 from learnarken.loader import MAX_FILE_BYTES
 from learnarken.package import NotAPackageError
 from learnarken.retrieval.bm25 import BM25Index, ScoredChunk, tokenize
@@ -86,18 +87,30 @@ def search_package(
     context: dict[str, str] | None = None,
     skip_bad: bool = False,
     mode: str = "bm25",
+    clearance: str | None = None,
 ) -> list[ScoredChunk]:
     """Chunk, optionally 排除场合-filter, and search under the chosen mode.
 
     bm25 stays offline and filters *before* scoring (Day 3 semantics). The
-    Vespa-backed modes retrieve first and filter after — the engine holds the
-    already-fed corpus — so a filter can return fewer than k results; honest,
-    not padded. Default is bm25 so the bare CLI works with no services up
-    (deviation from the spec's AI-drafted `hybrid-rerank` default, noted there).
+    Vespa-backed modes retrieve first and filter 排除场合 after — the engine
+    holds the already-fed corpus — so a filter can return fewer than k results;
+    honest, not padded. Default is bm25 so the bare CLI works with no services
+    up (deviation from the spec's AI-drafted `hybrid-rerank` default, noted
+    there).
+
+    `clearance` is different in kind from `context`, and deliberately applied
+    earlier: applicability decides whether a chunk is *relevant* to this
+    situation, authorisation decides whether the caller may reason over it at
+    all. Inadmissible chunks are removed from the corpus **before** any index is
+    built or any engine query is issued, and the engine is additionally
+    constrained in YQL, so they are never nearestNeighbor candidates
+    (red-team F-01; "Authorization constrains reasoning, not just retrieval").
     """
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; choose from {MODES}")
     chunks = corpus_chunks(package_dir, strategy=strategy, skip_bad=skip_bad)
+    # Before anything else touches the corpus.
+    chunks, _withheld = partition(chunks, clearance)
     if mode == "bm25":
         if context:
             chunks = [c for c in chunks if applies_to(c, context)]
@@ -120,7 +133,12 @@ def search_package(
                 "(fail closed); push the applicability predicate engine-side first"
             )
     retriever = _mode_retriever(
-        mode, chunks, k=fetch_k, strategy=strategy, package=Path(package_dir).name
+        mode,
+        chunks,
+        k=fetch_k,
+        strategy=strategy,
+        package=Path(package_dir).name,
+        clearance=clearance,
     )
     ranked = [from_document(d) for d in retriever.invoke(query)]
     # The engine may only answer with this package's chunks (red-team day4
@@ -135,26 +153,42 @@ def search_package(
         )
     if context:
         ranked = [c for c in ranked if applies_to(c, context)]
+    # The filter above is a relevance cut; this is the authorisation check that
+    # the engine-side constraint actually held (fail closed, F-01).
+    assert_admissible(ranked, clearance)
     # Fused/reranked orderings have no single comparable score — rank is the
     # honest output (scores from different arms are incommensurable).
     return [ScoredChunk(rank=i + 1, score=0.0, chunk=c) for i, c in enumerate(ranked[:k])]
 
 
 def _mode_retriever(
-    mode: str, chunks: list[Chunk], k: int, strategy: str, package: str | None = None
+    mode: str,
+    chunks: list[Chunk],
+    k: int,
+    strategy: str,
+    package: str | None = None,
+    clearance: str | None = None,
 ):
     from learnarken.retrieval import hybrid as _hybrid
     from learnarken.retrieval.dense import VespaDenseRetriever
 
     if mode == "dense":
-        return VespaDenseRetriever(k=k, strategy=strategy, package=package)
+        return VespaDenseRetriever(k=k, strategy=strategy, package=package, clearance=clearance)
     if mode == "hybrid":
         return _hybrid.hybrid_retriever(
-            chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy, package=package
+            chunks,
+            k=max(k, _hybrid.CANDIDATE_K),
+            strategy=strategy,
+            package=package,
+            clearance=clearance,
         )
     if mode == "hybrid-graph":
         return _hybrid.graph_hybrid_retriever(
-            chunks, k=max(k, _hybrid.CANDIDATE_K), strategy=strategy, package=package
+            chunks,
+            k=max(k, _hybrid.CANDIDATE_K),
+            strategy=strategy,
+            package=package,
+            clearance=clearance,
         )
     return _hybrid.reranked_retriever(
         chunks,
@@ -163,6 +197,7 @@ def _mode_retriever(
         strategy=strategy,
         package=package,
         base="hybrid-graph" if mode == "hybrid-graph-rerank" else "hybrid",
+        clearance=clearance,
     )
 
 
@@ -247,12 +282,19 @@ def index_package(
     chunks = _dedupe_chunks(raw)
     if not vespa.is_up():
         vespa.deploy()
+    # Prove the serving engine supports clearance filtering BEFORE writing a
+    # manifest that records the schema digest — otherwise the manifest would
+    # attest a capability the engine lacks (red-team P1, 2026-07-27).
+    from learnarken.vespa.store import assert_attribute_filtering_supported
+
+    assert_attribute_filtering_supported()
     vectors = get_embeddings().embed_documents([c.text for c in chunks])
     fed = vespa.feed(chunks, vectors, [owner[c.chunk_id] for c in chunks])
     # Graph sync (Day 5 decision 6, spec Q1): the dependency graph is part of
     # the index, fed from the same chunks — Neo4j down fails the index run
     # (fail closed) rather than leaving vector and graph views divergent.
     from learnarken import graph
+    from learnarken.vespa import store as _vespa_store
 
     graph_stats = graph.sync(chunks, owner)
     MANIFEST_PATH.write_text(
@@ -264,6 +306,10 @@ def index_package(
                 "revision": REVISIONS[DEFAULT_PROVIDER],
                 "dimension": DIMENSIONS[DEFAULT_PROVIDER],
                 "chunk_ids": sorted(c.chunk_id for c in chunks),
+                # The Vespa application package these vectors were fed under.
+                # A schema edit that was not redeployed + re-fed changes this
+                # and must invalidate the index (red-team P2, 2026-07-27).
+                "schema_digest": _vespa_store.schema_digest(),
                 # Day 11 (spec T7): graph and index provably come from the same
                 # ingest — the synced node/edge counts are part of the manifest.
                 "graph": graph_stats,
@@ -310,6 +356,15 @@ def verify_corpus(chunks: list[Chunk], strategy: str) -> None:
         )
     if set(manifest.get("chunk_ids", ())) != local_ids:
         problems.append("manifest chunk ids differ from the local corpus")
+    from learnarken.vespa import store as _store
+
+    current_schema = _store.schema_digest()
+    if manifest.get("schema_digest") != current_schema:
+        problems.append(
+            f"manifest schema digest {manifest.get('schema_digest')!r} != current "
+            f"{current_schema!r} — the Vespa application package changed since this "
+            "index was fed; redeploy and re-run `learnarken index` (fail closed)"
+        )
     engine_ids = vespa.list_doc_ids()
     if engine_ids != local_ids:
         extra, missing = engine_ids - local_ids, local_ids - engine_ids
@@ -364,6 +419,9 @@ def run_eval(
         for pkg in package_dirs:
             raw.extend(corpus_chunks(pkg, strategy=strategy, skip_bad=skip_bad))
         chunks = _dedupe_chunks(raw)
+        # Eval writes committed artifacts; a mixed-class corpus evaluated
+        # unscoped would publish what the governed path withholds (P1).
+        assert_uniform_or_scoped(chunks, None)
         index = BM25Index(chunks)
         results[strategy] = evaluate_strategy(chunks, index.search, golden, resolved, ks=ks)
     return {
@@ -409,6 +467,7 @@ def run_ablation(
     for pkg in package_dirs:
         raw.extend(corpus_chunks(pkg, strategy=strategy))
     chunks = _dedupe_chunks(raw)
+    assert_uniform_or_scoped(chunks, None)
 
     needs_vespa = any(m != "bm25" for m in modes)
     if needs_vespa:

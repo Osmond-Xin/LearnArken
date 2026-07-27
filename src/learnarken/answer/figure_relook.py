@@ -26,10 +26,23 @@ from learnarken.multimodal import ingest
 from learnarken.multimodal.second_look import FigureRefusal, consensus_read
 
 
-def _load_asset(icn_id: str, package_dirs: list[str]) -> tuple[ingest.FigureRecord, bytes] | None:
+def _load_asset(
+    icn_id: str, package_dirs: list[str], owner_dmc: str = ""
+) -> tuple[ingest.FigureRecord, bytes] | None:
+    """Resolve the figure asset for `icn_id`, owned by `owner_dmc`.
+
+    Matching on the ICN alone picks the first package that happens to carry that
+    ident — which may not be the package the cited chunk came from, and may be
+    one the caller was denied. `ingest` already records the owning DMC
+    (`source_dm`), and `ingest.figure_chunks` already requires it to match; the
+    second-look path has to apply the same rule or it can send a different
+    package's image to the VLM (red-team P1, 2026-07-27).
+    """
     for pkg in package_dirs:
         pkg_dir = Path(pkg)
         for rec in ingest.load_records(pkg_dir):
+            if owner_dmc and rec.source_dm != owner_dmc:
+                continue
             if rec.icn_id == icn_id and rec.verified:
                 try:
                     png = ingest.read_png(ingest.png_path(pkg_dir, icn_id))
@@ -43,7 +56,7 @@ def figure_second_look(question: str, figure_chunk: Chunk, package_dirs: list[st
     """Consensus re-read of the figure behind `figure_chunk`. Never raises — a
     `FigureRefusal` is captured as `consensus=False`. Returns a trace dict."""
     icn_id = figure_chunk.icn_refs[0] if figure_chunk.icn_refs else ""
-    asset = _load_asset(icn_id, package_dirs) if icn_id else None
+    asset = _load_asset(icn_id, package_dirs, figure_chunk.dmc) if icn_id else None
     if asset is None:
         return {"icn_id": icn_id, "attempted": False, "reason": "figure asset unavailable"}
     rec, png = asset

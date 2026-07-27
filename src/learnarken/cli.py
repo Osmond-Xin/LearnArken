@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from learnarken.chunking import STRATEGIES, PartialPackageError, chunk_package
+from learnarken.clearance import CLASSIFICATIONS
+from learnarken.gaps import collect_gaps, render_gaps
 from learnarken.graph import store as graph_store
 from learnarken.models import DataModule, PackageModel
 from learnarken.package import NotAPackageError, _sanitize, scan_package
@@ -134,6 +136,26 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     else:
         print(_render_validation_human(report))
     return 1 if report.error_count else 0
+
+
+def _cmd_gaps(args: argparse.Namespace) -> int:
+    """Exit codes: 0 = no gaps in admitted knowledge; 1 = admitted gaps found; 2 = not a package.
+
+    A pre-admission gap does not set the failure code: the package carrying it
+    was already rejected by `validate`, which is the command that owns that
+    verdict. This command reports, it does not re-adjudicate ingest.
+    """
+    accepted = tuple(m.strip() for m in args.accepted_models.split(",") if m.strip())
+    try:
+        report = collect_gaps(list(args.package), accepted_models=accepted)
+    except NotAPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False, default=str))
+    else:
+        print(render_gaps(report), end="")
+    return 1 if report.admitted_gaps else 0
 
 
 def _dm_payload(dm: DataModule, package: PackageModel, report: ValidationReport) -> dict:
@@ -297,6 +319,7 @@ def _cmd_search(args: argparse.Namespace) -> int:
             context=context,
             skip_bad=args.skip_bad,
             mode=args.mode,
+            clearance=args.clearance,
         )
     except NotAPackageError as exc:
         print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
@@ -526,7 +549,11 @@ def _cmd_query(args: argparse.Namespace) -> int:
 
     try:
         result = answer_question(
-            args.question, package_dirs=args.package, k=args.top_k, mode=args.mode
+            args.question,
+            package_dirs=args.package,
+            k=args.top_k,
+            mode=args.mode,
+            clearance=args.clearance,
         )
     except NotAPackageError as exc:
         print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
@@ -550,6 +577,16 @@ def _cmd_query(args: argparse.Namespace) -> int:
     if result.refused:
         print(_sanitize(result.answer_text))
         print(f"\n  (refused · gate={result.refusal_gate} · trace={result.trace_id})")
+        # A refusal is a routed action item, not a dead end: show what would
+        # resolve it and who should act, in the default output rather than only
+        # in --json (red-team P3, 2026-07-27).
+        if result.action is not None:
+            print(f"    what would resolve it: {_sanitize(result.action.what_would_resolve)}")
+            if result.action.owner:
+                print(f"    who should act:        {_sanitize(result.action.owner)}")
+            else:
+                why = _sanitize(result.action.owner_reason or "")
+                print(f"    who should act:        unknown — {why}")
         return 3
     print(_sanitize(result.answer_text))
     lines = ["", f"  {'CHUNK_ID':<12} {'DMC':<42} XPATH"]
@@ -757,6 +794,12 @@ def main(argv: list[str] | None = None) -> int:
         help="search readable modules instead of failing when some cannot be parsed",
     )
     search_parser.add_argument("--json", action="store_true", help="output JSON")
+    search_parser.add_argument(
+        "--clearance",
+        choices=list(CLASSIFICATIONS),
+        default=None,
+        help="caller security clearance (01-05); sources above it never enter retrieval",
+    )
     search_parser.set_defaults(func=_cmd_search)
 
     query_parser = subparsers.add_parser(
@@ -781,6 +824,14 @@ def main(argv: list[str] | None = None) -> int:
         "refusal-threshold rerank pass always runs",
     )
     query_parser.add_argument("--json", action="store_true", help="output the answer object")
+    query_parser.add_argument(
+        "--clearance",
+        choices=list(CLASSIFICATIONS),
+        default=None,
+        help="caller security clearance (S1000D securityClassification, 01-05). "
+        "Sources above it are withheld BEFORE retrieval. Omitted = no "
+        "authorisation is enforced and none is claimed",
+    )
     query_parser.set_defaults(func=_cmd_query)
 
     eval_parser = subparsers.add_parser("eval", help="retrieval evaluation")
@@ -904,6 +955,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     adversarial_parser.add_argument("--json", action="store_true", help="output JSON")
     adversarial_parser.set_defaults(func=_cmd_eval_adversarial)
+
+    gaps_parser = subparsers.add_parser(
+        "gaps",
+        help="declared-but-absent data modules, routed to an owner (Arken pillar 4)",
+    )
+    gaps_parser.add_argument(
+        "package", nargs="+", help="one or more package directories forming the corpus"
+    )
+    gaps_parser.add_argument("--json", action="store_true", help="output JSON")
+    gaps_parser.add_argument(
+        "--accepted-models",
+        default="LA100",
+        help="comma-separated modelIdentCode domain allowlist (default: LA100)",
+    )
+    gaps_parser.set_defaults(func=_cmd_gaps)
 
     graph_parser = subparsers.add_parser(
         "graph", help="dependency-graph queries (Neo4j; ADR-0002 interface ①)"

@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from learnarken.adversarial.models import ClaimVerdict, JudgeVerdict
+from learnarken.config import LOCAL_ONLY_ENV, local_only_enabled
 
 # Forbidden judge *families* — never judge with the generator's family, checked as
 # a substring so `minimax`, `MiniMax-M3`, `minimax-text` are all rejected (red-team
@@ -212,6 +213,18 @@ class CLIJudge:
         self.timeout_s = timeout_s
 
     def score(self, question: str, answer_text: str, evidence: list[str]) -> JudgeVerdict:
+        # The egress fence covers the eval harness too. A judge is a subprocess
+        # that ships retrieved evidence to an external service, so arming
+        # LEARNARKEN_LOCAL_ONLY must stop it — the README claimed this fence
+        # covered "the eval harness" while nothing enforced it here
+        # (red-team P2, 2026-07-27).
+        if local_only_enabled():
+            raise ValueError(
+                f"judge {self.name!r} shells out to an external service, but "
+                f"{LOCAL_ONLY_ENV}=1 arms the egress fence — refusing to send "
+                "evidence off-box (fail closed). Unset the fence to run judged "
+                "evaluation, or use a local judge."
+            )
         nonce = secrets.token_hex(6)
         prompt = build_judge_prompt(question, answer_text, evidence, nonce)
         stdin_mode = "{PROMPT}" not in self.template

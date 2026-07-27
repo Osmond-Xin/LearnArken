@@ -289,7 +289,9 @@ def test_answer_trace_preserves_graph_span_alongside_facts(monkeypatch, tmp_path
     monkeypatch.setattr(engine, "corpus_chunks", lambda pkg, strategy: [chunk])
     monkeypatch.setattr(engine, "verify_corpus", lambda c, s: None)
     monkeypatch.setattr(engine, "load_threshold", lambda: 0.5)
-    monkeypatch.setattr(engine, "_candidates", lambda question, c, mode: [graph_document])
+    monkeypatch.setattr(
+        engine, "_candidates", lambda question, c, mode, clearance=None: [graph_document]
+    )
     monkeypatch.setattr(
         hybrid_module, "rerank_scored", lambda query, documents, k=10: [(graph_document, 0.9)]
     )
