@@ -133,7 +133,7 @@ README is corrected in this phase, before any code is written.
 | Item | Files | Acceptance criterion |
 | --- | --- | --- |
 | 0.1 CI badge | `README.md` (+zh per D8) | Badge resolves to this repo's `ci.yml` run history |
-| 0.2 Demo capture | `docs/assets/demo-retraction.gif` + `docs/assets/demo-retraction.trace.json` | GIF shows one unedited take; **the trace id visible in the GIF is committed alongside it** (F-19). If retraction cannot be triggered on demand, capture a real refusal and label it as such — never stage |
+| 0.2 Demo capture | **three** GIFs + a trace each: `demo-answer`, `demo-refusal`, `demo-retraction` (`docs/assets/`). Runbook: [`docs/assets/CAPTURE.md`](../assets/CAPTURE.md) | Each GIF is one unedited take of one idea, annotated with **on-screen text, no narration**; **the trace of the run in it is committed alongside** (F-19), and every caption is checkable against a field of that trace. If retraction cannot be triggered on demand, capture a real refusal and label it as such — never stage |
 | 0.3 Reading router + TOC | `README.md` (+zh) | Three-tier entry block within the first 60 lines; **an anchor test asserts every in-repo link and `#anchor` in both READMEs resolves** (F-14) |
 | 0.4 Promote §6 + llms.txt | `README.md` (+zh) | Header block points to §6 and invites an AI reviewer to `llms.txt` |
 
@@ -264,8 +264,13 @@ Transcribed with provenance in the review's Part 2.
 
 **Phase 0 — done except 0.2.** Source snapshot (including the three pages that
 had never been read), CI badge, reading router + anchor guard, §6 promoted.
-**0.2 demo GIF is blocked on a human** — it needs the live stack and a screen
-recording, and the plan forbids staging one.
+**0.2 demo capture is blocked on a human** — it needs the live stack and a
+screen recording, and the plan forbids staging one. Ruled 2026-07-27 (Yi Xin):
+**three GIFs instead of one**, explained by on-screen text rather than
+narration — captions stay reviewable as text, the artifact keeps working muted
+and autoplaying in the README, and no synthetic voice has to be disclosed.
+Titles, verbatim queries, measured reproduction rates and per-GIF caption plans
+are in [`docs/assets/CAPTURE.md`](../assets/CAPTURE.md).
 
 **Phase 1 — done, and it changed two of its own claims.**
 
