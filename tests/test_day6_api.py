@@ -3,6 +3,7 @@ services mocked — no Vespa/Neo4j/LLM/models), the engine's SSE event
 emission, and the frontend's dumb-client purity. Live end-to-end runs are
 manual via `make demo`."""
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -25,6 +26,19 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 # ---------------------------------------------------------------- helpers
+
+
+def _frontend_dict(name: str) -> dict:
+    """Read a module-level dict literal out of the Streamlit app without
+    importing it — the frontend needs streamlit installed, and importing it
+    would also run the page."""
+    tree = ast.parse((REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
+            return ast.literal_eval(node.value)
+    raise AssertionError(f"{name} not found in the frontend")
 
 
 def _events(sse_text: str) -> list[tuple[str, dict]]:
@@ -528,3 +542,187 @@ class TestFrontendPurity:
     def test_frontend_never_renders_raw_html(self):
         source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
         assert not re.search(r"unsafe_allow_html\s*=\s*True", source)
+
+    def test_every_gate_the_backend_emits_is_labelled(self):
+        """A gate the engine can refuse at must be nameable on screen. The
+        frontend cannot import learnarken, so the two tables are kept in step
+        here instead — `figure-out-of-description` had drifted out and rendered
+        as '?'."""
+        from learnarken.refusal import RESOLUTIONS
+
+        labels = _frontend_dict("GATE_LABELS")
+        missing = sorted(set(RESOLUTIONS) - set(labels))
+        assert not missing, f"gates the demo UI cannot name: {missing}"
+        # The API's own retract-on-transport-failure gate is not in RESOLUTIONS
+        # (no RefusalAction is built for it) but does reach the screen.
+        assert "transport" in labels
+
+    def test_frontend_renders_the_routed_refusal(self):
+        """Arken pillar 3 is three parts; the UI used to show only the gate,
+        leaving `what would resolve it` / `who should act` on the wire."""
+        source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+        assert "what_would_resolve" in source
+        assert "owner_reason" in source
+
+    def test_rendering_is_gated_on_the_single_classifier(self):
+        """Direct field reads in `render_answer` are only safe because
+        `classify_turn` validated the payload first. If a future edit renders
+        without asking it, that guarantee is gone (red-team 2026-07-27 P2)."""
+        source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        render = next(
+            n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render_answer"
+        )
+        called = {
+            n.func.id
+            for n in ast.walk(render)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        }
+        assert "classify_turn" in called
+
+
+class _FakeSt:
+    """Records the Streamlit calls the frontend makes, so a test can assert what
+    reached the operator's screen and through which renderer."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, str]] = []
+
+    def __getattr__(self, name):
+        def record(*args, **kwargs):
+            self.calls.append((name, args[0] if args else ""))
+
+        return record
+
+    def kinds(self) -> list[str]:
+        return [name for name, _ in self.calls]
+
+    def text_of(self, kind: str) -> str:
+        return " ".join(str(a) for name, a in self.calls if name == kind)
+
+
+def _frontend_render(entry: dict) -> _FakeSt:
+    """Execute the shipped `render_answer` against a fake `st`.
+
+    Testing the predicate alone would let `render_answer` drift away from it
+    (red-team 2026-07-27 P2), so the real rendering path runs here.
+    """
+    source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    wanted = {
+        "_filled",
+        "_is_answered",
+        "_is_refusal",
+        "classify_turn",
+        "gate_label",
+        "render_answer",
+    }
+    body = [
+        n
+        for n in tree.body
+        if (isinstance(n, ast.FunctionDef) and n.name in wanted)
+        or (
+            isinstance(n, ast.Assign)
+            and any(getattr(t, "id", None) in ("GATE_LABELS", "CITATION_FIELDS") for t in n.targets)
+        )
+    ]
+    fake = _FakeSt()
+    namespace: dict = {"st": fake}
+    exec(compile(ast.Module(body=body, type_ignores=[]), "<frontend>", "exec"), namespace)
+    namespace["render_answer"](entry)
+    return fake
+
+
+def _answered_result(**overrides) -> dict:
+    result = {
+        "refused": False,
+        "answer_text": "Release the pressure.",
+        "trace_id": "t-1",
+        "model": "MiniMax-M3",
+        "citations": [
+            {
+                "chunk_id": "c1",
+                "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+                "source_path": "/dmodule/content",
+                "supporting_quote": "Release the pressure.",
+            }
+        ],
+    }
+    result.update(overrides)
+    return result
+
+
+def _refusal_result(**overrides) -> dict:
+    result = {
+        "refused": True,
+        "answer_text": "I don't know — no answer was found in the indexed corpus.",
+        "refusal_gate": "llm",
+        "trace_id": "t-2",
+        "action": {
+            "gate": "llm",
+            "why": "refused at the llm gate",
+            "what_would_resolve": "supply a data module that states the answer",
+            "owner": None,
+            "owner_reason": "the question names no data module",
+        },
+    }
+    result.update(overrides)
+    return result
+
+
+class TestFrontendFailsClosedOnBadResults:
+    """Reading every wire field defensively must not turn a crash into a false
+    success (red-team 2026-07-27 P1)."""
+
+    def test_a_complete_answer_renders_verified(self):
+        fake = _frontend_render({"result": _answered_result()})
+        assert "Citations verified" in fake.text_of("caption")
+        assert "table" in fake.kinds()
+
+    def test_a_complete_refusal_renders_its_routing(self):
+        fake = _frontend_render({"result": _refusal_result()})
+        assert "Refused" in fake.text_of("info")
+        assert "What would resolve it" in fake.text_of("text")
+        assert "Who should act" in fake.text_of("text")
+
+    @pytest.mark.parametrize(
+        ("name", "entry"),
+        [
+            ("no result at all", {}),
+            ("empty result", {"result": {}}),
+            ("result is not a dict", {"result": "boom"}),
+            ("answer without the refused flag", {"result": {"answer_text": "Release the brake"}}),
+            ("answer with no citations", {"result": _answered_result(citations=[])}),
+            ("answer with an empty citation", {"result": _answered_result(citations=[{}])}),
+            (
+                "citation missing its quote",
+                {
+                    "result": _answered_result(
+                        citations=[{"chunk_id": "c", "dmc": "d", "source_path": "/x"}]
+                    )
+                },
+            ),
+            ("answer with a blank body", {"result": _answered_result(answer_text="   ")}),
+            ("answer with no trace", {"result": _answered_result(trace_id="")}),
+            ("bare refusal", {"result": {"refused": True}}),
+            ("refusal with no action", {"result": _refusal_result(action=None)}),
+            ("refusal with no gate", {"result": _refusal_result(refusal_gate="")}),
+            ("error event with no message", {"error": ""}),
+            (
+                "retracted, then answered anyway",
+                {"retracted": True, "gate": "citation-validation", "result": _answered_result()},
+            ),
+        ],
+    )
+    def test_incomplete_turns_fail_closed(self, name, entry):
+        fake = _frontend_render(entry)
+        assert "error" in fake.kinds(), f"{name}: should have rendered a fail-closed error"
+        assert "Citations verified" not in fake.text_of("caption"), f"{name}: rendered as verified"
+        assert "table" not in fake.kinds(), f"{name}: rendered an evidence table"
+
+    def test_backend_error_text_never_reaches_a_markdown_renderer(self):
+        """An indexing error can quote the uploaded document."""
+        hostile = "[Run repair](https://attacker.example)"
+        fake = _frontend_render({"error": hostile})
+        assert hostile in fake.text_of("text")
+        assert hostile not in fake.text_of("error")
