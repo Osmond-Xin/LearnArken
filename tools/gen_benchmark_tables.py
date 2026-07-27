@@ -1,6 +1,6 @@
-"""Generate the README benchmark tables from eval artifacts — never hand-edit.
+"""Generate the benchmark tables in docs/BENCHMARKS.md from eval artifacts.
 
-Born from red-team day4 #1: a hand-edited README row was arithmetically
+Never hand-edit those tables. Born from red-team day4 #1: a hand-edited row was arithmetically
 impossible (R@5 > R@10). Extended for #16: the tables are rewritten *in place*
 between `<!-- BEGIN gen:... -->` markers, so drift between artifacts and
 published tables is structurally impossible. The script refuses to emit any
@@ -8,7 +8,7 @@ row that violates Recall monotonicity.
 
     uv run learnarken eval ablation --json > eval/results/day4-ablation.json
     uv run python tools/dense_bakeoff.py           # also writes day4-bakeoff.json
-    uv run python tools/gen_benchmark_tables.py    # rewrites README blocks
+    uv run python tools/gen_benchmark_tables.py    # rewrites the gen: blocks
     uv run python tools/gen_benchmark_tables.py --check  # verify, no write (CI/test)
 """
 
@@ -26,7 +26,14 @@ BAKEOFF = Path("eval/results/day4-bakeoff.json")
 # architecture) live in their own artifact with provenance — the generator
 # owns no numbers of its own (red-team day4 C4).
 BAKEOFF_HISTORICAL = Path("eval/results/day4-bakeoff-historical.json")
-README = Path("README.md")
+# Day 8 before/after. Added 2026-07-25 after red-team `readme-refactor-2026-07-25`
+# F-01: these four rows were hand-typed, drifted from the artifacts, and no guard
+# noticed. Generating them puts them under the same --check drift gate as the rest.
+D8_BEFORE = Path("eval/results/day8-adversarial-before.json")
+D8_AFTER = Path("eval/results/day8-adversarial-report.json")
+D8_BEHAVIOR_BEFORE = Path("eval/results/day8-behavior-before.json")
+D8_BEHAVIOR_AFTER = Path("eval/results/day8-behavior-after.json")
+TARGET = Path("docs/BENCHMARKS.md")
 
 MODE_LABELS = {
     "bm25": "bm25 (in-process)",
@@ -185,6 +192,36 @@ def render_bakeoff(report: dict, historical: dict) -> list[str]:
     return lines
 
 
+def render_day8(before: dict, after: dict, beh_before: dict, beh_after: dict) -> list[str]:
+    """The Day 8 before/after table, straight from the frozen artifacts.
+
+    `before`/`after` are single-run judge snapshots; the behaviour row is the
+    N=3 mean, which is the only honest way to report a non-deterministic
+    generator. The two are deliberately not mixed into one number.
+    """
+    pj_b, pj_a = before["per_judge_groundedness"], after["per_judge_groundedness"]
+    for label, art in (("before", before), ("after", after)):
+        if not 0.0 <= art["intersection_groundedness"] <= 1.0:
+            raise SystemExit(f"day8 {label}: intersection groundedness out of [0,1]")
+    flat = abs(beh_after["mean_pass_rate"] - beh_before["mean_pass_rate"]) < 0.05
+    note = " *(flat — noise-dominated)*" if flat else ""
+    return [
+        "| Metric | Before | After |",
+        "| --- | --- | --- |",
+        '| **Cross-doc aggregation defect** (X-01: sums 25 Nm + 18 Nm → "43 Nm") '
+        "| **affirmed 3/3** | **eliminated 0/3** |",
+        "| Intersection groundedness — 2 judges (single-run snapshot) "
+        f"| {before['intersection_groundedness']:.2f} "
+        f"| **{after['intersection_groundedness']:.2f}** |",
+        "| Per-judge groundedness (Codex / agy) "
+        f"| {pj_b['codex']:.2f} / {pj_b['agy']:.2f} "
+        f"| **{pj_a['codex']:.2f} / {pj_a['agy']:.2f}** |",
+        f"| Overall behavior pass rate (N={beh_after['n_runs']} mean) "
+        f"| {beh_before['mean_pass_rate']:.2f} "
+        f"| {beh_after['mean_pass_rate']:.2f}{note} |",
+    ]
+
+
 def replace_block(text: str, name: str, lines: list[str], path: Path) -> str:
     begin, end = f"<!-- BEGIN gen:{name} -->", f"<!-- END gen:{name} -->"
     if begin not in text or end not in text:
@@ -201,21 +238,33 @@ def main(argv: list[str] | None = None) -> int:
     day11_refusal = json.loads(DAY11_REFUSAL.read_text(encoding="utf-8"))
     bakeoff = json.loads(BAKEOFF.read_text(encoding="utf-8"))
     historical = json.loads(BAKEOFF_HISTORICAL.read_text(encoding="utf-8"))
-    current = README.read_text(encoding="utf-8")
-    text = replace_block(current, "day4-ablation", render_ablation(ablation), README)
-    text = replace_block(text, "day11-ablation", render_day11(day11, day11_refusal), README)
-    text = replace_block(text, "day4-bakeoff", render_bakeoff(bakeoff, historical), README)
+    current = TARGET.read_text(encoding="utf-8")
+    text = replace_block(current, "day4-ablation", render_ablation(ablation), TARGET)
+    text = replace_block(text, "day11-ablation", render_day11(day11, day11_refusal), TARGET)
+    text = replace_block(text, "day4-bakeoff", render_bakeoff(bakeoff, historical), TARGET)
+    text = replace_block(
+        text,
+        "day8-before-after",
+        render_day8(
+            json.loads(D8_BEFORE.read_text(encoding="utf-8")),
+            json.loads(D8_AFTER.read_text(encoding="utf-8")),
+            json.loads(D8_BEHAVIOR_BEFORE.read_text(encoding="utf-8")),
+            json.loads(D8_BEHAVIOR_AFTER.read_text(encoding="utf-8")),
+        ),
+        TARGET,
+    )
     if check_only:
         if text != current:
             print(
-                f"MISMATCH: {README} tables differ from the eval artifacts — "
+                f"MISMATCH: {TARGET} tables differ from the eval artifacts — "
                 "re-run tools/gen_benchmark_tables.py (red-team day4 C4)"
             )
             return 1
-        print(f"{README} tables match the eval artifacts")
+        print(f"{TARGET} tables match the eval artifacts")
         return 0
-    README.write_text(text, encoding="utf-8")
-    print(f"rewrote gen:day4-ablation, gen:day11-ablation and gen:day4-bakeoff blocks in {README}")
+    TARGET.write_text(text, encoding="utf-8")
+    blocks = "day4-ablation, day11-ablation, day4-bakeoff, day8-before-after"
+    print(f"rewrote the gen: blocks ({blocks}) in {TARGET}")
     return 0
 
 

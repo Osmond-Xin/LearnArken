@@ -50,6 +50,60 @@ class TestConfigHardening:
         with pytest.raises(ConfigError, match="https"):
             load_minimax_config(env)
 
+    @staticmethod
+    def _env(tmp_path, url):
+        env = tmp_path / ".env"
+        env.write_text(
+            f"MINIMAX_API_URL={url}\nMINIMAX_MODEL_NAME=m\n"
+            "MINIMAX_API_KEY=k\nMINIMAX_API_PROXY_TOKEN=t\n"
+        )
+        return env
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://127.0.0.1:8080/v1",
+            "http://localhost:11434/v1",
+            "http://[::1]:8000/v1",
+        ],
+    )
+    def test_loopback_plaintext_allowed(self, tmp_path, url):
+        # F-02: a local OpenAI-compatible model server is the only way the
+        # sovereignty claim can be true, and every one of them is plain http
+        # on loopback. Rejecting these made "data never leaves" unreachable.
+        assert load_minimax_config(self._env(tmp_path, url))["MINIMAX_API_URL"] == url
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://127.0.0.1@evil.example/v1",  # userinfo, real host is remote
+            "http://localhost.evil.example/v1",  # suffix, not loopback
+            "http://2130706433/v1",  # decimal form of 127.0.0.1
+            "http://attacker",
+        ],
+    )
+    def test_non_loopback_plaintext_rejected(self, tmp_path, url):
+        with pytest.raises(ConfigError, match="https"):
+            load_minimax_config(self._env(tmp_path, url))
+
+    def test_malformed_url_rejected(self, tmp_path):
+        with pytest.raises(ConfigError, match="not an http"):
+            load_minimax_config(self._env(tmp_path, "https:///no-host"))
+
+    def test_local_only_fence_blocks_remote_endpoint(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LEARNARKEN_LOCAL_ONLY", "1")
+        with pytest.raises(ConfigError, match="forbids the non-loopback endpoint"):
+            load_minimax_config(self._env(tmp_path, "https://api.example/v1"))
+
+    def test_local_only_fence_allows_loopback(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LEARNARKEN_LOCAL_ONLY", "1")
+        config = load_minimax_config(self._env(tmp_path, "http://127.0.0.1:8080/v1"))
+        assert config["MINIMAX_API_URL"] == "http://127.0.0.1:8080/v1"
+
+    def test_local_only_fence_is_off_by_default(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("LEARNARKEN_LOCAL_ONLY", raising=False)
+        assert load_minimax_config(self._env(tmp_path, "https://api.example/v1"))
+
     def test_non_minimax_keys_ignored(self, tmp_path):
         env = tmp_path / ".env"
         env.write_text(
@@ -168,7 +222,7 @@ def wired(monkeypatch, tmp_path):
     monkeypatch.setattr(
         engine,
         "_candidates",
-        lambda question, c, mode: [
+        lambda question, c, mode, clearance=None: [
             Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id}) for ch in chunks
         ],
     )
@@ -306,7 +360,7 @@ class TestAnswerGates:
         monkeypatch.setattr(
             engine,
             "_candidates",
-            lambda question, c, mode: [
+            lambda question, c, mode, clearance=None: [
                 Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id}) for ch in chunks
             ],
         )

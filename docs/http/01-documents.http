@@ -1,0 +1,82 @@
+# Vespa /document/v1 — read, feed, delete single documents
+#
+# Namespace/doctype are fixed by src/learnarken/vespa/store.py:
+#   namespace = learnarken, doc type = chunk, doc id = Chunk.chunk_id
+# Feeding the same chunk_id twice is an upsert (INV-2 idempotence).
+#
+# WARNING: the DELETE blocks at the bottom destroy index state. Re-index with
+#   `uv run learnarken index samples/package-a` afterwards.
+
+@query = http://localhost:8080
+@ns    = learnarken
+@doc   = chunk
+
+# A real id in the current package-a index (16 hex chars, sha1 prefix). Ids are
+# content-derived, so re-chunking changes them — take a fresh one from the visit
+# call below if this 404s.
+@chunkId = c4775a03c5de0039
+
+### Visit: first 10 documents (the ground truth for "what is actually indexed")
+GET {{query}}/document/v1/{{ns}}/{{doc}}/docid?wantedDocumentCount=10
+
+### Visit: ids only, cheap — no 4096-float payload, no text
+GET {{query}}/document/v1/{{ns}}/{{doc}}/docid?wantedDocumentCount=100&fieldSet=%5Bid%5D
+
+### Visit: only one package (selection syntax is Vespa document-select, not YQL)
+GET {{query}}/document/v1/{{ns}}/{{doc}}/docid?wantedDocumentCount=100&cluster=learnarken&selection=chunk.package%3D%3D%22package-a%22
+
+### Visit: next page — paste the "continuation" token from the previous response
+GET {{query}}/document/v1/{{ns}}/{{doc}}/docid?wantedDocumentCount=100&continuation=PASTE_TOKEN_HERE
+
+### Get one document by chunk_id (full fields, including applicability arrays)
+GET {{query}}/document/v1/{{ns}}/{{doc}}/docid/{{chunkId}}
+
+### Feed one document by hand — smoke-test the schema without the indexer.
+# `embedding` needs 4096 floats to be usable by rank-profile `dense`; a short
+# vector still feeds but nearestNeighbor will reject/skew it. Use this block to
+# test the metadata fields, and 03-dense-search.http for real vector work.
+POST {{query}}/document/v1/{{ns}}/{{doc}}/docid/http-probe-001
+Content-Type: application/json
+
+{
+  "fields": {
+    "chunk_id": "http-probe-001",
+    "package": "package-a",
+    "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+    "dm_title": "REST Client probe document",
+    "issue_info": "001-00",
+    "chunk_type": "step",
+    "source_path": "samples/package-a/DMC-LA100-A-29-10-00-00A-520A-A_EN-CA.xml",
+    "strategy": "structure",
+    "text": "Hand-fed probe document. Delete me when done.",
+    "has_warning": true,
+    "has_caution": false,
+    "outbound_dm_refs": ["DMC-LA100-A-29-00-00-00A-040A-D"],
+    "icn_refs": [],
+    "applic_display": "Engine model A only",
+    "applic_properties": ["engineModel"],
+    "applic_values": ["A"],
+    "security_classification": "01",
+    "effective_date": "2026-01-01",
+    "expiry_date": ""
+  }
+}
+
+### Partial update — change one field without re-sending the embedding
+PUT {{query}}/document/v1/{{ns}}/{{doc}}/docid/http-probe-001
+Content-Type: application/json
+
+{
+  "fields": {
+    "dm_title": { "assign": "REST Client probe document (edited)" }
+  }
+}
+
+### Delete the probe document
+DELETE {{query}}/document/v1/{{ns}}/{{doc}}/docid/http-probe-001
+
+### DANGER — delete every chunk in the index (same call as vespa.clear())
+DELETE {{query}}/document/v1/{{ns}}/{{doc}}/docid?selection=true&cluster=learnarken
+
+### DANGER — delete one package only
+DELETE {{query}}/document/v1/{{ns}}/{{doc}}/docid?cluster=learnarken&selection=chunk.package%3D%3D%22package-b%22
