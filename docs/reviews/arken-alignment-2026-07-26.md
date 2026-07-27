@@ -449,6 +449,157 @@ paths). Real, but it is a latency concern on a 45-chunk corpus behind an LLM
 call that dominates it by orders of magnitude, and caching keyed on package
 digest is Phase 2 work. Recorded rather than silently ignored.
 
+## Part 1d — Rounds 4–9: demo-capture preparation (2026-07-27)
+
+Six cross-host Codex rounds on the working-tree diff that came out of preparing
+the Phase 0.2 capture (`llm/minimax.py`, `answer/prompt.py`,
+`demo/streamlit_app.py`, tests). Each round re-reviewed the **whole** diff
+including the previous round's fixes — and rounds 5, 8 and 9 each broke a fix
+from the round before, which is the entire argument for that discipline.
+
+**Why this diff exists at all.** Phase 0.2 could not be filmed honestly: the
+"streamed text withdrawn" shot was reachable only through an `llm-contract`
+refusal that was our own defect. Measured on the live stack, **7 of 28 runs**
+(25%) failed the contract; M3's think block was exhausting the 2048-token
+completion budget and truncating mid-JSON, which surfaced as `post-think content
+is not JSON: ''` — indistinguishable, to an operator, from a model failure.
+
+**F-33 · P1 · The completion budget was too small, and truncation was
+unreadable** `[host-only]` · Measured, not inferred: one question ranged over
+1888 / 1467 / 3464 / 7305 completion tokens across repeats at temperature 0,
+with think blocks of 497 to 27,102 characters. **Fixed**: budget 2048 → 16384
+(covers every observed run with headroom; billing is on tokens produced, so the
+headroom costs nothing until used), and `finish_reason == "length"` now raises a
+refusal that names the budget. After the fix: **0 contract failures in 24 live
+runs**, and the genuine `citation-validation` retraction — unreachable before,
+because the budget died first — began to reproduce.
+
+**F-34 · P1 · The `</think>` salvage let attacker-reachable reasoning become
+the answer** `[external-only]` · **The finding of these rounds, and it took four
+attempts to settle.** M3 sometimes closes its think block a token late, stranding
+the JSON's opening brace inside it. A salvage re-spliced the object across that
+boundary. Round 4 showed it accepted an object planted *wholly* inside the block;
+the narrowing was broken again in round 5 (plant most of the contract, leave it
+incomplete), and again in round 9 (the question text is not escaped, so the
+planted bytes need not even come from a data module). Uploaded XML becomes
+evidence in the prompt, so this is reachable by an uploader, and the only gate
+behind it is verbatim quote containment. **Fixed by deletion**: the salvage is
+gone. It rescued about one run in forty; refusing that run is the cheaper trade
+and is what INV-4 asks for. A test asserts the helper cannot quietly return.
+
+**F-35 · P1 · A literal `</think>` could be carried into the prompt as
+evidence** `[external-only]` · `json.dumps` does not escape `<`, so a data
+module could put a think tag into the prompt and have the model copy it into
+its reasoning, where the transport layer reads it as structural. **Fixed**: the
+`<` of a think tag is escaped in the evidence JSON. Deliberately *only* that
+sequence — round 9 pointed out that escaping every angle bracket would corrupt
+legitimate evidence (`clearance < 0.05 mm`) whose `supporting_quote` must later
+match the chunk text verbatim.
+
+**F-36 · P1 · One call could hold a generation slot far past its deadline**
+`[external-only]` · Three findings on the same theme, each one closing the hole
+the last fix left: retries did not share a deadline (3 × 300 s); the deadline was
+then checked only per parsed chunk, which an SSE keepalive flood bypasses; and
+then only between lines, which a byte-trickle without a newline bypasses.
+**Fixed**: attempts share one wall-clock deadline, it is checked per raw line,
+and a watchdog closes the response when it expires. Error bodies are no longer
+read at all — capping the bytes never capped the clock.
+
+**F-37 · P2 · Fail-closed gaps around the contract** `[external-only]` ·
+Truncation was masked by the empty-content check; a *missing* `finish_reason`
+was accepted as success (verified live that both paths do report `stop`, so
+requiring it costs no legitimate traffic); content arriving after a terminal
+reason was appended; `HTTPError` was unreachable behind `URLError`, so a 401 was
+retried three times and reported as "unreachable"; a non-JSON or non-object
+HTTP 200 body escaped as an internal error rather than a refusal; more than one
+`choice` was silently ignored. All fixed, each with a test.
+
+**F-38 · P2 · Upstream diagnostics reached the demo visitor** `[external-only]` ·
+The API forwards `LLMError` text to the browser, and both HTTP error bodies and
+MiniMax `base_resp` objects can echo the request — prompt, evidence, auth
+detail. **Fixed**: the status code travels, the diagnostic is logged
+server-side.
+
+**F-39 · P2 · The demo UI was not the dumb client it claims to be**
+`[cross-validated]` · It indexed wire fields directly (`result["refused"]`,
+`payload["text"]`, citation rows), so a truncated or version-skewed payload lost
+the whole turn to a `KeyError`; an unlabelled gate rendered as `?`; and
+`figure-out-of-description` had drifted out of the label table entirely.
+**Fixed**: every wire field is read defensively, and a test now asserts every
+gate the engine can emit is nameable on screen.
+
+**F-40 · P2 · Phase 1.2's routed refusal was invisible in the demo**
+`[host-only]` · Found while planning the capture, not by a reviewer. The CLI
+prints all three parts Arken asks for (why / what would resolve it / who should
+act); the Streamlit client rendered only the gate and the generic placeholder,
+leaving `action` on the wire unread. A GIF of the demo would therefore have
+shown none of the pillar the work package was built to demonstrate. **Fixed**.
+
+**F-41 · P1 · The public-demo spend bound moved with the budget** `[external-only]`
+· Raised in three separate rounds. The quota counts **calls, not tokens**, so
+the 8× budget increase widened worst-case exposure per boot from ~410 k to
+~3.3 M output tokens. A token quota cannot replace it honestly — `usage` comes
+back null on the streaming path. **Not fixed: this is a decision, not an
+implementation detail.** The bound is now documented at the quota; re-deciding
+`DEMO_MAX_LLM_CALLS` against the $20 envelope is Yi Xin's call.
+
+**Residual, recorded rather than fixed** — a single SSE line of unbounded size
+is still buffered by `readline` before any cap applies. Bounding it means
+replacing the line iterator with a chunked reader. The attack needs a hostile
+upstream, i.e. the authenticated proxy we already trust for answer content, so
+the deadline and the cumulative-content cap were judged proportionate. Flagged
+for adjudication.
+
+**State**: `make lint` clean, **523 passed / 9 skipped**, hermetic without
+`.env`. Verified live after every round — 12 real queries each time, behaviour
+unchanged.
+
+## Part 1e — Rounds 10–12: operator-facing polish (2026-07-27)
+
+Three more cross-host rounds on a small follow-up diff — the demo UI translated
+to English, and `learnarken query` stopped interleaving loader noise with its
+answer. A "cosmetic" change turned out to carry the round's worst finding.
+
+**F-42 · P1 · Defensive reading had quietly become fail-open** `[external-only]`
+· **The one to remember.** Rounds 4–9 replaced the demo client's direct field
+reads with `.get()` so a truncated payload could not lose the turn to a
+`KeyError`. That fix inverted the failure mode: `{"result": {}}` no longer
+crashed — it fell through to the *answered* branch and rendered "✅ Citations
+verified" under a result containing no answer and no evidence. The guard added
+to stop a crash had removed the check that made the crash meaningful.
+**Fixed** by collapsing the whole decision into one pure `classify_turn(entry)`
+returning `answered` / `refused` / `failed`, where anything that is not a
+*complete* answer (non-empty text, a trace id, at least one citation with all
+four of chunk_id/DMC/XPath/quote) or a *complete* refusal (gate, trace,
+routed action) is a failure. `render_answer` reads fields directly again —
+safe now precisely because the classifier ran first, and a test asserts it
+cannot render without asking it. Fourteen malformed payloads are pinned,
+including "retracted, then answered anyway".
+
+**F-43 · P2 · Silencing noise silenced signal** `[external-only]` · The first
+attempt at removing the hub's anonymous-read notice raised the whole
+`huggingface_hub.utils._http` logger to ERROR — which also mutes 429 backoff and
+retry warnings, i.e. exactly what explains a run that looks stuck. **Fixed**: a
+`logging.Filter` matching that one message, attached idempotently from `main()`
+(not at import — importing the CLI must not mutate a whole process's logging and
+progress-bar state). A test drives the real logger and asserts the 429 survives.
+
+**F-44 · P2 · Untrusted text still reaching markdown renderers** `[external-only]`
+· `st.error` / `st.warning` render markdown, and an indexing error can quote the
+document that failed. **Fixed**: static headers, dynamic detail through
+`st.text`; unrecognised gate names are stripped to plain characters before they
+reach a label.
+
+Also fixed: validator findings rendered through `st.text`, upload payload fields
+read as a validated list of dicts, and CLI output-contract tests pinning that
+`--json` never contains the divider while answered and refused human output each
+contain exactly one.
+
+**State**: `make lint` clean, **546 passed / 9 skipped**. Verified live — the
+CLI prints its answer with no HF warning and no `Loading weights` bar, and the
+classifier was run against real `/query` payloads (answered / refused / refused)
+to confirm the stricter contract does not fail closed on legitimate traffic.
+
 ## Part 2 — Adjudication (Yi Xin's rulings)
 
 > **Transcription notice.** Every ruling below was given by Yi Xin in-session on
