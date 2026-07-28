@@ -32,7 +32,7 @@ system that overstates itself is the failure mode being engineered against.
 | | |
 | --- | --- |
 | **Scale of delivery** | 13 shipped nodes, `v0.1.0` → `v1.3.0`, each with a human-written spec, an independent red-team review, and a human adjudication |
-| **Test suite** | 555 tests — `make test` (pytest) → `543 passed, 12 skipped` offline, which is what CI runs; `546 passed, 9 skipped` with the local Vespa + Neo4j services up. Both measured 2026-07-27, both by running them. Lint is the separate `make lint` |
+| **Test suite** | 568 tests — `make test` (pytest) → `556 passed, 12 skipped` offline, which is what CI runs; `559 passed, 9 skipped` with the local Vespa + Neo4j services up. Both measured 2026-07-28, both by running them. Lint is the separate `make lint` |
 | **Evidence rule** | a number that cannot be reproduced is not published (INV-5) — [EVIDENCE.md](docs/EVIDENCE.md) maps every claim → artifact → command |
 | **Honest boundary** | synthetic S1000D-like XML (INV-1), educational corpus size, distribution simulated on one machine — full list in [docs/constitution.md](docs/constitution.md) |
 
@@ -596,7 +596,7 @@ Stated up front so no reviewer has to discover it (INV-7):
 
 ```bash
 uv sync --locked                               # Python 3.12 + deps (needs uv)
-make lint && make test                         # ruff, then pytest → 543 passed, 12 skipped (offline)
+make lint && make test                         # ruff, then pytest → 556 passed, 12 skipped (offline)
 uv run learnarken inspect samples/package-a    # summarize a sample package
 uv run learnarken validate samples/package-b   # four-layer validation findings
 ```
