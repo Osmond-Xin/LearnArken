@@ -1,7 +1,10 @@
 """INV-6 helper: repeat the three demo queries and report what each run did."""
 
-import json, sys
+import json
+import sys
+
 from fastapi.testclient import TestClient
+
 from learnarken.api.app import app
 
 RUNS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
