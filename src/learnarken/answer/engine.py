@@ -344,10 +344,24 @@ def answer_question(
     # non-refused answer).
     spans.setdefault("graph", {})["facts"] = [f.model_dump() for f in facts]
 
-    delimiter = make_delimiter()
     emit("status", {"stage": "generating"})
 
     def generate():
+        # A fresh delimiter per attempt. The first retry shipped kept one
+        # delimiter across both attempts, so a re-ask sent a byte-identical
+        # prompt at temperature 0 — and in Yi Xin's INV-6 run both retries
+        # failed the same way they had the first time.
+        #
+        # Stated honestly: that is not proof of determinism. A probe re-sending
+        # the same delimiter twice returned think blocks of different lengths,
+        # so the endpoint does vary. What can be said is that an identical
+        # prompt is not an *independent* sample, and 2 of 2 observed retries
+        # reproduced the fault. The delimiter is a random spotlighting fence by
+        # construction, so regenerating it changes no evidence and no
+        # instruction — only the bytes the sampler walks. Cheap, and it can only
+        # decorrelate. Whether it materially improves the retry's success rate
+        # is unmeasured; two failures is too small a sample to claim either way.
+        delimiter = make_delimiter()
         if on_event is None:
             return chat_json(
                 build_system(delimiter), build_user(question, evidence, facts, delimiter)

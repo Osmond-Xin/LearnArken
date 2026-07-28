@@ -486,9 +486,23 @@ first — began to reproduce.
 > which is the whole argument for someone else running it.
 >
 > Removing the salvage is what re-exposed this class, by design: F-34 chose a
-> refusal over a rescue that could be steered. Whether to *retry once* on a
-> contract failure — which re-asks rather than reconstructs, so it does not
-> reopen F-34 — is a cost-and-latency decision, and is open for Yi Xin.
+> refusal over a rescue that could be steered.
+>
+> **Ruled the same day: retry once.** A retry re-asks rather than reconstructs,
+> so it does not reopen F-34. Shipped, then **caught again by Yi Xin's second
+> run**: both retries failed exactly as their first attempts had. The re-ask was
+> re-sending a byte-identical prompt at temperature 0 — not an independent
+> sample. Each attempt now builds a fresh spotlighting delimiter.
+>
+> Recorded honestly, because the temptation is to call this fixed: a probe
+> re-sending the same delimiter twice *did* return different completions, so
+> the endpoint is not deterministic and "identical prompt ⇒ identical failure"
+> is more than the evidence supports. Two retries is also too small a sample to
+> say the delimiter change helps. **The retry's effectiveness is unmeasured**,
+> and the honest way to measure it is another independent run.
+>
+> Two INV-6 runs, two findings the implementer's own testing missed — first the
+> rate, then the fix for the rate.
 
 **F-34 · P1 · The `</think>` salvage let attacker-reachable reasoning become
 the answer** `[external-only]` · **The finding of these rounds, and it took four

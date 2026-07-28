@@ -574,6 +574,26 @@ class TestContractRetry:
         assert secret not in written
         assert "post-think content is not JSON" in written
 
+    def test_the_retry_does_not_re_send_an_identical_prompt(self, monkeypatch, wired):
+        """A re-ask at temperature 0 with a byte-identical prompt is not an
+        independent sample. The first shipped retry kept one delimiter across
+        both attempts, and Yi Xin's INV-6 run saw both retries reproduce the
+        fault. This pins that the second attempt differs; it does not claim the
+        endpoint is deterministic (a same-delimiter probe varied).
+        """
+        prompts = []
+
+        def fake(system, user, *, on_delta=None, **kwargs):
+            prompts.append(system)
+            if len(prompts) == 1:
+                raise LLMContractError("post-think content is not JSON", retryable=True)
+            return _fake_stream(self.GOOD)(system, user, on_delta=on_delta or (lambda t: None))
+
+        monkeypatch.setattr(engine, "chat_json_stream", fake)
+        answer_question("How do I remove the pump?", on_event=lambda k, d: None)
+        assert len(prompts) == 2
+        assert prompts[0] != prompts[1], "the re-ask must not be the same prompt"
+
     def test_a_transport_error_is_not_retried(self, monkeypatch, wired):
         """Only a *contract* failure is re-asked; the network failing once fails
         closed, as it did before."""
