@@ -322,6 +322,11 @@ for a value with no spaces in it.** Re-arranging columns does not help.
 
 ## Known gaps in what shipped
 
+- **About one take in twelve refuses at `llm-contract`** (2 of 24 runs measured
+  2026-07-28, across two samples). It is the late-`</think>` quirk, not a
+  regression: M3 occasionally closes its think block a token late and the
+  response no longer parses. Expect the occasional dead take in a recording
+  session; the refusal names the gate, so it is obvious when it happens.
 - `ffmpeg` is not pinned. The shipped GIFs were made with 8.1; a different
   version may quantise differently.
 - Streamlit cannot be screenshotted from this repository's tooling (headless

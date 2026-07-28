@@ -470,9 +470,25 @@ unreadable** `[host-only]` · Measured, not inferred: one question ranged over
 with think blocks of 497 to 27,102 characters. **Fixed**: budget 2048 → 16384
 (covers every observed run with headroom; billing is on tokens produced, so the
 headroom costs nothing until used), and `finish_reason == "length"` now raises a
-refusal that names the budget. After the fix: **0 contract failures in 24 live
-runs**, and the genuine `citation-validation` retraction — unreachable before,
-because the budget died first — began to reproduce.
+refusal that names the budget. The truncation class is gone, and the genuine
+`citation-validation` retraction — unreachable before, because the budget died
+first — began to reproduce.
+
+> **Corrected 2026-07-28 by Yi Xin's INV-6 re-run.** This finding originally
+> read "**0 contract failures in 24 live runs**". That sample was taken while
+> the `</think>` salvage of F-34 was still in place, and I never re-measured
+> after removing it. Yi Xin's independent run hit `llm-contract` twice in nine.
+> Both were the late-tag quirk, not truncation: one post-think body began
+> `": "Before removing…` (the tag swallowed `{"answer`), the other began
+> `json\n{…}` (it swallowed the opening ```` ```json ```` fence). A further 15
+> runs here returned none, so the honest figure across both samples is **2 of
+> 24, about 8 %** — intermittent enough that a single clean sample says nothing,
+> which is the whole argument for someone else running it.
+>
+> Removing the salvage is what re-exposed this class, by design: F-34 chose a
+> refusal over a rescue that could be steered. Whether to *retry once* on a
+> contract failure — which re-asks rather than reconstructs, so it does not
+> reopen F-34 — is a cost-and-latency decision, and is open for Yi Xin.
 
 **F-34 · P1 · The `</think>` salvage let attacker-reachable reasoning become
 the answer** `[external-only]` · **The finding of these rounds, and it took four
