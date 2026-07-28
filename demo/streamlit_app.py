@@ -45,13 +45,15 @@ STAGE_LABELS = {
     "rerank": "Reranking…",
     "generating": "Generating (LLM)…",
 }
+# Noun phrases, not clauses: a label is read after "Gate:" and after
+# "Retracted · gate:", so anything sentence-shaped reads as broken grammar.
 GATE_LABELS = {
     "threshold": "retrieval relevance threshold (threshold)",
-    "llm": "model judged the evidence insufficient (llm)",
+    "llm": "evidence judged insufficient (llm)",
     "llm-contract": "model output contract (llm-contract)",
     "citation-validation": "citation verification (citation-validation)",
     "figure-out-of-description": "claim beyond the figure description (figure-out-of-description)",
-    "transport": "generation interrupted (transport)",
+    "transport": "interrupted generation (transport)",
 }
 
 
@@ -77,6 +79,39 @@ def gate_label(gate) -> str:
 
 def _filled(value) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+#: Characters that occupy no space on screen. A retraction banner claims that
+#: text "was shown"; whitespace and zero-width runs were not.
+_INVISIBLE = frozenset(" \t\r\n​‌‍﻿")
+
+
+def visible_len(text: str) -> int:
+    return sum(1 for c in text if c not in _INVISIBLE)
+
+
+def record_event(entry: dict, event: str, payload: dict, streamed: str) -> str:
+    """Fold one SSE event into `entry`, returning the accumulated answer text.
+
+    Split out from the render loop so the bookkeeping can be tested against the
+    real event orders — `retract` before any token, tokens then `retract`,
+    tokens then a transport failure — rather than by handing the renderer a
+    state that the loop might never actually produce (red-team 2026-07-27 P2).
+    The loop keeps the widget calls; this keeps the state.
+    """
+    if event == "token":
+        return streamed + str(payload.get("text", ""))
+    if event == "retract":
+        entry["retracted"] = True
+        entry["gate"] = payload.get("gate")
+        # How much was actually on screen, so the banner can say what the
+        # retraction withdrew instead of assuming it withdrew something.
+        entry["streamed_chars"] = visible_len(streamed)
+    elif event == "result":
+        entry["result"] = payload
+    elif event == "error":
+        entry["error"] = payload.get("message")
+    return streamed
 
 
 CITATION_FIELDS = ("chunk_id", "dmc", "source_path", "supporting_quote")
@@ -171,11 +206,28 @@ def sse_events(response):
 def render_answer(entry: dict) -> None:
     """Render one completed assistant turn from its stored outcome."""
     if entry.get("retracted"):
-        st.warning(
-            "⚠️ Retracted: content was generated but did not pass the "
-            f"{gate_label(entry.get('gate', ''))} gate — the text streamed a moment "
-            "ago is not a valid answer and has been withdrawn."
-        )
+        # What the retraction *did* depends on whether anything had reached the
+        # screen yet. Claiming "the text a moment ago has been withdrawn" when
+        # the gate fired before a single token was streamed describes an event
+        # the viewer never saw — the one thing this screen must not do.
+        st.warning(f"⚠️ Retracted · gate: {gate_label(entry.get('gate', ''))}")
+        shown = entry.get("streamed_chars")
+        if shown is None:
+            # An entry from before this client recorded it — absent is not the
+            # same as zero, and guessing either way would be the exact fault
+            # being fixed (red-team 2026-07-27 P2).
+            st.text("This turn did not record whether answer text had reached the screen.")
+        elif shown:
+            st.text(
+                "The text shown a moment ago was not verifiable and has been withdrawn. "
+                "It is not an answer."
+            )
+        else:
+            st.text(
+                "The gate fired before any answer text reached the screen, so there was "
+                "nothing to withdraw. The retraction protocol ran; you simply never saw "
+                "unverified text."
+            )
     outcome = classify_turn(entry)
     if outcome == "failed":
         # Static header, dynamic detail through st.text: an indexing or upstream
@@ -191,11 +243,14 @@ def render_answer(entry: dict) -> None:
         return
     result = entry["result"]
     if outcome == "refused":
+        # The gate and trace are this client's own vocabulary; the refusal text
+        # comes off the wire, so it goes through st.text. The backend uses a
+        # fixed placeholder today, but a dumb client must not depend on that
+        # (red-team 2026-07-27 P2).
         st.info(
-            f"⛔ Refused: {result['answer_text']}\n\n"
-            f"Gate: {gate_label(result['refusal_gate'])}"
-            f" · trace={result['trace_id']}"
+            f"⛔ Refused · gate: {gate_label(result['refusal_gate'])} · trace={result['trace_id']}"
         )
+        st.text(result["answer_text"])
         # A refusal is a routed action item, not a dead end (Arken pillar 3):
         # the same three parts the CLI prints — why (the gate above), what would
         # resolve it, and who should act. Rendered with st.text: `owner_reason`
@@ -377,24 +432,18 @@ with qa_tab:
                             payload = safe_json(data, default={}) if data else {}
                             if not isinstance(payload, dict):
                                 payload = {}  # a wire payload that is not an object
+                            streamed = record_event(entry, event, payload, streamed)
                             if event == "status":
                                 st_stage = payload.get("stage")
                                 st_stage = st_stage if isinstance(st_stage, str) else ""
                                 stage.caption(STAGE_LABELS.get(st_stage, st_stage))
                             elif event == "token":
-                                streamed += str(payload.get("text", ""))
                                 stream_area.text(
                                     "⏳ Generating — the text below is not yet "
                                     "citation-verified and may be retracted:\n\n" + streamed
                                 )
                             elif event == "retract":
-                                entry["retracted"] = True
-                                entry["gate"] = payload.get("gate")
                                 stream_area.empty()  # withdraw the unverified text
-                            elif event == "result":
-                                entry["result"] = payload
-                            elif event == "error":
-                                entry["error"] = payload.get("message")
             except requests.RequestException as exc:
                 entry["error"] = f"Backend unreachable: {exc.__class__.__name__}"
             stage.empty()

@@ -601,11 +601,13 @@ class _FakeSt:
         return " ".join(str(a) for name, a in self.calls if name == kind)
 
 
-def _frontend_render(entry: dict) -> _FakeSt:
-    """Execute the shipped `render_answer` against a fake `st`.
+def _frontend_namespace(fake: _FakeSt | None = None) -> dict:
+    """Load the shipped frontend's pure logic, with `st` faked.
 
-    Testing the predicate alone would let `render_answer` drift away from it
-    (red-team 2026-07-27 P2), so the real rendering path runs here.
+    The module cannot simply be imported: it needs streamlit installed, and
+    importing it would run the page. Testing a copy of the logic would let the
+    shipped code drift away from the test (red-team 2026-07-27 P2), so the real
+    definitions are lifted out of the source file.
     """
     source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -615,7 +617,9 @@ def _frontend_render(entry: dict) -> _FakeSt:
         "_is_refusal",
         "classify_turn",
         "gate_label",
+        "record_event",
         "render_answer",
+        "visible_len",
     }
     body = [
         n
@@ -623,13 +627,21 @@ def _frontend_render(entry: dict) -> _FakeSt:
         if (isinstance(n, ast.FunctionDef) and n.name in wanted)
         or (
             isinstance(n, ast.Assign)
-            and any(getattr(t, "id", None) in ("GATE_LABELS", "CITATION_FIELDS") for t in n.targets)
+            and any(
+                getattr(t, "id", None) in ("GATE_LABELS", "CITATION_FIELDS", "_INVISIBLE")
+                for t in n.targets
+            )
         )
     ]
-    fake = _FakeSt()
-    namespace: dict = {"st": fake}
+    namespace: dict = {"st": fake if fake is not None else _FakeSt()}
     exec(compile(ast.Module(body=body, type_ignores=[]), "<frontend>", "exec"), namespace)
-    namespace["render_answer"](entry)
+    return namespace
+
+
+def _frontend_render(entry: dict) -> _FakeSt:
+    """Run the shipped `render_answer` against a fake `st` and report the calls."""
+    fake = _FakeSt()
+    _frontend_namespace(fake)["render_answer"](entry)
     return fake
 
 
@@ -719,6 +731,90 @@ class TestFrontendFailsClosedOnBadResults:
         assert "error" in fake.kinds(), f"{name}: should have rendered a fail-closed error"
         assert "Citations verified" not in fake.text_of("caption"), f"{name}: rendered as verified"
         assert "table" not in fake.kinds(), f"{name}: rendered an evidence table"
+
+    def test_retraction_with_no_streamed_text_says_so(self):
+        """The APU take fires the retraction with `token: 0`: the gate wins
+        before any answer text is shown. Saying "the text a moment ago has been
+        withdrawn" would describe an event the viewer never saw."""
+        fake = _frontend_render(
+            {"retracted": True, "gate": "llm", "streamed_chars": 0, "result": _refusal_result()}
+        )
+        said = fake.text_of("text")
+        assert "nothing to withdraw" in said
+        assert "shown a moment ago" not in said
+
+    def test_retraction_after_visible_text_says_that_instead(self):
+        fake = _frontend_render(
+            {
+                "retracted": True,
+                "gate": "citation-validation",
+                "streamed_chars": 214,
+                "result": _refusal_result(refusal_gate="citation-validation"),
+            }
+        )
+        said = fake.text_of("text")
+        assert "shown a moment ago" in said
+        assert "nothing to withdraw" not in said
+
+    def _replay(self, events: list[tuple[str, dict]]) -> dict:
+        """Fold a real SSE event order through the shipped reducer."""
+        ns = _frontend_namespace()
+        entry: dict = {}
+        streamed = ""
+        for event, payload in events:
+            streamed = ns["record_event"](entry, event, payload, streamed)
+        return entry
+
+    def test_retract_before_any_token_records_zero(self):
+        """The APU order: status heartbeats, then retract, no token ever."""
+        entry = self._replay(
+            [
+                ("status", {"stage": "retrieval"}),
+                ("status", {"stage": "generating"}),
+                ("retract", {"gate": "llm"}),
+                ("result", _refusal_result()),
+            ]
+        )
+        assert entry["streamed_chars"] == 0
+
+    def test_tokens_then_retract_records_what_was_shown(self):
+        entry = self._replay(
+            [
+                ("token", {"text": "The workflow is"}),
+                ("token", {"text": " as follows"}),
+                ("retract", {"gate": "citation-validation"}),
+                ("result", _refusal_result(refusal_gate="citation-validation")),
+            ]
+        )
+        assert entry["streamed_chars"] == len("Theworkflowisasfollows")
+
+    def test_transport_retract_after_tokens_is_not_treated_as_silent(self):
+        """The API retracts with gate `transport` when generation dies after
+        tokens were already forwarded — text WAS on screen."""
+        entry = self._replay(
+            [
+                ("token", {"text": "Remove the four bolts"}),
+                ("retract", {"gate": "transport"}),
+                ("error", {"message": "MiniMax chat stream failed mid-stream"}),
+            ]
+        )
+        assert entry["streamed_chars"] > 0
+        assert entry["error"]
+
+    def test_invisible_tokens_do_not_count_as_text_on_screen(self):
+        entry = self._replay([("token", {"text": "\u200b \n"}), ("retract", {"gate": "llm"})])
+        assert entry["streamed_chars"] == 0
+
+    def test_a_turn_that_never_recorded_the_count_says_so(self):
+        """An entry stored by an older client: absent is not zero."""
+        fake = _frontend_render({"retracted": True, "gate": "llm", "result": _refusal_result()})
+        assert "did not record" in fake.text_of("text")
+
+    def test_gate_labels_are_noun_phrases(self):
+        """Labels are read after "Gate:" and "Retracted · gate:", so a
+        sentence-shaped label renders as broken grammar."""
+        for gate, label in _frontend_dict("GATE_LABELS").items():
+            assert not label.startswith("model judged"), f"{gate}: {label!r} reads as a clause"
 
     def test_backend_error_text_never_reaches_a_markdown_renderer(self):
         """An indexing error can quote the uploaded document."""

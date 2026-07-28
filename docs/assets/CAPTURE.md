@@ -204,20 +204,36 @@ APU automatic start sequence
 **Measured**: `status ×3 → retract → refused at the llm gate`, 3/3 on this
 build, **`token: 0`**.
 
-### Read this before captioning it
+### What the screen now says by itself
 
 On this query the model judges the evidence insufficient *before* emitting any
-answer text, so the retraction event fires but **no visible text is withdrawn
-from the screen**. The caption must say so. Writing "watch the text disappear"
-over a run where nothing disappeared is exactly the staging the plan forbids.
+answer text, so the retraction event fires but **no visible text is withdrawn**.
+The UI says so on its own — it branches on how much had actually reached the
+screen:
+
+```
+⚠️ Retracted · gate: evidence judged insufficient (llm)
+The gate fired before any answer text reached the screen, so there was nothing
+to withdraw. The retraction protocol ran; you simply never saw unverified text.
+
+⛔ Refused · gate: evidence judged insufficient (llm) · trace=…
+I don't know — no answer was found in the indexed corpus.
+What would resolve it: …
+Who should act:        unknown — …
+```
+
+That is a better shot than a dramatic one: the screen distinguishes *the
+protocol ran* from *text was withdrawn*, which is the distinction most demos
+blur. Captions therefore have almost nothing left to add — do not re-narrate
+what the banner already states, and never write "watch the text disappear" over
+a run where nothing did.
 
 **Caption plan (draft)**
 
 | When | Text | Backed by |
 | --- | --- | --- |
-| at the retract event | `Retraction fired — the model never got far enough to show text` | `token: 0` in the event sequence |
-| on the refusal | `Refused: the evidence does not support an answer` | `trace.outcome.gate = "llm"` |
-| as routing shows | `Why · what would resolve it · who should act` | `trace.outcome.action` |
+| at the retract banner | `The retraction protocol fired — before any text was shown` | `streamed_chars == 0`; no `token` events in the run |
+| on the routed refusal | `Why · what would resolve it · who should act` | `trace.outcome.action` |
 
 **Steps** — same as GIF 1, but stop after the routed refusal lines render.
 
