@@ -60,6 +60,9 @@ class GraphFacts(BaseModel):
     outbound_refs: list[str] = []
     inbound_refs: list[str] = []
     icns: list[str] = []
+    #: How many neighbours were removed because they are above the caller's
+    #: clearance. 0 when no clearance is enforced (red-team P0, 2026-07-27).
+    withheld_refs: int = 0
 
 
 class ImpactedDM(BaseModel):

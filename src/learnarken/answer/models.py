@@ -10,6 +10,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from learnarken.graph import GraphFacts
+from learnarken.refusal import RefusalAction
 
 
 class Citation(BaseModel):
@@ -28,6 +29,9 @@ class AnswerResult(BaseModel):
     # "citation-validation" | "figure-out-of-description" (G15, Day 12); None
     # when answered.
     refusal_gate: str | None = None
+    # Arken pillar 3: why / what would resolve it / who should act. Present on
+    # refusals only; `None` when the question was answered.
+    action: RefusalAction | None = None
     citations: list[Citation] = []
     graph_facts: list[GraphFacts] = []
     trace_id: str

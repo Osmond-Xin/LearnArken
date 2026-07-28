@@ -64,7 +64,15 @@ schema chunk {
     field applic_properties type array<string> { indexing: summary | attribute }
     field applic_values type array<string> { indexing: summary | attribute }
 
-    field security_classification type string { indexing: summary }
+    # Attribute, not summary-only: authorisation must constrain the query
+    # itself, so this field has to be usable in the YQL `where` clause ahead of
+    # nearestNeighbor. Summary-only made engine-side clearance filtering
+    # impossible and forced a post-retrieval filter (red-team F-01, 2026-07-26).
+    # match: word keeps the two-digit code whole.
+    field security_classification type string {
+      indexing: summary | attribute
+      match: word
+    }
     field effective_date type string { indexing: summary }
     field expiry_date type string { indexing: summary }
   }

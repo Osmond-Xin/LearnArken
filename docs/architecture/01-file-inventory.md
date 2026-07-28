@@ -17,7 +17,8 @@
 | [.pre-commit-config.yaml](../../.pre-commit-config.yaml) | 提交前钩子：ruff 检查/格式化 + 大文件/合并冲突/私钥泄漏/行尾空白检查。**detect-private-key 是安全红线的机器执行层**。 |
 | [.github/workflows/ci.yml](../../.github/workflows/ci.yml) | CI：锁定安装 → lint → test。action 全部按 commit SHA 固定（防供应链漂移）。 |
 | [.gitignore](../../.gitignore) | 首个 commit 即配好：`.env`、密钥、缓存不入库（安全红线）。 |
-| [README.md](../../README.md) / [README.zh-CN.md](../../README.zh-CN.md) | 对外门面：业务场景、AI-first 工作流说明、进度表、**基准表**（检索消融/bake-off 由 `gen_benchmark_tables.py` 从 artifact 生成;对抗评估/κ 数字同样指向冻结 artifact,均含复跑命令）、诚实分层 Roadmap、仓库导览。对外一律英文（中文版为镜像）。 |
+| [README.md](../../README.md) / [README.zh-CN.md](../../README.zh-CN.md) | 对外门面：fail-closed 拦截链（16 道门）、S1000D 说明、混合检索原理 + 精简基准、golden set 与度量纪律、受管推理架构对照自评、诚实边界、联系方式。对外一律英文（中文版为镜像）。**基准全表已于 2026-07-25 迁至 [docs/BENCHMARKS.md](../BENCHMARKS.md)**。 |
+| [docs/BENCHMARKS.md](../BENCHMARKS.md) | 全部基准表 + 诚实解读 + 复跑命令;检索消融/bake-off 表由 `gen_benchmark_tables.py` 从 artifact 生成（标记区间内原地重写,禁止手改）,对抗评估/κ 数字指向冻结 artifact。 |
 | [CLAUDE.md](../../CLAUDE.md) | AI 实现方的操作规则：角色边界（SPEC 决策层人写、journal/裁决 AI 不碰）、自动红队闸、当日讨论纪要强制规则。 |
 
 ## 二、src/learnarken/ — 产品代码
@@ -155,7 +156,7 @@ CPU/IO 分工严格二分（Decision 7a）：多进程管 CPU-bound、asyncio �
 | [tools/measure_refusal_threshold.py](../../tools/measure_refusal_threshold.py) / [answer_sample_eval.py](../../tools/answer_sample_eval.py) | Day 5:从 golden 分数分布测拒答阈值(INV-5 artifact);带引用问答样本评估。 |
 | [tools/adversarial_eval.py](../../tools/adversarial_eval.py) | **Day 8**:对抗评估活体 runner(≡ `learnarken eval adversarial`)+ **确定性 κ 校准模式** `--kappa-only`(读冻结 judge artifact × 人工标签算 Cohen's κ,无活体调用——INV-5 复现命令)。 |
 | [tools/dense_bakeoff.py](../../tools/dense_bakeoff.py) / [probe_length_bias.py](../../tools/probe_length_bias.py) | Day 4a:dense 模型 bake-off(BGE-M3 vs Qwen3-8B;历史 MiniMax 行在 `b414fa4` 复现)；长度偏置证据脚本(自带 MiniMax 客户端,保证裁决证据可复跑 INV-5)。 |
-| [tools/gen_benchmark_tables.py](../../tools/gen_benchmark_tables.py) | 从 eval artifacts **生成** README 基准表(红队 day4 #1:手编表出过 R@5 > R@10 的算术不可能;标记区间内原地重写,禁止手改)。 |
+| [tools/gen_benchmark_tables.py](../../tools/gen_benchmark_tables.py) | 从 eval artifacts **生成** `docs/BENCHMARKS.md` 的基准表(2026-07-25 前目标是 README;红队 day4 #1:手编表出过 R@5 > R@10 的算术不可能;标记区间内原地重写,禁止手改)。 |
 | [tools/deep_research.py](../../tools/deep_research.py) | 每日循环步骤 1a(研)的自动化通道:Gemini Interactions API 跑官方 Deep Research(需付费 key;截至 2026-07-15 未实跑验证)。 |
 | tools/day11_ablation.py / day11_refusal_gate.py | **Day 11**:图谱检索六行消融 runner + G-RAG 拒答门评估(产 `eval/results/day11-*.json`)。 |
 | tools/day12_eval.py / day12_resolution.py | **Day 12**:多模态 describe/index 评估 + VLM 通道稳定性/分辨率探测(产 `day12-*.json`)。 |
@@ -204,7 +205,7 @@ CPU/IO 分工严格二分（Decision 7a）：多进程管 CPU-bound、asyncio �
 | [golden/day3.jsonl](../../eval/golden/day3.jsonl) | **人工标注的权威 golden set**：32 题（27 可答 + 5 无答案陷阱），Yi Xin 判定相关性。 |
 | golden/day4.jsonl | Day 4 消融用 golden（带分类标签）。 |
 | golden/day3.candidates.jsonl / day4.candidates.jsonl | AI 起草的候选题（红线：AI 只许起草，相关性判定人做；裁定后进权威 golden）。 |
-| results/day4-ablation.json / day4-bakeoff.json / day4-bakeoff-historical.json | Day 4 消融与 dense bake-off 数字 artifact——README 表由 `gen_benchmark_tables.py` 从这里生成；historical 保留 MiniMax 长度偏置的证据行。 |
+| results/day4-ablation.json / day4-bakeoff.json / day4-bakeoff-historical.json | Day 4 消融与 dense bake-off 数字 artifact——`docs/BENCHMARKS.md` 的表由 `gen_benchmark_tables.py` 从这里生成；historical 保留 MiniMax 长度偏置的证据行。 |
 | results/day5-answer-sample.json | Day 5 带引用问答样本评估结果（`answer_sample_eval.py` 产出）。 |
 | results/day5-refusal-threshold.json | **Day 5 实测拒答阈值 artifact（INV-5）**：从 golden 分数分布测出、非手挑，`load_threshold` 加载时校验有限且 ∈[0,1]（红队 day5 #6）。 |
 | traces/（git-ignored） | 每次 `query` 落一份五跨度 answer trace，可从语料复现。 |

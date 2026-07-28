@@ -179,7 +179,7 @@ class TestApplicabilityOverfetch:
 
         seen: dict = {}
 
-        def fake_mode_retriever(mode, chunks, k, strategy, package=None):
+        def fake_mode_retriever(mode, chunks, k, strategy, package=None, clearance=None):
             # Local corpus chunks (the C1/C2 guard rejects foreign ids), with
             # applicability overridden: rank 1 excluded for variant B, rank 2
             # is the real answer.
@@ -208,7 +208,7 @@ class TestApplicabilityOverfetch:
     def test_no_context_keeps_requested_k(self, monkeypatch):
         seen: dict = {}
 
-        def fake_mode_retriever(mode, chunks, k, strategy, package=None):
+        def fake_mode_retriever(mode, chunks, k, strategy, package=None, clearance=None):
             seen.update(k=k)
             return _FixedRetriever(documents=[])
 
@@ -224,7 +224,7 @@ class TestCloseoutSecondPass:
         # C1/C2: a stale or basename-colliding index must not be citable.
         from learnarken.chunking.documents import to_document
 
-        def fake_mode_retriever(mode, chunks, k, strategy, package=None):
+        def fake_mode_retriever(mode, chunks, k, strategy, package=None, clearance=None):
             return _FixedRetriever(documents=[to_document(_chunk("not-in-this-package"))])
 
         monkeypatch.setattr(retrieval, "_mode_retriever", fake_mode_retriever)
@@ -253,9 +253,9 @@ class TestCloseoutSecondPass:
         with pytest.raises(ValueError, match="duplicate golden query texts"):
             retrieval.run_ablation(["samples/package-a"], golden, modes=("bm25",))
 
-    def test_readme_tables_match_artifacts(self):
+    def test_benchmark_tables_match_artifacts(self):
         # C4: `--check` is the drift guard — a red-team #1 style hand edit
-        # (or a stale README after re-running the eval) fails the suite.
+        # (or stale docs/BENCHMARKS.md after re-running the eval) fails the suite.
         import subprocess
         import sys as _sys
 

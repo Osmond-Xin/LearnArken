@@ -41,16 +41,148 @@ def _demo_headers() -> dict:
 
 
 STAGE_LABELS = {
-    "retrieval": "检索中 (retrieval)…",
-    "rerank": "重排中 (rerank)…",
-    "generating": "生成中 (LLM)…",
+    "retrieval": "Retrieving…",
+    "rerank": "Reranking…",
+    "generating": "Generating (LLM)…",
 }
+# Noun phrases, not clauses: a label is read after "Gate:" and after
+# "Retracted · gate:", so anything sentence-shaped reads as broken grammar.
 GATE_LABELS = {
-    "threshold": "检索相关度阈值门 (threshold)",
-    "llm": "模型判定不可回答 (llm)",
-    "llm-contract": "模型输出契约门 (llm-contract)",
-    "citation-validation": "引用确证门 (citation-validation)",
+    "threshold": "retrieval relevance threshold (threshold)",
+    "llm": "evidence judged insufficient (llm)",
+    "llm-contract": "model output contract (llm-contract)",
+    "citation-validation": "citation verification (citation-validation)",
+    "figure-out-of-description": "claim beyond the figure description (figure-out-of-description)",
+    "transport": "interrupted generation (transport)",
 }
+
+
+def gate_label(gate) -> str:
+    """Label for a gate, falling back to the raw name. A gate the backend can
+    emit but this table does not know must still be nameable on screen — an
+    unlabelled gate used to render as '?', which told the operator nothing.
+    A non-string on the wire must not be used as a dict key (it may be
+    unhashable) — it degrades to '?' like any other unknown.
+
+    The fallback is stripped to plain characters first: gate labels land in
+    `st.warning` / `st.info`, which render markdown, and an unrecognised gate
+    is by definition a string this file has not vetted."""
+    if not isinstance(gate, str) or not gate:
+        return "?"
+    known = GATE_LABELS.get(gate)
+    if known:
+        return known
+    # Strip first, then cap: capping first would let a run of rejected
+    # characters eat the whole name and render it as "?" (red-team P3).
+    return "".join(c for c in gate if c.isalnum() or c in " _-")[:60] or "?"
+
+
+def _filled(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+#: Characters that occupy no space on screen. A retraction banner claims that
+#: text "was shown"; whitespace and zero-width runs were not.
+_INVISIBLE = frozenset(" \t\r\n​‌‍﻿")
+
+
+def visible_len(text: str) -> int:
+    return sum(1 for c in text if c not in _INVISIBLE)
+
+
+def record_event(entry: dict, event: str, payload: dict, streamed: str) -> str:
+    """Fold one SSE event into `entry`, returning the accumulated answer text.
+
+    Split out from the render loop so the bookkeeping can be tested against the
+    real event orders — `retract` before any token, tokens then `retract`,
+    tokens then a transport failure — rather than by handing the renderer a
+    state that the loop might never actually produce (red-team 2026-07-27 P2).
+    The loop keeps the widget calls; this keeps the state.
+    """
+    if event == "token":
+        return streamed + str(payload.get("text", ""))
+    if event == "restart":
+        # The generation broke its output contract and is being re-asked. What
+        # was shown belongs to the abandoned attempt, so the buffer resets with
+        # the screen — otherwise the next attempt's text appends to it. This is
+        # not a retraction: nothing has been judged, and the turn is still live.
+        entry["restarted"] = entry.get("restarted", 0) + 1
+        return ""
+    if event == "retract":
+        entry["retracted"] = True
+        entry["gate"] = payload.get("gate")
+        # How much was actually on screen, so the banner can say what the
+        # retraction withdrew instead of assuming it withdrew something.
+        entry["streamed_chars"] = visible_len(streamed)
+    elif event == "result":
+        entry["result"] = payload
+    elif event == "error":
+        entry["error"] = payload.get("message")
+    return streamed
+
+
+CITATION_FIELDS = ("chunk_id", "dmc", "source_path", "supporting_quote")
+
+
+def _is_answered(result: dict) -> bool:
+    """Whether a result carries a complete *answered* contract.
+
+    The backend never answers without at least one verified citation — an
+    answer with none is a refusal at the `citation-validation` gate — and every
+    citation it emits names its chunk, its DMC, its XPath and the quote that
+    grounds it. A citation missing any of those is not evidence this client may
+    display under "verified".
+    """
+    citations = result.get("citations")
+    return (
+        result.get("refused") is False
+        and _filled(result.get("answer_text"))
+        and isinstance(citations, list)
+        and bool(citations)
+        and all(
+            isinstance(c, dict) and all(_filled(c.get(f)) for f in CITATION_FIELDS)
+            for c in citations
+        )
+    )
+
+
+def _is_refusal(result: dict) -> bool:
+    """Whether a result carries a complete *refusal* contract.
+
+    A bare `{"refused": true}` must not pass: it would present a broken wire
+    contract as if the corpus were merely insufficient, which is the one
+    distinction this screen exists to make.
+    """
+    action = result.get("action")
+    return (
+        result.get("refused") is True
+        and _filled(result.get("answer_text"))
+        and _filled(result.get("refusal_gate"))
+        and isinstance(action, dict)
+        and _filled(action.get("what_would_resolve"))
+        and (_filled(action.get("owner")) or _filled(action.get("owner_reason")))
+    )
+
+
+def classify_turn(entry: dict) -> str:
+    """`"failed"` | `"refused"` | `"answered"` — the whole rendering decision.
+
+    Kept as one pure function so it can be tested directly and so no branch of
+    `render_answer` can quietly disagree with another. Everything that is not a
+    *complete* answer or a *complete* refusal is a failure: reading fields
+    defensively must never promote a broken payload into a verified answer
+    (red-team 2026-07-27 P1).
+    """
+    if "error" in entry:
+        return "failed"  # terminal even when the message is empty
+    result = entry.get("result")
+    if not isinstance(result, dict) or not _filled(result.get("trace_id")):
+        return "failed"  # no result, or one with no audit trail to point at
+    if result.get("refused") is True:
+        return "refused" if _is_refusal(result) else "failed"
+    if entry.get("retracted"):
+        return "failed"  # withdrawn, then answered anyway: contradictory
+    return "answered" if _is_answered(result) else "failed"
 
 
 def safe_json(text, default=None):
@@ -81,80 +213,159 @@ def sse_events(response):
 def render_answer(entry: dict) -> None:
     """Render one completed assistant turn from its stored outcome."""
     if entry.get("retracted"):
-        st.warning(
-            "⚠️ 已回撤:本次有内容生成,但未通过 "
-            f"{GATE_LABELS.get(entry.get('gate', ''), entry.get('gate', '?'))}"
-            " —— 刚才流式显示的内容不作为有效回答,已被撤回。"
-        )
-    if entry.get("error"):
-        st.error(f"🚫 服务失败(fail closed,未降级作答):{entry['error']}")
+        # What the retraction *did* depends on whether anything had reached the
+        # screen yet. Claiming "the text a moment ago has been withdrawn" when
+        # the gate fired before a single token was streamed describes an event
+        # the viewer never saw — the one thing this screen must not do.
+        st.warning(f"⚠️ Retracted · gate: {gate_label(entry.get('gate', ''))}")
+        shown = entry.get("streamed_chars")
+        if shown is None:
+            # An entry from before this client recorded it — absent is not the
+            # same as zero, and guessing either way would be the exact fault
+            # being fixed (red-team 2026-07-27 P2).
+            st.text("This turn did not record whether answer text had reached the screen.")
+        elif shown:
+            st.text(
+                "The text shown a moment ago was not verifiable and has been withdrawn. "
+                "It is not an answer."
+            )
+        else:
+            st.text(
+                "The gate fired before any answer text reached the screen, so there was "
+                "nothing to withdraw. The retraction protocol ran; you simply never saw "
+                "unverified text."
+            )
+    outcome = classify_turn(entry)
+    if outcome == "failed":
+        # Static header, dynamic detail through st.text: an indexing or upstream
+        # error can quote document text, and st.error renders markdown
+        # (red-team 2026-07-27 P2).
+        st.error("🚫 Fail closed — no answer is being presented for this turn.")
+        if entry.get("error"):
+            st.text(str(entry["error"]))
+        elif "error" in entry or not isinstance(entry.get("result"), dict):
+            st.text("the backend did not return a complete result")
+        else:
+            st.text("the backend returned a result this client cannot verify")
         return
-    result = entry.get("result")
-    if result is None:
-        return
-    if result["refused"]:
+    result = entry["result"]
+    if outcome == "refused":
+        # The gate and trace are this client's own vocabulary; the refusal text
+        # comes off the wire, so it goes through st.text. The backend uses a
+        # fixed placeholder today, but a dumb client must not depend on that
+        # (red-team 2026-07-27 P2).
         st.info(
-            f"⛔ 拒答:{result['answer_text']}\n\n"
-            f"触发关卡:{GATE_LABELS.get(result.get('refusal_gate', ''), '?')}"
-            f" · trace={result['trace_id']}"
+            f"⛔ Refused · gate: {gate_label(result['refusal_gate'])} · trace={result['trace_id']}"
         )
+        st.text(result["answer_text"])
+        # A refusal is a routed action item, not a dead end (Arken pillar 3):
+        # the same three parts the CLI prints — why (the gate above), what would
+        # resolve it, and who should act. Rendered with st.text: `owner_reason`
+        # can quote a DMC taken from the operator's own question.
+        action = result["action"]
+        st.text(f"What would resolve it: {action['what_would_resolve']}")
+        owner = action.get("owner")
+        if _filled(owner):
+            st.text(f"Who should act:        {owner}")
+        else:
+            st.text(f"Who should act:        unknown — {action.get('owner_reason', '—')}")
         return
     st.text(result["answer_text"])
-    st.caption(f"✅ 引用已确证 · model={result.get('model')} · trace={result['trace_id']}")
-    citations = result.get("citations", [])
-    if citations:
-        st.table(
-            [
-                {
-                    "chunk_id": c["chunk_id"],
-                    "DMC": c["dmc"],
-                    "XPath": c["source_path"],
-                    "佐证原文": c["supporting_quote"],
-                }
-                for c in citations
-            ]
-        )
+    # `model` comes off the wire from the generation service, and st.caption
+    # renders markdown — so it is stripped to plain characters like any other
+    # value this file has not vetted (red-team 2026-07-27 P3).
+    model = "".join(c for c in str(result.get("model", "")) if c.isalnum() or c in " ._-")[:40]
+    st.caption(f"✅ Citations verified · model={model} · trace={result['trace_id']}")
+    # Not `st.table`. An XPath contains no spaces, so it cannot wrap, and a
+    # table cell clips its content at a fixed width (~53 characters observed)
+    # *regardless of how wide the column is* — giving the value a column of its
+    # own left 765 px of the cell empty and still cut the path at
+    # `…/reqSafety/`. The XPath is the provenance claim, so a clipped one
+    # undercuts the whole screen.
+    #
+    # `st.text` takes the full container width and wraps, which is visible in
+    # the shipped refusal GIF where a long routed-refusal line runs to two
+    # lines across the frame. It also escapes, which citation values —
+    # document-derived — require.
+    #
+    # `classify_turn` has already established every field below is present and
+    # non-empty, so these are plain reads rather than guesses at a default.
+    citations = result["citations"]
+    for index, c in enumerate(citations, start=1):
+        if len(citations) > 1:
+            st.caption(f"Evidence {index} of {len(citations)}")
+        st.text(f"chunk_id — {c['chunk_id']}")
+        st.text(f"DMC — {c['dmc']}")
+        st.text(f"XPath — {c['source_path']}")
+        st.text(f"Supporting quote — {c['supporting_quote']}")
 
 
 def render_upload_outcome(status_code: int, payload: dict) -> None:
     status = payload.get("status", "")
     if status == "ingested":
-        replaced = "(覆盖了同名旧文件)" if payload.get("replaced") else ""
+        replaced = "(replaced a file of the same name)" if payload.get("replaced") else ""
         st.success(
-            f"✅ 校验通过,已入库 {replaced} — 全库共 {payload['indexed_chunks']} "
-            f"个 chunk 已重建索引,可立即提问。"
+            f"✅ Validation passed, admitted {replaced} — {payload.get('indexed_chunks', '?')} "
+            f"chunks reindexed across the corpus. You can ask about it now."
         )
+        findings = payload.get("report", {}).get("findings")
         warnings = [
-            f for f in payload.get("report", {}).get("findings", []) if f["severity"] != "error"
+            f
+            for f in (findings if isinstance(findings, list) else [])
+            if isinstance(f, dict) and f.get("severity") != "error"
         ]
         for f in warnings:
-            st.warning(f"⚠️ [{f['rule_id']}] {f['file']}: {f['message']}")
+            # Validator text quotes the uploaded file: st.text, never a
+            # markdown-rendering call.
+            st.text(f"⚠️ [{f.get('rule_id', '?')}] {f.get('file', '?')}: {f.get('message', '')}")
     elif status == "rejected":
-        st.error("❌ 校验失败,未入库(文件已移除):")
-        findings = payload.get("report", {}).get("findings", [])
+        st.error("❌ Validation failed — not admitted (the file was removed):")
+        findings = payload.get("report", {}).get("findings")
+        findings = findings if isinstance(findings, list) else []
         if not findings and payload.get("message"):
             st.text(payload["message"])
         for f in findings:
-            st.text(f"[{f['layer']}/{f['rule_id']}/{f['severity']}] {f['file']}: {f['message']}")
+            if not isinstance(f, dict):
+                continue
+            st.text(
+                f"[{f.get('layer', '?')}/{f.get('rule_id', '?')}/{f.get('severity', '?')}] "
+                f"{f.get('file', '?')}: {f.get('message', '')}"
+            )
     elif status == "index_failed":
-        st.error(f"🚫 校验通过但入库失败(fail closed,文件已移除):{payload.get('message')}")
+        # An indexing error can quote the document that failed, so the detail
+        # goes through st.text rather than a markdown-rendering call.
+        st.error("🚫 Validation passed but indexing failed (fail closed — the file was removed).")
+        st.text(str(payload.get("message", "")))
     else:
-        st.warning(f"⚠️ 上传被拒(HTTP {status_code}):{payload.get('detail', payload)}")
+        st.warning(f"⚠️ Upload refused (HTTP {status_code}).")
+        st.text(str(payload.get("detail", payload)))
 
 
-st.set_page_config(page_title="LearnArken Demo", page_icon="📘", layout="wide")
-st.title("LearnArken — 上传 + 有据问答 Demo(Day 6)")
+# The title is the first thing a recorded demo shows, and for most viewers the
+# only sentence they will read: it states the claim the whole system exists to
+# make, in the README's own words. "Day 6" was an internal daily-cycle label
+# that told an outside viewer nothing and read like a tutorial exercise.
+st.set_page_config(page_title="LearnArken — provenance or refusal", page_icon="📘", layout="wide")
+st.title("Every answer carries its provenance — or the system refuses")
+st.caption(
+    "LearnArken · fail-closed retrieval over S1000D aviation maintenance data. "
+    "Every claim lands on a chunk-ID, a DMC and an XPath; when the evidence will not "
+    "support one, a named gate stops the answer."
+)
 
 if DEMO_PUBLIC and not (DEMO_GATE_KEY and _visitor_key() == DEMO_GATE_KEY):
     # Visitor-facing gate: without the shared key from the token status page,
     # the app renders nothing spendable (day10 #1). The backend enforces the
     # same key on /query and /upload as defense in depth.
-    st.warning("此在线 Demo 需从邀请链接进入(缺少访问密钥)。请通过邮件中的链接打开。")
+    st.warning(
+        "This hosted demo is invitation-only (no access key). "
+        "Please open it through the link in your email."
+    )
     st.stop()
 
 with st.sidebar:
-    st.subheader("后端状态")
-    st.caption("Streamlit 是哑客户端:所有计算都发生在 FastAPI 后端。")
+    st.subheader("Backend status")
+    st.caption("Streamlit is a dumb client: all computation happens in the FastAPI backend.")
     try:
         # Public-safe: /demo/status returns stage booleans only, never probe
         # detail strings (day10 #7 — /health leaked internal paths to the UI).
@@ -162,24 +373,34 @@ with st.sidebar:
         status = safe_json(resp.text, default={})
         services = status.get("services") if isinstance(status, dict) else None
         if not services:
-            st.error(f"后端返回了非预期响应(HTTP {resp.status_code})。请先 `make demo`。")
+            st.error(
+                f"Unexpected response from the backend (HTTP {resp.status_code}). "
+                "Run `make demo` first."
+            )
         else:
             for name, ok in services.items():
                 st.markdown(f"{'🟢' if ok else '🔴'} {name}")
     except requests.RequestException as exc:
-        st.error(f"后端不可达({API_BASE}):{exc.__class__.__name__}。请先 `make demo`。")
+        st.error(
+            f"Backend unreachable ({API_BASE}): {exc.__class__.__name__}. Run `make demo` first."
+        )
 
-tabs = ["💬 问答"] if DEMO_PUBLIC else ["📤 上传文档", "💬 问答"]
+tabs = ["💬 Q&A"] if DEMO_PUBLIC else ["📤 Upload", "💬 Q&A"]
 tab_objs = st.tabs(tabs)
 qa_tab = tab_objs[-1]
 upload_tab = None if DEMO_PUBLIC else tab_objs[0]
 
 if upload_tab is not None:
     with upload_tab:
-        st.caption("上传合成 S1000D 数据模块(.xml ≤ 2 MiB)。后端跑四层校验;通过才入库。")
-        uploaded = st.file_uploader("选择 XML 文件", type=["xml"])
-        if uploaded is not None and st.button("上传并校验", type="primary"):
-            with st.spinner("校验 + 入库中(通过则全库重建索引,需要一点时间)…"):
+        st.caption(
+            "Upload a synthetic S1000D data module (.xml ≤ 2 MiB). The backend runs "
+            "four validation layers; only a module that passes is admitted."
+        )
+        uploaded = st.file_uploader("Choose an XML file", type=["xml"])
+        if uploaded is not None and st.button("Upload and validate", type="primary"):
+            with st.spinner(
+                "Validating and admitting (a pass reindexes the corpus — this takes a moment)…"
+            ):
                 try:
                     resp = requests.post(
                         f"{API_BASE}/upload",
@@ -192,7 +413,9 @@ if upload_tab is not None:
                         payload = {"detail": resp.text[:300]}
                     render_upload_outcome(resp.status_code, payload)
                 except requests.RequestException as exc:
-                    st.error(f"后端不可达:{exc.__class__.__name__}。请先 `make demo`。")
+                    st.error(
+                        f"Backend unreachable: {exc.__class__.__name__}. Run `make demo` first."
+                    )
 
 with qa_tab:
     if "history" not in st.session_state:
@@ -203,7 +426,7 @@ with qa_tab:
         with st.chat_message("assistant"):
             render_answer(entry)
 
-    question = st.chat_input("对已入库的文档提问(3–500 字符)…")
+    question = st.chat_input("Ask a question about the admitted documents (3–500 characters)…")
     if question:
         with st.chat_message("user"):
             st.text(question)
@@ -227,25 +450,27 @@ with qa_tab:
                     else:
                         for event, data in sse_events(resp):
                             payload = safe_json(data, default={}) if data else {}
+                            if not isinstance(payload, dict):
+                                payload = {}  # a wire payload that is not an object
+                            streamed = record_event(entry, event, payload, streamed)
                             if event == "status":
-                                stage.caption(
-                                    STAGE_LABELS.get(payload.get("stage"), payload.get("stage"))
-                                )
+                                st_stage = payload.get("stage")
+                                st_stage = st_stage if isinstance(st_stage, str) else ""
+                                stage.caption(STAGE_LABELS.get(st_stage, st_stage))
                             elif event == "token":
-                                streamed += payload["text"]
                                 stream_area.text(
-                                    "⏳ 生成中 — 以下内容未经引用确证,可能被回撤:\n\n" + streamed
+                                    "⏳ Generating — the text below is not yet "
+                                    "citation-verified and may be retracted:\n\n" + streamed
+                                )
+                            elif event == "restart":
+                                stream_area.text(
+                                    "↻ The model broke its output contract; asking again. "
+                                    "Nothing above is being kept."
                                 )
                             elif event == "retract":
-                                entry["retracted"] = True
-                                entry["gate"] = payload.get("gate")
                                 stream_area.empty()  # withdraw the unverified text
-                            elif event == "result":
-                                entry["result"] = payload
-                            elif event == "error":
-                                entry["error"] = payload.get("message")
             except requests.RequestException as exc:
-                entry["error"] = f"后端不可达:{exc.__class__.__name__}"
+                entry["error"] = f"Backend unreachable: {exc.__class__.__name__}"
             stage.empty()
             stream_area.empty()
             render_answer(entry)

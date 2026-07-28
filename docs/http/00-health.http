@@ -1,0 +1,33 @@
+# Vespa — health, deployment state, metrics
+# VS Code REST Client: click "Send Request" above each block.
+# See ./README.md for setup. Fields/ports come from
+# src/learnarken/vespa/app/schemas/chunk.sd and docs/local-services.md.
+
+@config = http://localhost:19071
+@query  = http://localhost:8080
+
+### Config server up? (the Day 3 readiness signal — answers before any deploy)
+GET {{config}}/state/v1/health
+
+### Query container up? (only answers AFTER an application package is deployed)
+GET {{query}}/state/v1/health
+
+### Which application generation is live (deploy took effect?)
+GET {{config}}/application/v2/tenant/default/application/default
+
+### Full deployed services config — confirms the chunk schema is in the package
+GET {{config}}/application/v2/tenant/default/application/default/environment/prod/region/default/instance/default/content/
+
+# Cluster-controller state ("up" per node, buckets out of sync) lives on port
+# 19050, which this container does not publish to the host — REST Client cannot
+# reach it. Use the container's own curl:
+#   docker exec learnarken-vespa curl -s localhost:19050/cluster/v2/learnarken
+
+### Container metrics (query latency, feed rate, memory)
+GET {{query}}/state/v1/metrics
+
+### Search-node metrics: doc count, attribute + index memory (embedding is 4096 floats/doc)
+GET {{query}}/metrics/v2/values
+
+### Application-level status — build info, container components
+GET {{query}}/ApplicationStatus

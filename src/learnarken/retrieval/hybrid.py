@@ -50,12 +50,18 @@ def hybrid_retriever(
     k: int = CANDIDATE_K,
     strategy: str = "structure",
     package: str | None = None,
+    clearance: str | None = None,
 ) -> EnsembleRetriever:
-    """BM25 + Vespa dense, fused by reciprocal rank (equal weights = plain RRF)."""
+    """BM25 + Vespa dense, fused by reciprocal rank (equal weights = plain RRF).
+
+    `chunks` is already clearance-filtered by the caller, which constrains the
+    BM25 arm; `clearance` additionally constrains the dense arm engine-side, so
+    neither route can surface an inadmissible chunk (red-team F-01).
+    """
     return EnsembleRetriever(
         retrievers=[
             bm25_retriever(chunks, k=k),
-            VespaDenseRetriever(k=k, strategy=strategy, package=package),
+            VespaDenseRetriever(k=k, strategy=strategy, package=package, clearance=clearance),
         ],
         weights=[0.5, 0.5],
         c=RRF_K,
@@ -68,6 +74,7 @@ def graph_hybrid_retriever(
     k: int = CANDIDATE_K,
     strategy: str = "structure",
     package: str | None = None,
+    clearance: str | None = None,
 ) -> EnsembleRetriever:
     """BM25 + dense + graph expansion, plain three-way RRF (Day 11, spec §3).
 
@@ -90,7 +97,7 @@ def graph_hybrid_retriever(
         retrievers=[
             graph_expansion_retriever(chunks, k=k),
             bm25_retriever(chunks, k=k),
-            VespaDenseRetriever(k=k, strategy=strategy, package=package),
+            VespaDenseRetriever(k=k, strategy=strategy, package=package, clearance=clearance),
         ],
         weights=[1 / 3, 1 / 3, 1 / 3],
         c=RRF_K,
@@ -139,10 +146,17 @@ def reranked_retriever(
     strategy: str = "structure",
     package: str | None = None,
     base: str = "hybrid",
+    clearance: str | None = None,
 ) -> ContextualCompressionRetriever:
-    """The full pipeline: RRF candidates (`base` fusion) → cross-encoder rerank → top k."""
+    """The full pipeline: RRF candidates (`base` fusion) → cross-encoder rerank → top k.
+
+    The reranker only ever sees admitted candidates: authorisation is applied
+    when the candidate pool is built, not to the reranked output.
+    """
     fuse = graph_hybrid_retriever if base == "hybrid-graph" else hybrid_retriever
     return ContextualCompressionRetriever(
-        base_retriever=fuse(chunks, k=candidate_k, strategy=strategy, package=package),
+        base_retriever=fuse(
+            chunks, k=candidate_k, strategy=strategy, package=package, clearance=clearance
+        ),
         base_compressor=_reranker(top_n=k),
     )

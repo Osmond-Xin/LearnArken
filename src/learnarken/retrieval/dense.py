@@ -30,6 +30,7 @@ class VespaDenseRetriever(BaseRetriever):
     strategy: str = "structure"  # only match chunks fed under this strategy
     package: str | None = None  # engine-side scope filter (red-team day4 #5)
     approximate: bool = False  # exact by default: no ANN confound at toy scale
+    clearance: str | None = None  # engine-side authorisation filter (red-team F-01)
     embeddings: Embeddings | None = Field(default=None, exclude=True)
 
     def _embedder(self) -> Embeddings:
@@ -50,6 +51,7 @@ class VespaDenseRetriever(BaseRetriever):
             strategy=self.strategy,
             package=self.package,
             approximate=self.approximate,
+            clearance=self.clearance,
         )
         documents = []
         for chunk, score in hits:

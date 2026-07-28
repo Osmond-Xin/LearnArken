@@ -23,6 +23,7 @@ Writes eval/results/day11-refusal-gate.json (INV-5 frozen artifact).
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -50,7 +51,14 @@ GOLDEN_SETS = {
 OUT = REPO_ROOT / "eval" / "results" / "day11-refusal-gate.json"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    # `--out` exists so a regression re-measure cannot clobber the frozen
+    # artifact by accident: re-measuring is a decision, not maintenance
+    # (ADR-0004). Default is unchanged.
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", default=str(OUT), help="where to write the report")
+    args = parser.parse_args(argv)
+    out_path = Path(args.out)
     # Neo4j checked first — it is this script's mode-specific precondition and
     # a cheap network ping, checked before the costlier Vespa manifest/engine
     # verification (also makes the fail-closed path hermetically testable
@@ -103,7 +111,7 @@ def main() -> int:
     )
     report["regressions"] = regressions
     report["pass"] = not regressions
-    OUT.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+    out_path.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
     print(
         f"traps={len(traps)} threshold={threshold} "
         f"hybrid={report['modes']['hybrid']['refusal_rate']} "

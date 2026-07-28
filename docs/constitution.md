@@ -120,9 +120,16 @@ there is no third state.
 
 ### INV-5 Reproducibility
 
-Every number appearing in the README must have: a fixed random seed, a
-versioned golden set, and a copy-pasteable reproduction command. Numbers that
-cannot be reproduced do not enter the README.
+Every number appearing in an outward-facing document — README, README.zh-CN,
+`docs/BENCHMARKS.md`, `docs/EVIDENCE.md`, resume — must have: a fixed random
+seed, a versioned golden set, and a copy-pasteable reproduction command.
+Numbers that cannot be reproduced do not get published.
+
+> Wording amended 2026-07-25 (red team `readme-refactor-2026-07-25` F-16): the
+> rule used to name only the README, and the benchmark tables had since moved
+> to `docs/BENCHMARKS.md` — the letter of the invariant no longer covered where
+> the numbers actually lived. **AI-drafted amendment to a human-owned document;
+> revert if this is not the intent.**
 
 ### INV-6 Human-Owned Evidence Chain
 

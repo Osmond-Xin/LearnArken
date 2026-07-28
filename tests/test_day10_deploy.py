@@ -287,3 +287,42 @@ class TestPublicModeGate:
             headers={"X-Demo-Key": "wrong"},
         )
         assert r.status_code == 403
+
+
+def test_a_retry_is_debited_against_the_llm_quota(monkeypatch):
+    """The quota unit is a user query, but a query whose completion breaks the
+    model's output contract is asked twice. Counting only queries would let the
+    fence permit twice the completions it advertises (red-team 2026-07-28 P1)."""
+    from learnarken.api.demo_guard import DemoGuard
+
+    monkeypatch.setenv("DEMO_PUBLIC", "1")
+    monkeypatch.setenv("DEMO_MAX_LLM_CALLS", "2")
+    guard = DemoGuard()
+    with guard.llm_slot():
+        assert guard.try_extra_llm_call()  # this query cost two generations
+    # One query is left on paper, but its budget is already spent.
+    with pytest.raises(Exception) as caught, guard.llm_slot():
+        pass
+    assert "limit" in str(caught.value)
+
+
+def test_try_extra_llm_call_is_open_outside_public_mode(monkeypatch):
+    from learnarken.api.demo_guard import DemoGuard
+
+    monkeypatch.delenv("DEMO_PUBLIC", raising=False)
+    guard = DemoGuard()
+    assert guard.try_extra_llm_call() is True
+    assert guard._calls == 0
+
+
+def test_an_exhausted_quota_declines_the_retry(monkeypatch):
+    """Asked before the second call, not reported after it: over quota the
+    query refuses on its first failure instead of buying a second generation
+    (red-team 2026-07-28 P2)."""
+    from learnarken.api.demo_guard import DemoGuard
+
+    monkeypatch.setenv("DEMO_PUBLIC", "1")
+    monkeypatch.setenv("DEMO_MAX_LLM_CALLS", "1")
+    guard = DemoGuard()
+    with guard.llm_slot():
+        assert guard.try_extra_llm_call() is False

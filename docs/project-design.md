@@ -1,5 +1,30 @@
 # LearnArken Project Design
 
+> ## ⚠ Read this first — this is the Day 0 design brief, not the delivered system
+>
+> This document was written **before implementation began**, and is preserved
+> **as written** so the gap between the plan and the delivery stays visible and
+> auditable. **It has not been updated to match what shipped, and much of it did
+> not ship.**
+>
+> Several technologies named below (SPLADE, ColBERT, HyDE, RDF/OWL + SPARQL,
+> GNN, Qdrant/FAISS ANN labs, vLLM/TGI/TensorRT-LLM serving, LlamaIndex, DSPy,
+> ONNX, a hand-written Rust extension, multi-standard adapters for ATA/MIL-STD/
+> DITA/ASD-SPEC) were **declined on measured evidence, deferred, or replaced** —
+> and other things that are *not* in this plan were built instead. The
+> **JD Coverage Matrix** below is likewise a Day 0 wish list and does not
+> describe the repository today.
+>
+> **Authoritative sources for what exists now:**
+> [README](../README.md) (system + gate chain) ·
+> [BENCHMARKS](BENCHMARKS.md) (every number) ·
+> [EVIDENCE](EVIDENCE.md) (claim → artifact → command) ·
+> [docs/adr/](adr/) (the decisions that overrode this plan).
+>
+> **Why it diverged**, item by item: see
+> [Design vs. delivered](#design-vs-delivered--what-changed-and-why) at the end
+> of this file.
+
 ## Conclusion
 
 Build this project as a **Technical Publication Intelligence Platform**:
@@ -497,3 +522,63 @@ Recommended resume line after implementation:
 
 Keep the wording honest: only list features after they have code, tests, and a
 demo artifact in this repository.
+
+> **This resume line is now unusable — do not use it.** By its own rule above it
+> is wrong: ColBERT retrieval, an RDF/SPARQL knowledge graph, and vLLM-backed
+> serving were never built (see the next section for why). The accurate
+> positioning is in [README §1–§6](../README.md) and the
+> [resume anchors in EVIDENCE.md](EVIDENCE.md).
+
+## Design vs. delivered — what changed and why
+
+Written at close-out (2026-07-25), after 13 delivered nodes (`v0.1.0` →
+`v1.3.0`). The short version: **the success criterion changed during
+execution.**
+
+This plan's stated goal was *"a credible learning system where every major JD
+keyword has a visible artifact"* (see [Conclusion](#conclusion)). That is a
+**coverage** criterion, and coverage rewards breadth: a shallow implementation
+of ColBERT, a toy SPARQL endpoint and a vLLM adapter would all have "counted".
+
+What replaced it was an **evidence** criterion: *every published claim has a
+reproducible artifact, and a technique is only built if a measurement says it is
+needed* (INV-5, INV-7). Under that rule several planned items had to be
+**declined on their own evidence**, and the declining was recorded in an ADR
+instead of being quietly dropped. Not building something for a defensible,
+measured reason became a deliverable in its own right.
+
+### Planned → declined, replaced, or deferred
+
+| Planned here | What happened | Why | Record |
+| --- | --- | --- | --- |
+| **SPLADE, ColBERT** late-interaction / learned-sparse retrieval | **Declined on evidence** | The paraphrase gap SPLADE would treat was already closed by dense retrieval (Recall@5 1.00 on paraphrase category) and identifier queries were not losing. Building them would have added surface with no measurable gain to report | [ADR-0001](adr/0001-day4b-gate-stays-shut.md) |
+| **HyDE** query expansion | Not built | Same gate: the ablation showed no retrieval deficit for it to close at this corpus size | [BENCHMARKS §3](BENCHMARKS.md#3-retrieval-mode-ablation--day-4) |
+| **RDF/OWL ontology + SPARQL + GNN embeddings** | **Replaced** by a Neo4j property graph built by *deterministically serializing* the S1000D `dmRef`/`graphic` declarations | S1000D already declares its relations; an ontology layer plus NLP entity extraction would have added modelling surface and hallucination risk without adding truth. The minimal graph-query slice shipped instead, and the graph *retrieval* route was then measured — and came out honestly flat post-rerank | [ADR-0002](adr/0002-minimal-graph-query-slice.md) · [BENCHMARKS §4](BENCHMARKS.md#4-graph-augmented-retrieval--day-11) |
+| **Qdrant / hnswlib HNSW, FAISS IVF / PQ / GPU labs** | **Replaced** by Vespa with *exact* `nearestNeighbor` | At 43 chunks, ANN is a confound, not a feature: approximation error would have polluted every ablation row. Exact search removes that term. Vespa also gives one engine for both the lexical and the tensor path | [BENCHMARKS §3](BENCHMARKS.md#3-retrieval-mode-ablation--day-4) |
+| **vLLM / TGI / TensorRT-LLM serving, PagedAttention, prefix caching, speculative decoding** | Not built; generation is a remote chat model behind one swappable interface | The dev machine already hosts an 8B embedder and a cross-encoder. Serving experiments here would have measured *this laptop*, and INV-7 forbids publishing that as a serving claim. Measuring nothing is more honest than publishing a number that means nothing | [constitution §2](constitution.md) |
+| **Hand-written Rust / PyO3 extension, ONNX export, numba, Python free-threading** | **Declined after profiling** | py-spy/cProfile put the CPU in lxml, Pydantic and C-extensions — there is no pure-Python or pure-numeric hot path to accelerate on this corpus. Rust performance is obtained as an *informed consumer* (`pydantic-core`, HuggingFace `tokenizers`) instead of by writing an extension | [ADR-0003](adr/0003-day13-rust-gate.md) · [BENCHMARKS §8](BENCHMARKS.md#8-performance--inference-strategy--day-13) |
+| **LlamaIndex, DSPy, Haystack** | Not used; LangChain only, with an audited usage boundary | Three overlapping frameworks would have been keyword coverage, not architecture. One framework with a written boundary of *what it is and is not allowed to own* is the defensible choice | [architecture/02](architecture/02-system-architecture.md) (LangChain usage-boundary audit) |
+| **Adapters for ATA iSpec 2200, MIL-STD-40051, DITA, ASD-SPEC 2000M** | Scope cut to S1000D-like only | INV-1 permits synthetic data only, so four standards would have meant four sets of invented fixtures and four shallow adapters. One standard with a real four-layer validator (L0–L3), an enumerated violation manifest and a graph derived from its own declarations is worth more than four adapter shells | [constitution §4](constitution.md) |
+| **ISO / AS9100 / 21 CFR / GDPR / HIPAA / ITAR compliance features** | Not built | Audit substrate exists (per-answer traces written in-operation, the evidence chain, red-team + adjudication records), but regulatory tagging, PII redaction and export-control propagation were never scoped into a day | — |
+| **Temporal graph versioning, counterfactual "what-if" agent, world-model simulation** | Deferred | The `issue`/`inWork` version semantics are modelled in the canonical model and checked at L3 (DML mismatch), but no temporal graph or counterfactual agent was built | [execution-plan.md](execution-plan.md) |
+
+### Delivered but *not* in this plan
+
+The bigger divergence is in the other direction — the parts that turned out to
+matter were not in this document at all:
+
+| Delivered | Why it displaced planned work |
+| --- | --- |
+| **Fail-closed as the organizing principle** — 16 gates across ingest / answer / repair / exposure, all failing in the same direction | This plan treats validation and QA as separate *features*. In a maintenance domain they are one **interception chain**, and that framing became the project's actual thesis ([README §2](../README.md#2-the-interception-chain)) |
+| **Adversarial evaluation with two heterogeneous judges + Cohen's κ against blind human labels** | The plan asked for a "critic agent". What was needed was an evaluator that is *itself evaluated* — a same-family judge self-prefers its generator's hallucinations, and an uncalibrated judge is just another unverified claim ([BENCHMARKS §6](BENCHMARKS.md#6-adversarial-evaluation--day-8)) |
+| **Repair agent with a per-patch human approval gate, deterministic re-validation, sandbox jail and a reward-hack deletion veto** | "Evaluator-critic refinement" in the plan; in practice the hard parts were refusing to let the LLM certify its own fix, and stopping the reward hack of deleting the node to silence the finding |
+| **Machine-readable evidence chain** (`llms.txt`, `EVIDENCE.md`, guard test that fails CI on a dead link or a drifted number) | Not in the plan at all. It is what makes every other claim checkable by a third party — including a hiring-side AI agent |
+| **Multimodal figure ingest** — describe-then-index, SHA-256 image binding, mechanical hotspot diff, G15 second-look consensus refusal | Not in the plan. Figures are where a RAG system hallucinates most confidently, so they needed their own gate rather than a caption field |
+| **On-demand real-stack deployment with layered fail-closed cost fences** | The plan said "deployable inference services". The real constraint was that the honest stack costs money to run, so the demo boots the *real* topology on request rather than shipping a degraded permanent copy |
+| **Tree-of-Thoughts repair selected by the deterministic validator** — with the honest result that it gave **no quality gain at ~2.8× the token cost** | A planned "ToT/GoT/MCTS" keyword became a measured *"when is search not worth it"* result — which is the more useful engineering answer |
+
+### The one-line summary
+
+The plan was organized around **what to demonstrate**. The delivery reorganized
+itself around **what can be proven**. Where the two conflicted, the evidence
+won, and the loss is recorded in an ADR rather than edited out of this file.

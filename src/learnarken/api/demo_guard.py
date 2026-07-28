@@ -17,6 +17,24 @@ the red team required — all fail-closed (INV-4), all off by default so local
 
 Quotas reset with the process; the VM is short-lived and auto-shuts after 30
 idle minutes, so a per-boot in-memory counter is the right scope.
+
+**The cap counts calls, not tokens, so the completion budget moves the ceiling
+with it.** When ``llm/minimax.py`` raised ``_MAX_TOKENS`` from 2048 to 16384
+(2026-07-27, to stop M3's think block truncating mid-JSON), the worst-case
+completion exposure per boot went from ``200 × 2048 ≈ 410k`` to
+``200 × 16384 ≈ 3.3M`` output tokens. Typical runs are nowhere near it —
+measured completions on the day-6 query path ran 211–7305 tokens — but the
+*bound* is 8× looser, and a token quota cannot replace it honestly because
+``usage`` comes back null on the streaming path. Re-deciding
+``DEMO_MAX_LLM_CALLS`` against the $20 envelope is a human call (red-team
+round 4 P1); the default is left where day 10 put it.
+
+**The contract retry (ruled 2026-07-28) doubles that ceiling again.** A quota
+unit is one query, and a query that trips the model's output contract now asks
+twice, so the worst case per boot is ``200 × 2 × 16384 ≈ 6.6M`` output tokens.
+Measured, the retry fires on about one query in twelve, so the *expected* cost
+is a few per cent — but the bound is the bound, and it belongs in the same
+decision as the line above.
 """
 
 from __future__ import annotations
@@ -61,6 +79,27 @@ class DemoGuard:
         self._calls = 0
         self._active = 0
         self._window_start = time.time()
+
+    def try_extra_llm_call(self) -> bool:
+        """Reserve a generation that was not the one `llm_slot` booked.
+
+        The quota unit is a user query, but a query whose completion breaks the
+        model's output contract is asked twice (engine, 2026-07-28). Counting
+        only queries would let the fence permit twice the completions it
+        advertises (red-team P1).
+
+        Asked *before* the second call, not reported after it: a module crafted
+        to make the model return a malformed object every time would otherwise
+        be a way to buy two full generations per query. Over quota, this returns
+        False and the query refuses on its first failure instead (P2).
+        """
+        if not self.public:
+            return True
+        with self._lock:
+            if self._calls >= self.max_calls:
+                return False
+            self._calls += 1
+            return True
 
     def key_ok(self, provided: str | None) -> bool:
         """Constant-time compare; open (True) when not in public mode."""

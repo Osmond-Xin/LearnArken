@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
 import sys
 from pathlib import Path
 
 from learnarken.chunking import STRATEGIES, PartialPackageError, chunk_package
+from learnarken.clearance import CLASSIFICATIONS
+from learnarken.gaps import collect_gaps, render_gaps
 from learnarken.graph import store as graph_store
 from learnarken.models import DataModule, PackageModel
 from learnarken.package import NotAPackageError, _sanitize, scan_package
@@ -21,6 +25,62 @@ from learnarken.retrieval import (
 )
 from learnarken.validation import ValidationReport, analyze_package
 from learnarken.validation.rules import BREX_RULES
+
+#: Divider between whatever the model loaders wrote and the command's answer.
+#: Same width as the citation table's rule, so the block reads as one unit.
+_RULE = "\n" + "─" * 102
+
+
+class _DropAnonymousHubWarning(logging.Filter):
+    """Drop only the hub's "you are anonymous" notice, keeping the rest.
+
+    The hub returns it in an `X-HF-Warning` header on every anonymous read and
+    `huggingface_hub` re-logs it verbatim, several times per model load.
+    """
+
+    #: Matched from the start of the message, so a *different* warning that
+    #: merely mentions anonymous reads (a 429 explaining the rate limit, say)
+    #: is not swallowed with it.
+    NOTICE = "Warning: You are sending unauthenticated requests to the HF Hub"
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not record.getMessage().startswith(self.NOTICE)
+
+
+def _quiet_model_loading() -> None:
+    """Keep local model loading out of the command's own output.
+
+    Two things interleaved with the answer and its citations:
+
+    * a per-shard ``Loading weights`` bar. `transformers` fixes whether its
+      tqdm is live when ``transformers.utils.logging`` is imported — which has
+      already happened by the time this module finishes importing — so the
+      switch is thrown through its API rather than the environment variable
+      that only works pre-import.
+    * ``Warning: You are sending unauthenticated requests to the HF Hub…`` —
+      neither ours nor actionable: the hub returns it in an ``X-HF-Warning``
+      response header on anonymous reads and `huggingface_hub` re-logs it once
+      per request. The models are public and cached; a token would only raise a
+      rate limit we never approach.
+
+    The environment variable is still set (with `setdefault`, so an operator's
+    own export wins) because hub *download* bars are a separate switch.
+
+    The hub warning is dropped with a **filter on that one message**, not by
+    raising the logger's level: the same logger carries 429 backoff, retry and
+    connection-failure warnings, which are exactly what explains a run that
+    looks stuck (red-team 2026-07-27 P2).
+    """
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    hub_log = logging.getLogger("huggingface_hub.utils._http")
+    if not any(isinstance(f, _DropAnonymousHubWarning) for f in hub_log.filters):
+        hub_log.addFilter(_DropAnonymousHubWarning())  # idempotent: called per entry
+    try:
+        from transformers.utils import logging as hf_logging
+
+        hf_logging.disable_progress_bar()
+    except (ImportError, AttributeError) as exc:  # cosmetic: never fail a command over it
+        logging.getLogger("learnarken").debug("could not disable the transformers bar: %s", exc)
 
 
 def _positive_int(raw: str) -> int:
@@ -134,6 +194,26 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     else:
         print(_render_validation_human(report))
     return 1 if report.error_count else 0
+
+
+def _cmd_gaps(args: argparse.Namespace) -> int:
+    """Exit codes: 0 = no gaps in admitted knowledge; 1 = admitted gaps found; 2 = not a package.
+
+    A pre-admission gap does not set the failure code: the package carrying it
+    was already rejected by `validate`, which is the command that owns that
+    verdict. This command reports, it does not re-adjudicate ingest.
+    """
+    accepted = tuple(m.strip() for m in args.accepted_models.split(",") if m.strip())
+    try:
+        report = collect_gaps(list(args.package), accepted_models=accepted)
+    except NotAPackageError as exc:
+        print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False, default=str))
+    else:
+        print(render_gaps(report), end="")
+    return 1 if report.admitted_gaps else 0
 
 
 def _dm_payload(dm: DataModule, package: PackageModel, report: ValidationReport) -> dict:
@@ -297,6 +377,7 @@ def _cmd_search(args: argparse.Namespace) -> int:
             context=context,
             skip_bad=args.skip_bad,
             mode=args.mode,
+            clearance=args.clearance,
         )
     except NotAPackageError as exc:
         print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
@@ -526,7 +607,11 @@ def _cmd_query(args: argparse.Namespace) -> int:
 
     try:
         result = answer_question(
-            args.question, package_dirs=args.package, k=args.top_k, mode=args.mode
+            args.question,
+            package_dirs=args.package,
+            k=args.top_k,
+            mode=args.mode,
+            clearance=args.clearance,
         )
     except NotAPackageError as exc:
         print(f"error: {_sanitize(str(exc))}", file=sys.stderr)
@@ -547,9 +632,22 @@ def _cmd_query(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
         return 3 if result.refused else 0
+    # Anything the model loaders printed on the way here stops at this line, so
+    # the answer and its evidence are never read as a continuation of it.
+    print(_RULE)
     if result.refused:
         print(_sanitize(result.answer_text))
         print(f"\n  (refused · gate={result.refusal_gate} · trace={result.trace_id})")
+        # A refusal is a routed action item, not a dead end: show what would
+        # resolve it and who should act, in the default output rather than only
+        # in --json (red-team P3, 2026-07-27).
+        if result.action is not None:
+            print(f"    what would resolve it: {_sanitize(result.action.what_would_resolve)}")
+            if result.action.owner:
+                print(f"    who should act:        {_sanitize(result.action.owner)}")
+            else:
+                why = _sanitize(result.action.owner_reason or "")
+                print(f"    who should act:        unknown — {why}")
         return 3
     print(_sanitize(result.answer_text))
     lines = ["", f"  {'CHUNK_ID':<12} {'DMC':<42} XPATH"]
@@ -684,6 +782,11 @@ def _print_repair_report(report) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Here rather than at module import: importing the CLI must not mutate the
+    # environment, the hub's logger and the transformers progress-bar switch
+    # for a whole process that only wanted `main` (red-team 2026-07-27 P2).
+    # Everything it silences is emitted later, when a command loads a model.
+    _quiet_model_loading()
     parser = argparse.ArgumentParser(prog="learnarken")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -757,6 +860,12 @@ def main(argv: list[str] | None = None) -> int:
         help="search readable modules instead of failing when some cannot be parsed",
     )
     search_parser.add_argument("--json", action="store_true", help="output JSON")
+    search_parser.add_argument(
+        "--clearance",
+        choices=list(CLASSIFICATIONS),
+        default=None,
+        help="caller security clearance (01-05); sources above it never enter retrieval",
+    )
     search_parser.set_defaults(func=_cmd_search)
 
     query_parser = subparsers.add_parser(
@@ -781,6 +890,14 @@ def main(argv: list[str] | None = None) -> int:
         "refusal-threshold rerank pass always runs",
     )
     query_parser.add_argument("--json", action="store_true", help="output the answer object")
+    query_parser.add_argument(
+        "--clearance",
+        choices=list(CLASSIFICATIONS),
+        default=None,
+        help="caller security clearance (S1000D securityClassification, 01-05). "
+        "Sources above it are withheld BEFORE retrieval. Omitted = no "
+        "authorisation is enforced and none is claimed",
+    )
     query_parser.set_defaults(func=_cmd_query)
 
     eval_parser = subparsers.add_parser("eval", help="retrieval evaluation")
@@ -904,6 +1021,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     adversarial_parser.add_argument("--json", action="store_true", help="output JSON")
     adversarial_parser.set_defaults(func=_cmd_eval_adversarial)
+
+    gaps_parser = subparsers.add_parser(
+        "gaps",
+        help="declared-but-absent data modules, routed to an owner (Arken pillar 4)",
+    )
+    gaps_parser.add_argument(
+        "package", nargs="+", help="one or more package directories forming the corpus"
+    )
+    gaps_parser.add_argument("--json", action="store_true", help="output JSON")
+    gaps_parser.add_argument(
+        "--accepted-models",
+        default="LA100",
+        help="comma-separated modelIdentCode domain allowlist (default: LA100)",
+    )
+    gaps_parser.set_defaults(func=_cmd_gaps)
 
     graph_parser = subparsers.add_parser(
         "graph", help="dependency-graph queries (Neo4j; ADR-0002 interface ①)"

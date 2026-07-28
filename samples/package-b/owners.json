@@ -1,0 +1,15 @@
+{
+  "_note": [
+    "Project-authored synthetic ownership data. NOT an S1000D field.",
+    "S1000D carries responsiblePartnerCompany natively, but populating it would",
+    "change the bytes of a sample DM and therefore every chunk id derived from",
+    "it (chunking.base.make_chunk_id), invalidating the corpus manifest. Ruling",
+    "D5, 2026-07-26 — see docs/specs/arken-alignment-2026-07-26.md.",
+    "System 49 (APU) is deliberately absent so the unrouted path stays visible:",
+    "an unknown owner must surface as unknown, never as a plausible guess."
+  ],
+  "by_system": {
+    "24": "Electrical Power Authoring Cell",
+    "29": "Hydraulic Systems Authoring Cell"
+  }
+}

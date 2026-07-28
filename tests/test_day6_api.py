@@ -3,6 +3,7 @@ services mocked — no Vespa/Neo4j/LLM/models), the engine's SSE event
 emission, and the frontend's dumb-client purity. Live end-to-end runs are
 manual via `make demo`."""
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -18,13 +19,26 @@ from learnarken.answer import AnswerResult, Citation, answer_question
 from learnarken.chunking.base import Chunk
 from learnarken.graph import GraphFacts
 from learnarken.llm import LLMError
-from learnarken.llm.minimax import ChatResult
+from learnarken.llm.minimax import ChatResult, LLMContractError
 from learnarken.vespa import VespaError
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 # ---------------------------------------------------------------- helpers
+
+
+def _frontend_dict(name: str) -> dict:
+    """Read a module-level dict literal out of the Streamlit app without
+    importing it — the frontend needs streamlit installed, and importing it
+    would also run the page."""
+    tree = ast.parse((REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
+            return ast.literal_eval(node.value)
+    raise AssertionError(f"{name} not found in the frontend")
 
 
 def _events(sse_text: str) -> list[tuple[str, dict]]:
@@ -265,7 +279,15 @@ class TestQuerySSE:
     def _fake_answer(self, script):
         """script(on_event) -> AnswerResult, wired as answer_question."""
 
-        def fake(question, package_dirs=None, k=5, mode="hybrid-rerank", on_event=None):
+        def fake(
+            question,
+            package_dirs=None,
+            k=5,
+            mode="hybrid-rerank",
+            on_event=None,
+            clearance=None,
+            may_retry=None,
+        ):
             return script(question, on_event)
 
         return fake
@@ -415,7 +437,7 @@ def wired(monkeypatch, tmp_path):
     monkeypatch.setattr(
         engine,
         "_candidates",
-        lambda question, c, mode: [
+        lambda question, c, mode, clearance=None: [
             Document(page_content=ch.text, metadata={"chunk_id": ch.chunk_id}) for ch in chunks
         ],
     )
@@ -453,6 +475,222 @@ def _fake_stream(parsed: dict):
         )
 
     return fake
+
+
+class TestContractRetry:
+    """Ruled 2026-07-28: one re-ask when the model breaks its output contract.
+
+    M3 intermittently closes its think block a token late and swallows the start
+    of what follows, so the response no longer parses — 2 of 24 runs once the
+    salvage that used to hide it was removed (review F-33). Re-asking is not
+    reconstructing: nothing from the failed response is used.
+    """
+
+    GOOD = {
+        "is_answerable": True,
+        "answer": "Release the pressure.",
+        "citations": [{"chunk_id": "c1", "supporting_quote": "Release the pressure."}],
+    }
+
+    def _run(self, monkeypatch, attempts):
+        """`attempts` is a list of either an exception to raise or a parsed dict."""
+        calls = []
+
+        def fake(system, user, *, on_delta=None, **kwargs):
+            outcome = attempts[len(calls)]
+            calls.append(1)
+            if isinstance(outcome, Exception):
+                if on_delta:  # a broken response still streams before it fails
+                    on_delta('<think>t</think>{"answer": "half of a doomed answer"')
+                raise outcome
+            return _fake_stream(outcome)(system, user, on_delta=on_delta or (lambda t: None))
+
+        monkeypatch.setattr(engine, "chat_json_stream", fake)
+        monkeypatch.setattr(engine, "chat_json", fake)
+        events: list[tuple[str, dict]] = []
+        result = answer_question(
+            "How do I remove the pump?", on_event=lambda k, d: events.append((k, d))
+        )
+        return events, result, len(calls)
+
+    def test_a_contract_failure_is_re_asked_once(self, monkeypatch, wired):
+        events, result, calls = self._run(
+            monkeypatch,
+            [LLMContractError("post-think content is not JSON", retryable=True), self.GOOD],
+        )
+        assert calls == 2
+        assert not result.refused
+        assert [k for k, _ in events].count("restart") == 1
+
+    def test_the_client_is_told_to_drop_the_abandoned_attempt(self, monkeypatch, wired):
+        """`restart`, not `retract`: nothing has been judged, and the turn is
+        still live — a successful retry must not look self-contradictory."""
+        events, result, _ = self._run(
+            monkeypatch, [LLMContractError("boom", retryable=True), self.GOOD]
+        )
+        kinds = [k for k, _ in events]
+        assert "retract" not in kinds
+        assert kinds.index("restart") < len(kinds) - 1
+        # tokens from the doomed attempt arrive before the restart, none after it
+        # belong to it
+        restart_at = kinds.index("restart")
+        assert "token" in kinds[:restart_at]
+
+    def test_two_failures_still_refuse(self, monkeypatch, wired):
+        events, result, calls = self._run(
+            monkeypatch,
+            [LLMContractError("first", retryable=True), LLMContractError("second", retryable=True)],
+        )
+        assert calls == 2, "exactly one retry, not a loop"
+        assert result.refused and result.refusal_gate == "llm-contract"
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            LLMContractError("completion truncated at the max_tokens budget (16384)"),
+            LLMContractError("completion ended with finish_reason='content_filter', not 'stop'"),
+            LLMContractError("expected exactly one choice, got 2"),
+        ],
+    )
+    def test_only_the_late_tag_class_is_re_asked(self, error, monkeypatch, wired):
+        """Red-team P1: the ruling was to re-ask the late-`</think>` parse
+        defect. Re-asking a truncated or filtered completion spends a second
+        full generation on an outcome that will not change — or asks again after
+        upstream already declined."""
+        events, result, calls = self._run(monkeypatch, [error, self.GOOD])
+        assert calls == 1, "no retry for a non-retryable contract failure"
+        assert result.refused and result.refusal_gate == "llm-contract"
+        assert "restart" not in [k for k, _ in events]
+
+    def test_the_failed_body_is_not_kept_on_a_recovered_run(self, monkeypatch, wired, tmp_path):
+        """The failed body is model output shaped by uploaded evidence; it has
+        no business surviving in the trace of a run that succeeded (P2)."""
+        import learnarken.answer.trace as trace_mod
+
+        monkeypatch.setattr(trace_mod, "TRACE_DIR", tmp_path)
+        secret = "smuggled-from-a-hostile-module"
+        _, result, _ = self._run(
+            monkeypatch,
+            [
+                LLMContractError(f"post-think content is not JSON: '{secret}'", retryable=True),
+                self.GOOD,
+            ],
+        )
+        written = (tmp_path / f"{result.trace_id}.json").read_text()
+        assert secret not in written
+        assert "post-think content is not JSON" in written
+
+    def test_the_retry_does_not_re_send_an_identical_prompt(self, monkeypatch, wired):
+        """A re-ask at temperature 0 with a byte-identical prompt is not an
+        independent sample. The first shipped retry kept one delimiter across
+        both attempts, and Yi Xin's INV-6 run saw both retries reproduce the
+        fault. This pins that the second attempt differs; it does not claim the
+        endpoint is deterministic (a same-delimiter probe varied).
+        """
+        prompts = []
+
+        def fake(system, user, *, on_delta=None, **kwargs):
+            prompts.append(system)
+            if len(prompts) == 1:
+                raise LLMContractError("post-think content is not JSON", retryable=True)
+            return _fake_stream(self.GOOD)(system, user, on_delta=on_delta or (lambda t: None))
+
+        monkeypatch.setattr(engine, "chat_json_stream", fake)
+        answer_question("How do I remove the pump?", on_event=lambda k, d: None)
+        assert len(prompts) == 2
+        assert prompts[0] != prompts[1], "the re-ask must not be the same prompt"
+
+    def test_a_malformed_shape_is_re_asked_too(self, monkeypatch, wired):
+        """Observed live 2026-07-28: M3 returned
+        `{"is_answerable": false, "  answer": "", "citations": []}` — valid JSON
+        with two spaces inside a key. That is a generation glitch, not a
+        statement about the corpus, so under the same ruling it gets one
+        re-ask."""
+        bad = {"is_answerable": False, "  answer": "", "citations": []}
+        events, result, calls = self._run(monkeypatch, [bad, self.GOOD])
+        assert calls == 2
+        assert not result.refused
+        assert "restart" in [k for k, _ in events]
+
+    def test_a_shape_that_stays_malformed_refuses_with_its_keys(self, monkeypatch, wired):
+        bad = {"is_answerable": False, "  answer": "", "citations": []}
+        _, result, calls = self._run(monkeypatch, [bad, bad])
+        assert calls == 2
+        assert result.refused and result.refusal_gate == "llm-contract"
+
+    def test_a_transport_error_is_not_retried(self, monkeypatch, wired):
+        """Only a *contract* failure is re-asked; the network failing once fails
+        closed, as it did before."""
+        with pytest.raises(LLMError):
+            self._run(monkeypatch, [LLMError("unreachable"), self.GOOD])
+
+    def test_a_recovered_run_keeps_no_attacker_controlled_keys(self, monkeypatch, wired, tmp_path):
+        """The first attempt's *keys* are model output shaped by uploaded
+        evidence. A run that recovered must not carry them (red-team P3)."""
+        import learnarken.answer.trace as trace_mod
+
+        monkeypatch.setattr(trace_mod, "TRACE_DIR", tmp_path)
+        smuggled = "copied_secret_from_module"
+        bad = {"is_answerable": False, smuggled: "", "citations": []}
+        _, result, _ = self._run(monkeypatch, [bad, self.GOOD])
+        assert smuggled not in (tmp_path / f"{result.trace_id}.json").read_text()
+
+    def test_the_retry_can_be_declined(self, monkeypatch, wired):
+        """Public mode over quota: refusing on the first failure is fail-closed;
+        spending anyway would make the fence advertise a bound it does not hold."""
+        calls = []
+
+        def fake(system, user, *, on_delta=None, **kwargs):
+            calls.append(1)
+            raise LLMContractError("post-think content is not JSON", retryable=True)
+
+        monkeypatch.setattr(engine, "chat_json_stream", fake)
+        result = answer_question(
+            "How do I remove the pump?", on_event=lambda k, d: None, may_retry=lambda: False
+        )
+        assert calls == [1], "a declined retry must not spend a second generation"
+        assert result.refused and result.refusal_gate == "llm-contract"
+
+    def test_the_non_streaming_path_retries_a_malformed_shape(self, monkeypatch, wired):
+        """The CLI takes the non-streaming path and deserves the same (P3)."""
+        results = [
+            {"is_answerable": False, "  answer": "", "citations": []},
+            self.GOOD,
+        ]
+        calls = []
+
+        def fake(system, user, **kwargs):
+            parsed = results[len(calls)]
+            calls.append(1)
+            return _fake_stream(parsed)(system, user, on_delta=lambda t: None)
+
+        monkeypatch.setattr(engine, "chat_json", fake)
+        result = answer_question("How do I remove the pump?")
+        assert len(calls) == 2 and not result.refused
+
+    def test_the_retry_is_visible_in_the_trace(self, monkeypatch, wired, tmp_path):
+        import learnarken.answer.trace as trace_mod
+
+        monkeypatch.setattr(trace_mod, "TRACE_DIR", tmp_path)
+        _, result, _ = self._run(
+            monkeypatch, [LLMContractError("late tag", retryable=True), self.GOOD]
+        )
+        written = json.loads((tmp_path / f"{result.trace_id}.json").read_text())
+        assert "late tag" in written["llm"]["recovered_after_contract_failure"]
+
+    def test_the_non_streaming_path_retries_too(self, monkeypatch, wired):
+        """The CLI takes the non-streaming path and deserves the same."""
+        calls = []
+
+        def fake(system, user, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise LLMContractError("late tag", retryable=True)
+            return _fake_stream(self.GOOD)(system, user, on_delta=lambda t: None)
+
+        monkeypatch.setattr(engine, "chat_json", fake)
+        result = answer_question("How do I remove the pump?")
+        assert calls == [1, 1] and not result.refused
 
 
 class TestEngineEvents:
@@ -526,3 +764,358 @@ class TestFrontendPurity:
     def test_frontend_never_renders_raw_html(self):
         source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
         assert not re.search(r"unsafe_allow_html\s*=\s*True", source)
+
+    def test_every_gate_the_backend_emits_is_labelled(self):
+        """A gate the engine can refuse at must be nameable on screen. The
+        frontend cannot import learnarken, so the two tables are kept in step
+        here instead — `figure-out-of-description` had drifted out and rendered
+        as '?'."""
+        from learnarken.refusal import RESOLUTIONS
+
+        labels = _frontend_dict("GATE_LABELS")
+        missing = sorted(set(RESOLUTIONS) - set(labels))
+        assert not missing, f"gates the demo UI cannot name: {missing}"
+        # The API's own retract-on-transport-failure gate is not in RESOLUTIONS
+        # (no RefusalAction is built for it) but does reach the screen.
+        assert "transport" in labels
+
+    def test_frontend_renders_the_routed_refusal(self):
+        """Arken pillar 3 is three parts; the UI used to show only the gate,
+        leaving `what would resolve it` / `who should act` on the wire."""
+        source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+        assert "what_would_resolve" in source
+        assert "owner_reason" in source
+
+    def test_rendering_is_gated_on_the_single_classifier(self):
+        """Direct field reads in `render_answer` are only safe because
+        `classify_turn` validated the payload first. If a future edit renders
+        without asking it, that guarantee is gone (red-team 2026-07-27 P2)."""
+        source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        render = next(
+            n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render_answer"
+        )
+        called = {
+            n.func.id
+            for n in ast.walk(render)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        }
+        assert "classify_turn" in called
+
+
+class _FakeSt:
+    """Records the Streamlit calls the frontend makes, so a test can assert what
+    reached the operator's screen and through which renderer."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, str]] = []
+
+    def __getattr__(self, name):
+        def record(*args, **kwargs):
+            self.calls.append((name, args[0] if args else ""))
+
+        return record
+
+    def kinds(self) -> list[str]:
+        return [name for name, _ in self.calls]
+
+    def text_of(self, kind: str) -> str:
+        return " ".join(str(a) for name, a in self.calls if name == kind)
+
+
+def _frontend_namespace(fake: _FakeSt | None = None) -> dict:
+    """Load the shipped frontend's pure logic, with `st` faked.
+
+    The module cannot simply be imported: it needs streamlit installed, and
+    importing it would run the page. Testing a copy of the logic would let the
+    shipped code drift away from the test (red-team 2026-07-27 P2), so the real
+    definitions are lifted out of the source file.
+    """
+    source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    wanted = {
+        "_filled",
+        "_is_answered",
+        "_is_refusal",
+        "classify_turn",
+        "gate_label",
+        "record_event",
+        "render_answer",
+        "visible_len",
+    }
+    body = [
+        n
+        for n in tree.body
+        if (isinstance(n, ast.FunctionDef) and n.name in wanted)
+        or (
+            isinstance(n, ast.Assign)
+            and any(
+                getattr(t, "id", None) in ("GATE_LABELS", "CITATION_FIELDS", "_INVISIBLE")
+                for t in n.targets
+            )
+        )
+    ]
+    namespace: dict = {"st": fake if fake is not None else _FakeSt()}
+    exec(compile(ast.Module(body=body, type_ignores=[]), "<frontend>", "exec"), namespace)
+    return namespace
+
+
+def _frontend_render(entry: dict) -> _FakeSt:
+    """Run the shipped `render_answer` against a fake `st` and report the calls."""
+    fake = _FakeSt()
+    _frontend_namespace(fake)["render_answer"](entry)
+    return fake
+
+
+def _citation(**overrides) -> dict:
+    c = {
+        "chunk_id": "106807baae8e3f1c",
+        "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+        "source_path": "/dmodule/content",
+        "supporting_quote": "Release the pressure.",
+    }
+    c.update(overrides)
+    return c
+
+
+def _answered_result(**overrides) -> dict:
+    result = {
+        "refused": False,
+        "answer_text": "Release the pressure.",
+        "trace_id": "t-1",
+        "model": "MiniMax-M3",
+        "citations": [
+            {
+                "chunk_id": "c1",
+                "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+                "source_path": "/dmodule/content",
+                "supporting_quote": "Release the pressure.",
+            }
+        ],
+    }
+    result.update(overrides)
+    return result
+
+
+def _refusal_result(**overrides) -> dict:
+    result = {
+        "refused": True,
+        "answer_text": "I don't know — no answer was found in the indexed corpus.",
+        "refusal_gate": "llm",
+        "trace_id": "t-2",
+        "action": {
+            "gate": "llm",
+            "why": "refused at the llm gate",
+            "what_would_resolve": "supply a data module that states the answer",
+            "owner": None,
+            "owner_reason": "the question names no data module",
+        },
+    }
+    result.update(overrides)
+    return result
+
+
+class TestFrontendFailsClosedOnBadResults:
+    """Reading every wire field defensively must not turn a crash into a false
+    success (red-team 2026-07-27 P1)."""
+
+    def test_a_complete_answer_renders_verified(self):
+        fake = _frontend_render({"result": _answered_result()})
+        assert "Citations verified" in fake.text_of("caption")
+        assert "XPath — " in fake.text_of("text")
+
+    def test_the_whole_xpath_is_rendered(self):
+        """An XPath contains no spaces, so it cannot wrap — and a table cell
+        clips its content at a fixed width whatever the column width is, which
+        is how two takes of the README GIF ended up showing `…/reqSafety/`
+        with most of the cell still empty. The XPath is the provenance claim,
+        so it goes through `st.text`, which takes the full container width and
+        wraps.
+
+        Measured on this corpus: the longest source_path is 73 characters,
+        which is the one the README GIF shows.
+        """
+        long_path = "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"
+        fake = _frontend_render(
+            {"result": _answered_result(citations=[_citation(source_path=long_path)])}
+        )
+        assert f"XPath — {long_path}" in fake.text_of("text"), "the XPath must survive whole"
+        assert "table" not in fake.kinds(), "a table cell clips unbreakable values"
+
+    def test_every_citation_field_is_shown(self):
+        c = _citation()
+        said = _frontend_render({"result": _answered_result(citations=[c])}).text_of("text")
+        for value in c.values():
+            assert value in said
+
+    def test_the_corpus_cannot_produce_an_unshowable_xpath(self):
+        """`st.text` wraps, so a long path is shown rather than clipped — but
+        it still has to fit the frame to be readable in a recording.
+
+        This pins the assumption rather than trusting it: source paths come from
+        `tree.getpath()`, so a deeply nested or heavily indexed module could grow
+        one past what fits. If this fails, the display needs a wrapping fallback,
+        not a bigger number (red-team 2026-07-27 P3).
+        """
+        from learnarken.chunking import chunk_package
+
+        paths = [
+            c.source_path
+            for pkg in ("samples/package-a", "samples/package-c")
+            for c in chunk_package(str(REPO_ROOT / pkg), strategy="structure")
+        ]
+        longest = max(paths, key=len)
+        assert len(longest) <= 120, f"XPath too long to display whole: {longest}"
+
+    def test_model_name_is_stripped_before_a_markdown_renderer(self):
+        """`model` comes off the wire and `st.caption` renders markdown. The
+        name may survive as inert text; the link syntax may not."""
+        fake = _frontend_render(
+            {"result": _answered_result(model="[pwn](https://attacker.example)")}
+        )
+        caption = fake.text_of("caption")
+        assert not any(ch in caption for ch in "[]()/:"), caption
+        assert "Citations verified" in caption
+
+    def test_each_citation_is_rendered(self):
+        fake = _frontend_render(
+            {
+                "result": _answered_result(
+                    citations=[_citation(chunk_id="c1"), _citation(chunk_id="c2")]
+                )
+            }
+        )
+        said = fake.text_of("text")
+        assert "c1" in said and "c2" in said
+
+    def test_a_complete_refusal_renders_its_routing(self):
+        fake = _frontend_render({"result": _refusal_result()})
+        assert "Refused" in fake.text_of("info")
+        assert "What would resolve it" in fake.text_of("text")
+        assert "Who should act" in fake.text_of("text")
+
+    @pytest.mark.parametrize(
+        ("name", "entry"),
+        [
+            ("no result at all", {}),
+            ("empty result", {"result": {}}),
+            ("result is not a dict", {"result": "boom"}),
+            ("answer without the refused flag", {"result": {"answer_text": "Release the brake"}}),
+            ("answer with no citations", {"result": _answered_result(citations=[])}),
+            ("answer with an empty citation", {"result": _answered_result(citations=[{}])}),
+            (
+                "citation missing its quote",
+                {
+                    "result": _answered_result(
+                        citations=[{"chunk_id": "c", "dmc": "d", "source_path": "/x"}]
+                    )
+                },
+            ),
+            ("answer with a blank body", {"result": _answered_result(answer_text="   ")}),
+            ("answer with no trace", {"result": _answered_result(trace_id="")}),
+            ("bare refusal", {"result": {"refused": True}}),
+            ("refusal with no action", {"result": _refusal_result(action=None)}),
+            ("refusal with no gate", {"result": _refusal_result(refusal_gate="")}),
+            ("error event with no message", {"error": ""}),
+            (
+                "retracted, then answered anyway",
+                {"retracted": True, "gate": "citation-validation", "result": _answered_result()},
+            ),
+        ],
+    )
+    def test_incomplete_turns_fail_closed(self, name, entry):
+        fake = _frontend_render(entry)
+        assert "error" in fake.kinds(), f"{name}: should have rendered a fail-closed error"
+        assert "Citations verified" not in fake.text_of("caption"), f"{name}: rendered as verified"
+        assert "chunk_id — " not in fake.text_of("text"), f"{name}: rendered evidence"
+
+    def test_retraction_with_no_streamed_text_says_so(self):
+        """The APU take fires the retraction with `token: 0`: the gate wins
+        before any answer text is shown. Saying "the text a moment ago has been
+        withdrawn" would describe an event the viewer never saw."""
+        fake = _frontend_render(
+            {"retracted": True, "gate": "llm", "streamed_chars": 0, "result": _refusal_result()}
+        )
+        said = fake.text_of("text")
+        assert "nothing to withdraw" in said
+        assert "shown a moment ago" not in said
+
+    def test_retraction_after_visible_text_says_that_instead(self):
+        fake = _frontend_render(
+            {
+                "retracted": True,
+                "gate": "citation-validation",
+                "streamed_chars": 214,
+                "result": _refusal_result(refusal_gate="citation-validation"),
+            }
+        )
+        said = fake.text_of("text")
+        assert "shown a moment ago" in said
+        assert "nothing to withdraw" not in said
+
+    def _replay(self, events: list[tuple[str, dict]]) -> dict:
+        """Fold a real SSE event order through the shipped reducer."""
+        ns = _frontend_namespace()
+        entry: dict = {}
+        streamed = ""
+        for event, payload in events:
+            streamed = ns["record_event"](entry, event, payload, streamed)
+        return entry
+
+    def test_retract_before_any_token_records_zero(self):
+        """The APU order: status heartbeats, then retract, no token ever."""
+        entry = self._replay(
+            [
+                ("status", {"stage": "retrieval"}),
+                ("status", {"stage": "generating"}),
+                ("retract", {"gate": "llm"}),
+                ("result", _refusal_result()),
+            ]
+        )
+        assert entry["streamed_chars"] == 0
+
+    def test_tokens_then_retract_records_what_was_shown(self):
+        entry = self._replay(
+            [
+                ("token", {"text": "The workflow is"}),
+                ("token", {"text": " as follows"}),
+                ("retract", {"gate": "citation-validation"}),
+                ("result", _refusal_result(refusal_gate="citation-validation")),
+            ]
+        )
+        assert entry["streamed_chars"] == len("Theworkflowisasfollows")
+
+    def test_transport_retract_after_tokens_is_not_treated_as_silent(self):
+        """The API retracts with gate `transport` when generation dies after
+        tokens were already forwarded — text WAS on screen."""
+        entry = self._replay(
+            [
+                ("token", {"text": "Remove the four bolts"}),
+                ("retract", {"gate": "transport"}),
+                ("error", {"message": "MiniMax chat stream failed mid-stream"}),
+            ]
+        )
+        assert entry["streamed_chars"] > 0
+        assert entry["error"]
+
+    def test_invisible_tokens_do_not_count_as_text_on_screen(self):
+        entry = self._replay([("token", {"text": "\u200b \n"}), ("retract", {"gate": "llm"})])
+        assert entry["streamed_chars"] == 0
+
+    def test_a_turn_that_never_recorded_the_count_says_so(self):
+        """An entry stored by an older client: absent is not zero."""
+        fake = _frontend_render({"retracted": True, "gate": "llm", "result": _refusal_result()})
+        assert "did not record" in fake.text_of("text")
+
+    def test_gate_labels_are_noun_phrases(self):
+        """Labels are read after "Gate:" and "Retracted · gate:", so a
+        sentence-shaped label renders as broken grammar."""
+        for gate, label in _frontend_dict("GATE_LABELS").items():
+            assert not label.startswith("model judged"), f"{gate}: {label!r} reads as a clause"
+
+    def test_backend_error_text_never_reaches_a_markdown_renderer(self):
+        """An indexing error can quote the uploaded document."""
+        hostile = "[Run repair](https://attacker.example)"
+        fake = _frontend_render({"error": hostile})
+        assert hostile in fake.text_of("text")
+        assert hostile not in fake.text_of("error")

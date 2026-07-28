@@ -20,8 +20,12 @@ Design constraints, in order of importance:
 - **SSE with retraction** (decision 3): `token` events are pre-verification
   by design; a `retract` event orders the client to withdraw them — emitted
   both when a fail-closed gate voids a generation AND when the stream aborts
-  mid-flight after tokens were shown (red-team day6 #3). The `result` (or
-  `error`) event is the only authoritative outcome.
+  mid-flight after tokens were shown (red-team day6 #3). A `restart` event
+  (2026-07-28) is different and weaker: the model broke its output contract and
+  is being asked once more, so the client must **drop what it has shown** and
+  keep listening — nothing has been judged and the turn is still live. A client
+  that ignores `restart` would append the second attempt to the first. The
+  `result` (or `error`) event is the only authoritative outcome.
 - **Demo security envelope** (decision 4): loopback bind (the `make demo`
   script); a same-origin guard on state-changing routes rejects browser
   cross-origin CSRF (red-team day6 #4); Pydantic length bounds on the
@@ -109,6 +113,13 @@ _corpus_lock = threading.Lock()
 
 class QueryRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+    # Caller clearance (S1000D securityClassification). Sources above it are
+    # withheld before retrieval. Omitted = no authorisation enforced and none
+    # claimed; the trace records which it was (red-team P0, 2026-07-27).
+    # NOTE: this is *scoping*, not authentication — the demo has no identity
+    # model, so a caller states its own clearance. Honest limitation, recorded
+    # in README §6 rather than dressed up as access control.
+    clearance: str | None = Field(default=None, pattern="^0[1-5]$")
 
 
 def _jsonable(obj: object) -> object:
@@ -370,6 +381,11 @@ def create_app() -> FastAPI:
                             body.question,
                             package_dirs=_query_packages(),
                             on_event=on_event,
+                            clearance=body.clearance,
+                            # A retry is a second billed generation under the
+                            # same query, so it must be reserved before it is
+                            # spent, not counted afterwards (red-team P2).
+                            may_retry=GUARD.try_extra_llm_call,
                         )
                 except Exception as exc:  # reported below, fail closed
                     outcome["error"] = exc
@@ -383,6 +399,11 @@ def create_app() -> FastAPI:
                 kind, data = item
                 if kind == "token":
                     tokens_emitted = True
+                elif kind == "restart":
+                    # The attempt that streamed those tokens has been abandoned,
+                    # so a later transport failure must not claim to withdraw
+                    # them (red-team 2026-07-28 P2).
+                    tokens_emitted = False
                 yield _sse(kind, data)
             if "error" in outcome:
                 exc = outcome["error"]

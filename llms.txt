@@ -14,7 +14,10 @@ copy-pasteable reproduction command. Paths below are relative to the repo root.
 
 - [docs/EVIDENCE.md](docs/EVIDENCE.md): claim → evidence → reproduce command for
   every benchmark number. **Read this to reproduce any figure.**
-- [README.md](README.md): human-facing overview, progress table, benchmark tables.
+- [README.md](README.md): human-facing overview — the fail-closed gate chain,
+  hybrid retrieval design, and headline numbers.
+- [docs/BENCHMARKS.md](docs/BENCHMARKS.md): the full measurement record — every
+  benchmark table, its golden set, the honest reading, and the repro command.
 - [docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md): the AI-first workflow, the
   "adversarial validation" term card, and what must be human-owned.
 
@@ -56,7 +59,9 @@ copy-pasteable reproduction command. Paths below are relative to the repo root.
 
 ## Optional
 
-- [README.zh-CN.md](README.zh-CN.md): Chinese README (learning audience).
+- [README.zh-CN.md](README.zh-CN.md): Chinese mirror of README.md — same
+  ten sections; the gate table and CLI table are condensed, so the English
+  README is authoritative where they differ.
 - [docs/tutorials/](docs/tutorials/): twelve deep-dive tutorials (retrieval, KG,
   LLM serving, agents, compliance, interview prep).
 - [docs/journal/](docs/journal/): human-written daily learning journals.

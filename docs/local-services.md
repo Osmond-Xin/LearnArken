@@ -75,7 +75,47 @@ docker exec learnarken-neo4j cypher-shell -u neo4j -p learnarken 'RETURN 1 AS ok
 Config: the same four `MINIMAX_*` variables below, in the **repo-root**
 `.env` (git-ignored). The loader (`src/learnarken/config.py`) is hardened
 per red-team day4 #7: repo-root only (never cwd), `MINIMAX_*` allowlist,
-https enforced.
+https enforced for any off-box host.
+
+### Local-only mode — no data egress (added 2026-07-25, F-02)
+
+The endpoint is OpenAI-compatible, so any loopback model server can replace the
+remote provider. Before 2026-07-25 this was impossible in practice: the
+https-only rule rejected `http://127.0.0.1:PORT/v1`, which is the URL every
+local server has. The policy is now **https off-box, plaintext on loopback
+only**, with the host parsed rather than prefix-matched.
+
+```bash
+# 1. serve any OpenAI-compatible chat model on loopback, e.g. llama.cpp:
+llama-server -m <model>.gguf --port 8080 --host 127.0.0.1
+
+# 2. point the repo-root .env at it (any placeholder key/token; a local
+#    server ignores them, and the allowlist still requires the four keys)
+#    MINIMAX_API_URL=http://127.0.0.1:8080/v1
+#    MINIMAX_MODEL_NAME=<whatever the server reports>
+
+# 3. arm the egress fence — a non-loopback endpoint now raises instead of
+#    being called, on every path that resolves config (chat, VLM, eval,
+#    API health, demo preflight)
+export LEARNARKEN_LOCAL_ONLY=1
+```
+
+Verify the fence without a model (it fails before any network call):
+
+```bash
+LEARNARKEN_LOCAL_ONLY=1 uv run python -c \
+  "from learnarken.config import load_minimax_config; load_minimax_config()"
+# ConfigError: LEARNARKEN_LOCAL_ONLY=1 forbids the non-loopback endpoint ...
+```
+
+**What this does and does not buy.** With the fence armed and a loopback model
+served, no repository content leaves the machine — that is the property the
+"sovereignty" row in the README claims, and it is covered by tests in
+`tests/test_day5_answer.py::TestConfigHardening` (loopback accepted; userinfo,
+suffix and decimal-IP spoofs rejected; remote blocked under the fence). What is
+**not** included: this repo bundles no local chat or VLM model, and no
+end-to-end generation against a local server has been benchmarked here. The
+fence is the guarantee; supplying the model is the deployment step.
 
 **Chat endpoint facts** (live probe 2026-07-16, spec "Probe findings"):
 OpenAI-compatible `/chat/completions`; success = HTTP 200 **and**

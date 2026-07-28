@@ -1,0 +1,172 @@
+# Vespa /search/ — YQL over metadata (no vector involved)
+#
+# All blocks use POST + JSON. GET with a `yql=` query string works too, but the
+# spaces in YQL have to be percent-encoded by hand, which makes it unreadable —
+# see 04-cheatsheet.md for the one GET form worth remembering.
+#
+# WHAT YOU CAN FILTER ON (schema chunk.sd — `indexing: ... | attribute`):
+#   chunk_id, dmc, package, chunk_type, source_path, strategy,
+#   has_warning, has_caution, outbound_dm_refs, icn_refs,
+#   applic_properties, applic_values
+#
+# WHAT YOU CANNOT: text, dm_title, issue_info, applic_display,
+#   security_classification, effective_date, expiry_date.
+#   They are `summary` only — returned, never indexed. A `where text contains
+#   "..."` errors out. That is deliberate: BM25 runs in Python
+#   (src/learnarken/retrieval/, spec day4 Q4), Vespa is a dense store only.
+
+@query = http://localhost:8080
+
+### Document count (ranking off — this is vespa.count())
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select * from chunk where true",
+  "hits": 0,
+  "ranking": "unranked"
+}
+
+### Peek at 5 documents, metadata columns only (no text wall)
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, package, chunk_type, strategy from chunk where true",
+  "hits": 5,
+  "ranking": "unranked"
+}
+
+### One DMC — `match: word` keeps the identifier whole, never split on '-'
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, chunk_type, text from chunk where dmc contains \"DMC-LA100-A-29-10-00-00A-520A-A\"",
+  "hits": 20,
+  "ranking": "unranked"
+}
+
+### Scope to one package (the engine-side filter Day 5 citation grounding rests on)
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, chunk_type from chunk where package contains \"package-a\"",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### One strategy only — three strategies can coexist in the index at once
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, chunk_type from chunk where strategy contains \"structure\"",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### Hazard chunks (紧急场合): every warning or caution in the corpus
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, chunk_type, text from chunk where has_warning = true or has_caution = true",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### Applicability (排除场合): chunks carrying a given applic property.
+# package-a/b use `serialNumber` and `variant` — list what is actually in the
+# index with the applic_properties grouping query at the bottom of this file.
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, applic_display, applic_properties, applic_values from chunk where applic_properties contains \"serialNumber\"",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### Graph hook: who points AT this DM (inbound refs = the impact-analysis seed)
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, outbound_dm_refs from chunk where outbound_dm_refs contains \"DMC-LA100-A-29-10-00-00A-520A-A\"",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### Which chunks cite a given illustration (ICN) — multimodal work, Day 12
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, icn_refs from chunk where icn_refs contains \"ICN-LA100-29-001-01\"",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### Combined filter: package AND strategy AND hazard, sorted by DMC
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id, dmc, chunk_type from chunk where package contains \"package-a\" and strategy contains \"structure\" and has_warning = true order by dmc asc",
+  "hits": 50,
+  "ranking": "unranked"
+}
+
+### Grouping: how many chunks per package (index-composition sanity check)
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select * from chunk where true | all(group(package) each(output(count())))",
+  "hits": 0,
+  "ranking": "unranked"
+}
+
+### Grouping: chunks per strategy × chunk_type — did the chunker do what you think?
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select * from chunk where true | all(group(strategy) each(group(chunk_type) each(output(count()))))",
+  "hits": 0,
+  "ranking": "unranked"
+}
+
+### Grouping: distinct DMCs present in the index
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select * from chunk where true | all(group(dmc) max(200) each(output(count())))",
+  "hits": 0,
+  "ranking": "unranked"
+}
+
+### Grouping: which applicability properties exist at all (serialNumber, variant, ...)
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select * from chunk where true | all(group(applic_properties) each(output(count())))",
+  "hits": 0,
+  "ranking": "unranked"
+}
+
+### Query trace — why did this match / how long did each phase take
+POST {{query}}/search/
+Content-Type: application/json
+
+{
+  "yql": "select chunk_id from chunk where package contains \"package-a\"",
+  "hits": 3,
+  "ranking": "unranked",
+  "trace.level": 3,
+  "trace.timestamps": true
+}

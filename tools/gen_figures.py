@@ -35,8 +35,10 @@ def main() -> None:
         svg_path.write_text(F.to_svg(spec), encoding="utf-8")
         png = F.to_png(spec, scale=RENDER_SCALE)
         png_path.write_bytes(png)
-        print(f"{icn_id}: {svg_path.relative_to(REPO)} + {png_path.relative_to(REPO)} "
-              f"({len(png)} B, sha256 {hashlib.sha256(png).hexdigest()[:16]})")
+        print(
+            f"{icn_id}: {svg_path.relative_to(REPO)} + {png_path.relative_to(REPO)} "
+            f"({len(png)} B, sha256 {hashlib.sha256(png).hexdigest()[:16]})"
+        )
 
 
 if __name__ == "__main__":

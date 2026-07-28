@@ -16,11 +16,36 @@ import uuid
 from pathlib import Path
 
 TRACE_DIR = Path("eval/traces")
-TRACE_FORMAT = "learnarken-answer-trace/1"
+TRACE_FORMAT = "learnarken-answer-trace/2"
+#: Versions this repo can still read. v2 (2026-07-27) added the
+#: `sources_excluded` span and per-citation `status` (Arken pillar 2). v1 traces
+#: written before that remain readable: a format bump must not retro-break an
+#: audit record that was already produced (red-team F-16).
+READABLE_FORMATS = ("learnarken-answer-trace/1", "learnarken-answer-trace/2")
 
 
 def new_trace_id() -> str:
     return time.strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:8]
+
+
+class UnreadableTraceError(ValueError):
+    """A trace whose format this build does not know how to read."""
+
+
+def read_trace(path: str | Path) -> dict:
+    """Parse a trace, accepting every version in `READABLE_FORMATS`.
+
+    Fail closed on an unknown version rather than best-effort parsing: a trace
+    is an audit record, and reading one under the wrong schema would produce a
+    confident misreading of what happened.
+    """
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    fmt = data.get("format")
+    if fmt not in READABLE_FORMATS:
+        raise UnreadableTraceError(
+            f"trace {path} declares format {fmt!r}; this build reads {list(READABLE_FORMATS)}"
+        )
+    return data
 
 
 def write_trace(trace_id: str, spans: dict) -> Path:
