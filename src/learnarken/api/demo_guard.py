@@ -28,6 +28,13 @@ measured completions on the day-6 query path ran 211–7305 tokens — but the
 ``usage`` comes back null on the streaming path. Re-deciding
 ``DEMO_MAX_LLM_CALLS`` against the $20 envelope is a human call (red-team
 round 4 P1); the default is left where day 10 put it.
+
+**The contract retry (ruled 2026-07-28) doubles that ceiling again.** A quota
+unit is one query, and a query that trips the model's output contract now asks
+twice, so the worst case per boot is ``200 × 2 × 16384 ≈ 6.6M`` output tokens.
+Measured, the retry fires on about one query in twelve, so the *expected* cost
+is a few per cent — but the bound is the bound, and it belongs in the same
+decision as the line above.
 """
 
 from __future__ import annotations
@@ -72,6 +79,21 @@ class DemoGuard:
         self._calls = 0
         self._active = 0
         self._window_start = time.time()
+
+    def note_extra_llm_call(self) -> None:
+        """Debit a generation that was not the one `llm_slot` reserved.
+
+        The quota unit is a user query, but a query whose completion breaks the
+        model's output contract is asked twice (engine, 2026-07-28). Counting
+        only queries would let the fence permit twice the completions it
+        advertises (red-team P1). Deliberately does not raise: the second call
+        has already happened by the time this is reached, so the honest thing is
+        to record it and let the *next* query find the quota short.
+        """
+        if not self.public:
+            return
+        with self._lock:
+            self._calls += 1
 
     def key_ok(self, provided: str | None) -> bool:
         """Constant-time compare; open (True) when not in public mode."""

@@ -20,8 +20,12 @@ Design constraints, in order of importance:
 - **SSE with retraction** (decision 3): `token` events are pre-verification
   by design; a `retract` event orders the client to withdraw them — emitted
   both when a fail-closed gate voids a generation AND when the stream aborts
-  mid-flight after tokens were shown (red-team day6 #3). The `result` (or
-  `error`) event is the only authoritative outcome.
+  mid-flight after tokens were shown (red-team day6 #3). A `restart` event
+  (2026-07-28) is different and weaker: the model broke its output contract and
+  is being asked once more, so the client must **drop what it has shown** and
+  keep listening — nothing has been judged and the turn is still live. A client
+  that ignores `restart` would append the second attempt to the first. The
+  `result` (or `error`) event is the only authoritative outcome.
 - **Demo security envelope** (decision 4): loopback bind (the `make demo`
   script); a same-origin guard on state-changing routes rejects browser
   cross-origin CSRF (red-team day6 #4); Pydantic length bounds on the
@@ -391,6 +395,15 @@ def create_app() -> FastAPI:
                 kind, data = item
                 if kind == "token":
                     tokens_emitted = True
+                elif kind == "restart":
+                    # The attempt that streamed those tokens has been abandoned,
+                    # so a later transport failure must not claim to withdraw
+                    # them (red-team 2026-07-28 P2).
+                    tokens_emitted = False
+                    # A retry is a second billed generation under the same query.
+                    # The quota debits per user query, so without this the fence
+                    # permits 2x the completions it advertises (P1).
+                    GUARD.note_extra_llm_call()
                 yield _sse(kind, data)
             if "error" in outcome:
                 exc = outcome["error"]

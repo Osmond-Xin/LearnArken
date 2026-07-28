@@ -19,7 +19,7 @@ from learnarken.answer import AnswerResult, Citation, answer_question
 from learnarken.chunking.base import Chunk
 from learnarken.graph import GraphFacts
 from learnarken.llm import LLMError
-from learnarken.llm.minimax import ChatResult
+from learnarken.llm.minimax import ChatResult, LLMContractError
 from learnarken.vespa import VespaError
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -469,6 +469,140 @@ def _fake_stream(parsed: dict):
         )
 
     return fake
+
+
+class TestContractRetry:
+    """Ruled 2026-07-28: one re-ask when the model breaks its output contract.
+
+    M3 intermittently closes its think block a token late and swallows the start
+    of what follows, so the response no longer parses — 2 of 24 runs once the
+    salvage that used to hide it was removed (review F-33). Re-asking is not
+    reconstructing: nothing from the failed response is used.
+    """
+
+    GOOD = {
+        "is_answerable": True,
+        "answer": "Release the pressure.",
+        "citations": [{"chunk_id": "c1", "supporting_quote": "Release the pressure."}],
+    }
+
+    def _run(self, monkeypatch, attempts):
+        """`attempts` is a list of either an exception to raise or a parsed dict."""
+        calls = []
+
+        def fake(system, user, *, on_delta=None, **kwargs):
+            outcome = attempts[len(calls)]
+            calls.append(1)
+            if isinstance(outcome, Exception):
+                if on_delta:  # a broken response still streams before it fails
+                    on_delta('<think>t</think>{"answer": "half of a doomed answer"')
+                raise outcome
+            return _fake_stream(outcome)(system, user, on_delta=on_delta or (lambda t: None))
+
+        monkeypatch.setattr(engine, "chat_json_stream", fake)
+        monkeypatch.setattr(engine, "chat_json", fake)
+        events: list[tuple[str, dict]] = []
+        result = answer_question(
+            "How do I remove the pump?", on_event=lambda k, d: events.append((k, d))
+        )
+        return events, result, len(calls)
+
+    def test_a_contract_failure_is_re_asked_once(self, monkeypatch, wired):
+        events, result, calls = self._run(
+            monkeypatch,
+            [LLMContractError("post-think content is not JSON", retryable=True), self.GOOD],
+        )
+        assert calls == 2
+        assert not result.refused
+        assert [k for k, _ in events].count("restart") == 1
+
+    def test_the_client_is_told_to_drop_the_abandoned_attempt(self, monkeypatch, wired):
+        """`restart`, not `retract`: nothing has been judged, and the turn is
+        still live — a successful retry must not look self-contradictory."""
+        events, result, _ = self._run(
+            monkeypatch, [LLMContractError("boom", retryable=True), self.GOOD]
+        )
+        kinds = [k for k, _ in events]
+        assert "retract" not in kinds
+        assert kinds.index("restart") < len(kinds) - 1
+        # tokens from the doomed attempt arrive before the restart, none after it
+        # belong to it
+        restart_at = kinds.index("restart")
+        assert "token" in kinds[:restart_at]
+
+    def test_two_failures_still_refuse(self, monkeypatch, wired):
+        events, result, calls = self._run(
+            monkeypatch,
+            [LLMContractError("first", retryable=True), LLMContractError("second", retryable=True)],
+        )
+        assert calls == 2, "exactly one retry, not a loop"
+        assert result.refused and result.refusal_gate == "llm-contract"
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            LLMContractError("completion truncated at the max_tokens budget (16384)"),
+            LLMContractError("completion ended with finish_reason='content_filter', not 'stop'"),
+            LLMContractError("expected exactly one choice, got 2"),
+        ],
+    )
+    def test_only_the_late_tag_class_is_re_asked(self, error, monkeypatch, wired):
+        """Red-team P1: the ruling was to re-ask the late-`</think>` parse
+        defect. Re-asking a truncated or filtered completion spends a second
+        full generation on an outcome that will not change — or asks again after
+        upstream already declined."""
+        events, result, calls = self._run(monkeypatch, [error, self.GOOD])
+        assert calls == 1, "no retry for a non-retryable contract failure"
+        assert result.refused and result.refusal_gate == "llm-contract"
+        assert "restart" not in [k for k, _ in events]
+
+    def test_the_failed_body_is_not_kept_on_a_recovered_run(self, monkeypatch, wired, tmp_path):
+        """The failed body is model output shaped by uploaded evidence; it has
+        no business surviving in the trace of a run that succeeded (P2)."""
+        import learnarken.answer.trace as trace_mod
+
+        monkeypatch.setattr(trace_mod, "TRACE_DIR", tmp_path)
+        secret = "smuggled-from-a-hostile-module"
+        _, result, _ = self._run(
+            monkeypatch,
+            [
+                LLMContractError(f"post-think content is not JSON: '{secret}'", retryable=True),
+                self.GOOD,
+            ],
+        )
+        written = (tmp_path / f"{result.trace_id}.json").read_text()
+        assert secret not in written
+        assert "post-think content is not JSON" in written
+
+    def test_a_transport_error_is_not_retried(self, monkeypatch, wired):
+        """Only a *contract* failure is re-asked; the network failing once fails
+        closed, as it did before."""
+        with pytest.raises(LLMError):
+            self._run(monkeypatch, [LLMError("unreachable"), self.GOOD])
+
+    def test_the_retry_is_visible_in_the_trace(self, monkeypatch, wired, tmp_path):
+        import learnarken.answer.trace as trace_mod
+
+        monkeypatch.setattr(trace_mod, "TRACE_DIR", tmp_path)
+        _, result, _ = self._run(
+            monkeypatch, [LLMContractError("late tag", retryable=True), self.GOOD]
+        )
+        written = json.loads((tmp_path / f"{result.trace_id}.json").read_text())
+        assert "late tag" in written["llm"]["recovered_after_contract_failure"]
+
+    def test_the_non_streaming_path_retries_too(self, monkeypatch, wired):
+        """The CLI takes the non-streaming path and deserves the same."""
+        calls = []
+
+        def fake(system, user, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise LLMContractError("late tag", retryable=True)
+            return _fake_stream(self.GOOD)(system, user, on_delta=lambda t: None)
+
+        monkeypatch.setattr(engine, "chat_json", fake)
+        result = answer_question("How do I remove the pump?")
+        assert calls == [1, 1] and not result.refused
 
 
 class TestEngineEvents:

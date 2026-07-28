@@ -101,6 +101,13 @@ def record_event(entry: dict, event: str, payload: dict, streamed: str) -> str:
     """
     if event == "token":
         return streamed + str(payload.get("text", ""))
+    if event == "restart":
+        # The generation broke its output contract and is being re-asked. What
+        # was shown belongs to the abandoned attempt, so the buffer resets with
+        # the screen — otherwise the next attempt's text appends to it. This is
+        # not a retraction: nothing has been judged, and the turn is still live.
+        entry["restarted"] = entry.get("restarted", 0) + 1
+        return ""
     if event == "retract":
         entry["retracted"] = True
         entry["gate"] = payload.get("gate")
@@ -454,6 +461,11 @@ with qa_tab:
                                 stream_area.text(
                                     "⏳ Generating — the text below is not yet "
                                     "citation-verified and may be retracted:\n\n" + streamed
+                                )
+                            elif event == "restart":
+                                stream_area.text(
+                                    "↻ The model broke its output contract; asking again. "
+                                    "Nothing above is being kept."
                                 )
                             elif event == "retract":
                                 stream_area.empty()  # withdraw the unverified text

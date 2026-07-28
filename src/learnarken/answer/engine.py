@@ -22,6 +22,7 @@ ever emits chunk ids + quotes (citation-drift defense, DR report 陷阱一).
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 import time
@@ -46,6 +47,8 @@ from learnarken.llm import LLMContractError, chat_json, chat_json_stream
 from learnarken.refusal import route as route_refusal
 from learnarken.retrieval import GRAPH_MODES, MODES, _dedupe_chunks, corpus_chunks, verify_corpus
 from learnarken.retrieval.bm25 import BM25Index
+
+logger = logging.getLogger("learnarken")
 
 PLACEHOLDER = "I don't know — no answer was found in the indexed corpus."
 DEFAULT_PACKAGES = ("samples/package-a", "samples/package-c")
@@ -343,37 +346,68 @@ def answer_question(
 
     delimiter = make_delimiter()
     emit("status", {"stage": "generating"})
-    try:
+
+    def generate():
         if on_event is None:
-            result = chat_json(
+            return chat_json(
                 build_system(delimiter), build_user(question, evidence, facts, delimiter)
             )
-        else:
-            # Streaming path: forward only the answer-field text, extracted
-            # incrementally from the raw delta stream. Usage is null in
-            # stream mode (probe 2026-07-17), so the trace's llm span may
-            # carry an empty usage dict here.
-            extractor = AnswerFieldExtractor()
+        # Streaming path: forward only the answer-field text, extracted
+        # incrementally from the raw delta stream. Usage is null in
+        # stream mode (probe 2026-07-17), so the trace's llm span may
+        # carry an empty usage dict here. A fresh extractor per attempt, so a
+        # retry cannot continue a half-parsed object from the failed one.
+        extractor = AnswerFieldExtractor()
 
-            def _on_delta(text: str) -> None:
-                piece = extractor.feed(text)
-                if piece:
-                    emit("token", {"text": piece})
+        def _on_delta(text: str) -> None:
+            piece = extractor.feed(text)
+            if piece:
+                emit("token", {"text": piece})
 
-            result = chat_json_stream(
-                build_system(delimiter),
-                build_user(question, evidence, facts, delimiter),
-                on_delta=_on_delta,
-            )
+        return chat_json_stream(
+            build_system(delimiter),
+            build_user(question, evidence, facts, delimiter),
+            on_delta=_on_delta,
+        )
+
+    first_error: str | None = None
+    try:
+        result = generate()
     except LLMContractError as exc:
-        # The service answered but broke the JSON contract — a refusal, not a
-        # transport error (red-team day5 #3): traced, exit 3, not exit 1.
-        spans["llm"] = {"contract_error": str(exc)}
-        return refuse("llm-contract", {"error": str(exc)})
+        # One re-ask, ruled 2026-07-28. M3 intermittently closes its think block
+        # a token late and swallows the start of what follows, so the response no
+        # longer parses — measured at 2 of 24 runs once the salvage that used to
+        # hide this was removed (review F-33, corrected by Yi Xin's INV-6 run).
+        #
+        # Re-asking is not reconstructing: nothing from the failed response is
+        # used, so this does not reopen what F-34 closed by deleting the salvage.
+        # Exactly one retry, and only for a *contract* failure — a transport
+        # error still fails closed on the first try.
+        if not exc.retryable:
+            # Truncated, filtered, or the wrong shape: asking again spends a
+            # second full generation on an outcome that will not change — or
+            # asks again after upstream already declined (red-team P1).
+            spans["llm"] = {"contract_error": str(exc)}
+            return refuse("llm-contract", {"error": str(exc)})
+        # Only the class of failure is kept, never the failed body: that body is
+        # model output shaped by uploaded evidence, and it has no business
+        # surviving in a log or in the trace of a run that *succeeded* (P2).
+        first_error = str(exc).split(":")[0]
+        logger.warning("llm contract failure (%s); re-asking once", first_error)
+        # Tell the client to drop whatever it has shown: the next attempt streams
+        # from the beginning. Deliberately not `retract`, which means "this answer
+        # is void" and would make a successful retry look self-contradictory.
+        emit("restart", {"reason": "llm-contract"})
+        try:
+            result = generate()
+        except LLMContractError as exc2:
+            spans["llm"] = {"contract_error": str(exc2), "first_attempt_error": first_error}
+            return refuse("llm-contract", {"error": str(exc2), "retried": True})
     spans["llm"] = {
         "request_payload": result.request_payload,
         "model": result.model,
         "usage": result.usage,
+        **({"recovered_after_contract_failure": first_error} if first_error else {}),
     }
     spans["generation"] = {"raw_content": result.raw_content, "parsed": result.parsed}
 

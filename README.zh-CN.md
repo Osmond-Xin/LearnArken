@@ -30,7 +30,7 @@ AI engineer 岗位。所以它是**写来被核查的,不是写来被欣赏的**
 | | |
 | --- | --- |
 | **交付规模** | 13 个已交付节点,`v0.1.0` → `v1.3.0`,每天配人写 SPEC、独立红队评审、人工逐条裁决 |
-| **测试** | 569 条——`make test`(即 pytest)离线跑 `557 passed, 12 skipped`(CI 即此环境);本地 Vespa + Neo4j 起着时 `560 passed, 9 skipped`。两个数字都是 2026-07-28 实跑测得,不是算出来的。lint 是单独的 `make lint` |
+| **测试** | 575 条——`make test`(即 pytest)离线跑 `569 passed, 12 skipped`(CI 即此环境);本地 Vespa + Neo4j 起着时 `572 passed, 9 skipped`。两个数字都是 2026-07-28 实跑测得,不是算出来的。lint 是单独的 `make lint` |
 | **证据规则** | 复现不了的数字不发布(INV-5)——[EVIDENCE.md](docs/EVIDENCE.md) 把每条主张映射到产物 + 命令 |
 | **诚实边界** | 合成 S1000D-like XML(INV-1)、教学级语料规模、分布式为单机模拟——完整清单见 [docs/constitution.md](docs/constitution.md) |
 
@@ -427,7 +427,7 @@ KG-RAG → 多模态 → 性能实验)。逐日验收标准见
 
 ```bash
 uv sync --locked                               # Python 3.12 + 依赖(需要 uv)
-make lint && make test                         # ruff,再 pytest → 557 passed, 12 skipped(离线)
+make lint && make test                         # ruff,再 pytest → 569 passed, 12 skipped(离线)
 uv run learnarken inspect samples/package-a    # 查看样本包摘要
 uv run learnarken validate samples/package-b   # 四层校验 findings
 ```
