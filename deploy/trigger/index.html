@@ -54,7 +54,7 @@
 <body>
 <main>
   <h1>LearnArken — S1000D validation &amp; cited RAG, live</h1>
-  <p>A ten-day, AI-first learning project: S1000D XML validation, hybrid retrieval
+  <p>An AI-first learning project built node by node: S1000D XML validation, hybrid retrieval
   (BM25 + dense + RRF) and citation-verified, fail-closed RAG over synthetic
   aerospace tech-pubs. This page starts the <strong>real stack</strong> — the same
   Vespa + Neo4j + local-embedding topology the published benchmarks ran on, not a
@@ -80,9 +80,10 @@
       <p>Auto-shutdown in <span class="countdown" id="countdown">–:–</span> unless used —
       asking a question resets the clock.</p>
     </div>
-    <p class="note">Cost honesty: this is a personal portfolio project. The virtual machine
-    only bills while you use it (≈ $0.20 per session) and always powers off after 30 idle
-    minutes. If it is off when you return, just start it again.</p>
+    <p class="note">Cost honesty: this is a personal portfolio project. Compute bills only
+    while the machine runs (≈ $0.20 per session) and it powers off after 30 idle minutes;
+    the disk keeps costing about $10/month whether or not anyone visits. If it is off when
+    you return, just start it again.</p>
   </section>
 
   <section class="panel">
@@ -103,10 +104,10 @@
       <line x1="490" y1="31" x2="528" y2="55"/>
     </svg>
     <ul class="checks" style="margin-top:1rem">
-      <li>• Every answer carries citations back to specific S1000D data modules; unverifiable claims are retracted, not shown.</li>
+      <li>• Every answer carries citations back to specific S1000D data modules; generated text that cannot be verified is retracted rather than left standing.</li>
       <li>• Insufficient evidence ⇒ the system refuses instead of guessing (fail-closed, tuned on a frozen threshold artifact).</li>
-      <li>• All benchmark numbers are reproducible: see <code>docs/EVIDENCE.md</code> in the repository.</li>
-      <li>• Built AI-first in ten days with per-day human specs, cross-model red-team reviews and human adjudication.</li>
+      <li>• Every benchmark number is mapped to the artifact and command that produced it in <code>docs/EVIDENCE.md</code> — including the one table that no longer reproduces, and why (<code>docs/BENCHMARKS.md</code>).</li>
+      <li>• Built AI-first node by node — 13 day nodes plus an alignment work package — each with a human-written spec decision layer, a cross-model red-team review and a human adjudication.</li>
     </ul>
   </section>
 
