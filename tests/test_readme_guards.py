@@ -78,3 +78,18 @@ def test_reading_router_is_present_and_early() -> None:
     body = (REPO / "README.md").read_text(encoding="utf-8")
     head = "\n".join(body.splitlines()[:60])
     assert "How to read this in the time you have" in head
+
+
+def test_the_demo_gif_claims_hold_against_their_traces() -> None:
+    """README §1 says the refusal happened before the model was called, and that
+    the retraction withdrew nothing visible. Both are settled by the traces
+    committed beside those GIFs — so CI settles them too, rather than leaving
+    another hand-written claim free to drift (the test count in this same README
+    drifted twice on one branch)."""
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "tools" / "verify_demo_traces.py"
+    spec = importlib.util.spec_from_file_location("verify_demo_traces", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.check() == []
