@@ -270,12 +270,12 @@ otherwise carry room audio or notifications that no frame review would catch).
 The exact conversion commands, reproducible against those sources:
 
 ```bash
-tools/make_demo_gif.sh demo/mp4/question1.mp4 docs/assets/demo-answer.gif     1400
+tools/make_demo_gif.sh demo/mp4/question1.mp4 docs/assets/demo-answer.gif     1425
 tools/make_demo_gif.sh demo/mp4/question2.mp4 docs/assets/demo-refusal.gif    1380
 tools/make_demo_gif.sh demo/mp4/question3.mp4 docs/assets/demo-retraction.gif 1520
 ```
 
-Produced with ffmpeg 8.1: 1.3 MB / 760 KB / 804 KB at 1600 px wide, all well
+Produced with ffmpeg 8.1: 844 KB / 760 KB / 804 KB at 1600 px wide, all well
 inside the 5 MB budget. The script crops and scales; it does not cut, retime or
 reorder, so "one take" stays true.
 
@@ -309,10 +309,22 @@ longer matched GIF 3's build. New take, new run, new trace —
 95 rows in the same pass, because a sliver of Streamlit's toolbar was surviving
 at the top right of every GIF.
 
+**Question 1 was shot three times**, and the reason is worth keeping. The first
+two takes showed a truncated XPath (`…/reqSafety/`) because `st.table` clips
+cell content at a fixed width — about 53 characters here — *regardless of how
+wide the column is*. The second take proved it: the value had a column to
+itself, 765 px of it sat empty, and the path was still cut in the same place.
+Citation fields moved to `st.text`, which takes the full container width and
+wraps. Third take ends in `…/safetyRqmts/warning`, as it should.
+
+The lesson for anyone extending this screen: **a table cell is not a safe place
+for a value with no spaces in it.** Re-arranging columns does not help.
+
 ## Known gaps in what shipped
 
-- **The XPath column is truncated** in GIF 1 (`…/reqSafety/s`). The XPath is the
-  provenance claim, so the full value is worth showing; the trace carries it in
-  full either way.
 - `ffmpeg` is not pinned. The shipped GIFs were made with 8.1; a different
   version may quantise differently.
+- Streamlit cannot be screenshotted from this repository's tooling (headless
+  Chrome does not complete its websocket handshake), so layout changes are
+  argued from measurements taken off shipped frames and confirmed only by the
+  next recording. That round trip cost two retakes here.

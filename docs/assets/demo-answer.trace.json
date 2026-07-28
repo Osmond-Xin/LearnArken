@@ -1,6 +1,6 @@
 {
  "format": "learnarken-answer-trace/2",
- "trace_id": "20260727T220840-4701a121",
+ "trace_id": "20260727T235845-40598f85",
  "note": "Reduced from the full trace for publication; see tools/public_trace.py. Dropped: llm.request_payload — the full prompt, including system rules and evidence; generation.raw_content — the model's raw output, think block included; retrieval, graph — retrieved chunk bodies; the corpus is public under samples/",
  "question": "What safety precautions apply before removing the hydraulic pump?",
  "packages": [
@@ -168,7 +168,7 @@
  "generation": {
   "is_answerable": true,
   "answer_text_emitted": true,
-  "answer_chars": 210
+  "answer_chars": 184
  },
  "outcome": {
   "refused": false,
