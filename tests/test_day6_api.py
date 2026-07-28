@@ -700,31 +700,35 @@ class TestFrontendFailsClosedOnBadResults:
     def test_a_complete_answer_renders_verified(self):
         fake = _frontend_render({"result": _answered_result()})
         assert "Citations verified" in fake.text_of("caption")
-        assert "table" in fake.kinds()
+        assert "XPath — " in fake.text_of("text")
 
-    def test_the_xpath_gets_a_row_of_its_own(self):
-        """An XPath contains no spaces, so it cannot wrap. Sharing a four-column
-        table with a long quote clipped it mid-path — and the XPath *is* the
-        provenance claim. One table per citation, one row per field, so the
-        value column has the width to hold it.
+    def test_the_whole_xpath_is_rendered(self):
+        """An XPath contains no spaces, so it cannot wrap — and a table cell
+        clips its content at a fixed width whatever the column width is, which
+        is how two takes of the README GIF ended up showing `…/reqSafety/`
+        with most of the cell still empty. The XPath is the provenance claim,
+        so it goes through `st.text`, which takes the full container width and
+        wraps.
 
-        Measured on this corpus: the longest source_path is 73 characters, which
-        is the one the README GIF shows.
+        Measured on this corpus: the longest source_path is 73 characters,
+        which is the one the README GIF shows.
         """
         long_path = "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"
         fake = _frontend_render(
             {"result": _answered_result(citations=[_citation(source_path=long_path)])}
         )
-        rows = [args for kind, args in fake.calls if kind == "table"]
-        assert len(rows) == 1, "one table per citation"
-        by_field = {r["Evidence"]: r["Value"] for r in rows[0]}
-        assert by_field["XPath"] == long_path, "the XPath must survive whole"
-        assert set(by_field) == {"chunk_id", "DMC", "XPath", "Supporting quote"}
+        assert f"XPath — {long_path}" in fake.text_of("text"), "the XPath must survive whole"
+        assert "table" not in fake.kinds(), "a table cell clips unbreakable values"
+
+    def test_every_citation_field_is_shown(self):
+        c = _citation()
+        said = _frontend_render({"result": _answered_result(citations=[c])}).text_of("text")
+        for value in c.values():
+            assert value in said
 
     def test_the_corpus_cannot_produce_an_unshowable_xpath(self):
-        """The layout gives the XPath a column of its own, but `st.table` still
-        will not break a string with no spaces — so the fix holds only while
-        paths stay within the width that column has.
+        """`st.text` wraps, so a long path is shown rather than clipped — but
+        it still has to fit the frame to be readable in a recording.
 
         This pins the assumption rather than trusting it: source paths come from
         `tree.getpath()`, so a deeply nested or heavily indexed module could grow
@@ -751,7 +755,7 @@ class TestFrontendFailsClosedOnBadResults:
         assert not any(ch in caption for ch in "[]()/:"), caption
         assert "Citations verified" in caption
 
-    def test_each_citation_gets_its_own_table(self):
+    def test_each_citation_is_rendered(self):
         fake = _frontend_render(
             {
                 "result": _answered_result(
@@ -759,7 +763,8 @@ class TestFrontendFailsClosedOnBadResults:
                 )
             }
         )
-        assert len([k for k, _ in fake.calls if k == "table"]) == 2
+        said = fake.text_of("text")
+        assert "c1" in said and "c2" in said
 
     def test_a_complete_refusal_renders_its_routing(self):
         fake = _frontend_render({"result": _refusal_result()})
@@ -800,7 +805,7 @@ class TestFrontendFailsClosedOnBadResults:
         fake = _frontend_render(entry)
         assert "error" in fake.kinds(), f"{name}: should have rendered a fail-closed error"
         assert "Citations verified" not in fake.text_of("caption"), f"{name}: rendered as verified"
-        assert "table" not in fake.kinds(), f"{name}: rendered an evidence table"
+        assert "chunk_id — " not in fake.text_of("text"), f"{name}: rendered evidence"
 
     def test_retraction_with_no_streamed_text_says_so(self):
         """The APU take fires the retraction with `token: 0`: the gate wins

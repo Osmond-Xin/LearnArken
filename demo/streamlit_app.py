@@ -269,26 +269,28 @@ def render_answer(entry: dict) -> None:
     # value this file has not vetted (red-team 2026-07-27 P3).
     model = "".join(c for c in str(result.get("model", "")) if c.isalnum() or c in " ._-")[:40]
     st.caption(f"✅ Citations verified · model={model} · trace={result['trace_id']}")
-    # One table per citation, a row per field — not one row per citation with a
-    # column per field. An XPath contains no spaces, so it cannot wrap: in a
-    # four-column table it was silently clipped mid-path
-    # (`…/reqSafety/s`), and the XPath *is* the provenance claim. Given a
-    # column of its own it has the width to survive.
+    # Not `st.table`. An XPath contains no spaces, so it cannot wrap, and a
+    # table cell clips its content at a fixed width (~53 characters observed)
+    # *regardless of how wide the column is* — giving the value a column of its
+    # own left 765 px of the cell empty and still cut the path at
+    # `…/reqSafety/`. The XPath is the provenance claim, so a clipped one
+    # undercuts the whole screen.
+    #
+    # `st.text` takes the full container width and wraps, which is visible in
+    # the shipped refusal GIF where a long routed-refusal line runs to two
+    # lines across the frame. It also escapes, which citation values —
+    # document-derived — require.
     #
     # `classify_turn` has already established every field below is present and
     # non-empty, so these are plain reads rather than guesses at a default.
     citations = result["citations"]
     for index, c in enumerate(citations, start=1):
         if len(citations) > 1:
-            st.caption(f"Citation {index} of {len(citations)}")
-        st.table(
-            [
-                {"Evidence": "chunk_id", "Value": c["chunk_id"]},
-                {"Evidence": "DMC", "Value": c["dmc"]},
-                {"Evidence": "XPath", "Value": c["source_path"]},
-                {"Evidence": "Supporting quote", "Value": c["supporting_quote"]},
-            ]
-        )
+            st.caption(f"Evidence {index} of {len(citations)}")
+        st.text(f"chunk_id — {c['chunk_id']}")
+        st.text(f"DMC — {c['dmc']}")
+        st.text(f"XPath — {c['source_path']}")
+        st.text(f"Supporting quote — {c['supporting_quote']}")
 
 
 def render_upload_outcome(status_code: int, payload: dict) -> None:
