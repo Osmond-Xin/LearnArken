@@ -266,8 +266,17 @@ def render_upload_outcome(status_code: int, payload: dict) -> None:
         st.text(str(payload.get("detail", payload)))
 
 
-st.set_page_config(page_title="LearnArken Demo", page_icon="📘", layout="wide")
-st.title("LearnArken — upload + evidence-bound Q&A demo (Day 6)")
+# The title is the first thing a recorded demo shows, and for most viewers the
+# only sentence they will read: it states the claim the whole system exists to
+# make, in the README's own words. "Day 6" was an internal daily-cycle label
+# that told an outside viewer nothing and read like a tutorial exercise.
+st.set_page_config(page_title="LearnArken — provenance or refusal", page_icon="📘", layout="wide")
+st.title("Every answer carries its provenance — or the system refuses")
+st.caption(
+    "LearnArken · fail-closed retrieval over S1000D aviation maintenance data. "
+    "Every claim lands on a chunk-ID, a DMC and an XPath; when the evidence will not "
+    "support one, a named gate stops the answer."
+)
 
 if DEMO_PUBLIC and not (DEMO_GATE_KEY and _visitor_key() == DEMO_GATE_KEY):
     # Visitor-facing gate: without the shared key from the token status page,
