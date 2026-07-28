@@ -1,0 +1,233 @@
+{
+ "format": "learnarken-answer-trace/2",
+ "trace_id": "20260727T221151-1e35a711",
+ "note": "Reduced from the full trace for publication; see tools/public_trace.py. Dropped: llm.request_payload — the full prompt, including system rules and evidence; generation.raw_content — the model's raw output, think block included; retrieval, graph — retrieved chunk bodies; the corpus is public under samples/",
+ "question": "How do I replace the coffee maker in the galley?",
+ "packages": [
+  "samples/package-a",
+  "samples/package-c"
+ ],
+ "mode": "hybrid-rerank",
+ "authorisation": {
+  "clearance": null,
+  "enforced": false,
+  "withheld": 0
+ },
+ "rerank": {
+  "threshold": 0.0004002201894763857,
+  "ranked": [
+   [
+    "c53ec6cb48353e3f",
+    0.00013473197759594768
+   ],
+   [
+    "ff9bc2ffa0610161",
+    0.00010163312981603667
+   ],
+   [
+    "ac49c17946d332a3",
+    9.489444346399978e-05
+   ],
+   [
+    "ba1425d2550da5a0",
+    6.650709110544994e-05
+   ],
+   [
+    "08f040157e3fa5fd",
+    4.247557444614358e-05
+   ]
+  ]
+ },
+ "sources_excluded": [
+  {
+   "chunk_id": "14196954c79140e6",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c9e00c6d1eb7c5c7",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "226f7587a094d09e",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "9a891de05c51b6c9",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ba64c8548357bbb1",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "4ce00c5fa0dc6202",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "eefc8e6bf61657a4",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "dabd324102871b4d",
+   "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "f5e8d89384ea0525",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "0de40404bf22e8fa",
+   "dmc": "DMC-LA100-A-29-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "070f33e1e119aa2b",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "7b4c62ee059cf013",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "cb041e75710cb222",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a4c00793dd5e2ad1",
+   "dmc": "DMC-LA100-A-29-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "b23a3b4b08345729",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "2397d957c244b9a7",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "660630f854754032",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "253cd9187a9f7dd8",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c4775a03c5de0039",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a346f9bcf7655f90",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "02b71ab0bb7556ca",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ffe627967b173a63",
+   "dmc": "DMC-LA100-A-00-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ad38f3c6d6c6e70f",
+   "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "26ff8a8df7fb05ec",
+   "dmc": "DMC-LA100-A-29-10-00-00A-941A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c53ec6cb48353e3f",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0001 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "ff9bc2ffa0610161",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0001 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "ac49c17946d332a3",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0001 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "ba1425d2550da5a0",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0001 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "08f040157e3fa5fd",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0000 < measured threshold 0.0004002201894763857"
+  }
+ ],
+ "llm_called": false,
+ "llm": null,
+ "generation": null,
+ "outcome": {
+  "refused": true,
+  "gate": "threshold",
+  "action": {
+   "gate": "threshold",
+   "why": "refused at the threshold gate",
+   "what_would_resolve": "no indexed chunk scored above the measured refusal threshold — supply a data module covering this topic and re-run `learnarken index`, or confirm the topic is genuinely outside this publication",
+   "owner": null,
+   "owner_reason": "the question names no data module, so no declared-missing module can be linked to it — the corpus is silent rather than incomplete in a named place",
+   "gap_signature": null
+  },
+  "top1_score": 0.00013473197759594768
+ }
+}

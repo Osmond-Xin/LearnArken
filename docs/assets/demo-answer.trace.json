@@ -1,0 +1,194 @@
+{
+ "format": "learnarken-answer-trace/2",
+ "trace_id": "20260727T220840-4701a121",
+ "note": "Reduced from the full trace for publication; see tools/public_trace.py. Dropped: llm.request_payload — the full prompt, including system rules and evidence; generation.raw_content — the model's raw output, think block included; retrieval, graph — retrieved chunk bodies; the corpus is public under samples/",
+ "question": "What safety precautions apply before removing the hydraulic pump?",
+ "packages": [
+  "samples/package-a",
+  "samples/package-c"
+ ],
+ "mode": "hybrid-rerank",
+ "authorisation": {
+  "clearance": null,
+  "enforced": false,
+  "withheld": 0
+ },
+ "rerank": {
+  "threshold": 0.0004002201894763857,
+  "ranked": [
+   [
+    "106807baae8e3f1c",
+    0.23130998015403748
+   ],
+   [
+    "253cd9187a9f7dd8",
+    0.12899474799633026
+   ],
+   [
+    "f5e8d89384ea0525",
+    0.10432334989309311
+   ],
+   [
+    "7b4c62ee059cf013",
+    0.009367387741804123
+   ],
+   [
+    "ad38f3c6d6c6e70f",
+    0.00777627807110548
+   ]
+  ]
+ },
+ "sources_excluded": [
+  {
+   "chunk_id": "eefc8e6bf61657a4",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a346f9bcf7655f90",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "08f040157e3fa5fd",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c53ec6cb48353e3f",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a6b6973a8c5deb45",
+   "dmc": "DMC-LA100-A-29-10-00-00A-941A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c9e00c6d1eb7c5c7",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ba1425d2550da5a0",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "8ffb13b468288210",
+   "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a4c00793dd5e2ad1",
+   "dmc": "DMC-LA100-A-29-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "0de40404bf22e8fa",
+   "dmc": "DMC-LA100-A-29-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a526ec24762a6da2",
+   "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "9a891de05c51b6c9",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "cb041e75710cb222",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "d406e5b0b76d1c1f",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ffe627967b173a63",
+   "dmc": "DMC-LA100-A-00-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "b23a3b4b08345729",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "2397d957c244b9a7",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "4f2536250de20f8a",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ac49c17946d332a3",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "14196954c79140e6",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  }
+ ],
+ "llm_called": true,
+ "llm": {
+  "model": "MiniMax-M3",
+  "usage": {}
+ },
+ "generation": {
+  "is_answerable": true,
+  "answer_text_emitted": true,
+  "answer_chars": 210
+ },
+ "outcome": {
+  "refused": false,
+  "citations": [
+   {
+    "chunk_id": "106807baae8e3f1c",
+    "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+    "source_path": "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning",
+    "supporting_quote": "Hydraulic fluid under pressure can penetrate skin and cause serious injury. Make sure system pressure is fully released before you disconnect any line.",
+    "figure_ref": null
+   }
+  ],
+  "citation_status": [
+   {
+    "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+    "issue": "001-00",
+    "registered_issue": "001-00",
+    "state": "current",
+    "basis": "DML registration matches the module's issueInfo; ingest rejects a mismatch (XREF-003) and indexes only the newest of duplicate issues (XREF-007)"
+   }
+  ]
+ }
+}

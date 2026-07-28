@@ -107,6 +107,44 @@ I don't know — no answer was found in the indexed corpus.
 所以误拒是可调试的而非玄学。误拒率与陷阱拒答率都是**实测**的(见 §5)——
 一个什么都拒答的系统同样是坏的。
 
+### 同样三种结局,在浏览器里
+
+上面三段是命令行。下面是同一套行为在 demo 界面里的样子。每段录屏都是**一条完整
+takes,只做了裁剪和缩放——没有剪切、没有变速、没有重排**(转换本身是
+[提交在仓库里的脚本](tools/make_demo_gif.sh),跑在同样提交在仓库里的源录像上),
+并且每一段都带着那次运行的 trace,所以下面的说法可以拿记录去核,而不是拿信任去换。
+
+**答案和它的证据焊在一起。** 每一句都落到 chunk id、DMC、XPath,以及必须在被引
+chunk 里逐字找到的那段原文。
+
+![一次作答,以及它的引用表](docs/assets/demo-answer.gif)
+
+*Trace:[`demo-answer.trace.json`](docs/assets/demo-answer.trace.json)*
+
+**一次不花钱的拒答。** 语料里没有任何 chunk 分数越过实测阈值,所以问题在**模型
+被调用之前**就被拒了——这段录屏里根本没有出现 `Generating (LLM)…` 这一步。这句话
+可以核而不必信:trace 里 **`"llm_called": false`**,因为引擎在检索阈值门拒答时
+根本不会写 `llm` span。拒答依然是被路由的:怎么解决、谁该处理。
+
+![一个语料外的问题在检索阈值门被拒](docs/assets/demo-refusal.gif)
+
+*Trace:[`demo-refusal.trace.json`](docs/assets/demo-refusal.trace.json)*
+
+**一次撤回,以及它到底撤走了什么、没撤走什么。** 这一次模型在吐出任何答案文本
+**之前**就判定证据不足,所以撤回协议触发了,但屏幕上没有任何可见内容被拿走。界面
+如实这么写,而不是暗示一次观众从未看见的撤回——trace 里也带着
+**`"answer_text_emitted": false`**,所以这个区分同样可核。把「协议运行了」和
+「有文字被撤回」分清楚,正是 demo 最容易含糊过去的地方。
+
+![一次撤回,以及随后的路由拒答](docs/assets/demo-retraction.gif)
+
+*Trace:[`demo-retraction.trace.json`](docs/assets/demo-retraction.trace.json)*
+
+录制流程、逐字查询、精确的转换命令与实测复现率见
+[docs/assets/CAPTURE.md](docs/assets/CAPTURE.md)。发布出来的 trace 是**裁剪过**
+的——完整提示词和模型原始输出由 [`tools/public_trace.py`](tools/public_trace.py)
+去掉,那个脚本自己写明了删了什么、为什么删。
+
 ### 为什么是场景先于技术栈
 
 做工程师之前我做产品经理,当时奉行的一条规矩是:没有去一线坐在终端用户旁边看过

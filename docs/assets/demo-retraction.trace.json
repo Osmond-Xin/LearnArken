@@ -1,0 +1,179 @@
+{
+ "format": "learnarken-answer-trace/2",
+ "trace_id": "20260727T223411-4afc2952",
+ "note": "Reduced from the full trace for publication; see tools/public_trace.py. Dropped: llm.request_payload — the full prompt, including system rules and evidence; generation.raw_content — the model's raw output, think block included; retrieval, graph — retrieved chunk bodies; the corpus is public under samples/",
+ "question": "APU automatic start sequence",
+ "packages": [
+  "samples/package-a",
+  "samples/package-c"
+ ],
+ "mode": "hybrid-rerank",
+ "authorisation": {
+  "clearance": null,
+  "enforced": false,
+  "withheld": 0
+ },
+ "rerank": {
+  "threshold": 0.0004002201894763857,
+  "ranked": [
+   [
+    "4ce00c5fa0dc6202",
+    0.0009571475675329566
+   ],
+   [
+    "4f2536250de20f8a",
+    0.0003746377187781036
+   ],
+   [
+    "d406e5b0b76d1c1f",
+    0.00018456850375514477
+   ],
+   [
+    "dabd324102871b4d",
+    0.0001127195282606408
+   ],
+   [
+    "7b4c62ee059cf013",
+    0.00010201189434155822
+   ]
+  ]
+ },
+ "sources_excluded": [
+  {
+   "chunk_id": "cb041e75710cb222",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a4c00793dd5e2ad1",
+   "dmc": "DMC-LA100-A-29-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "f5e8d89384ea0525",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "9a891de05c51b6c9",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "9bebb92d56967a01",
+   "dmc": "DMC-LA100-A-32-20-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "02b71ab0bb7556ca",
+   "dmc": "DMC-LA100-A-24-50-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ffe627967b173a63",
+   "dmc": "DMC-LA100-A-00-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c9e00c6d1eb7c5c7",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "4bb32c18d9f44eca",
+   "dmc": "DMC-LA100-A-00-00-00-00A-040A-D",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "a346f9bcf7655f90",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "c83979a28fc6dede",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "660630f854754032",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "b23a3b4b08345729",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "253cd9187a9f7dd8",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "ff9bc2ffa0610161",
+   "dmc": "DMC-LA100-A-29-10-00-00A-720A-A",
+   "reason": "rerank-cut",
+   "detail": "not in the reranker's top 5 candidates"
+  },
+  {
+   "chunk_id": "4f2536250de20f8a",
+   "dmc": "DMC-LA100-A-29-10-00-00A-421A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0004 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "d406e5b0b76d1c1f",
+   "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0002 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "dabd324102871b4d",
+   "dmc": "DMC-LA100-A-32-10-00-00A-310A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0001 < measured threshold 0.0004002201894763857"
+  },
+  {
+   "chunk_id": "7b4c62ee059cf013",
+   "dmc": "DMC-LA100-A-32-10-00-00A-421A-A",
+   "reason": "below-threshold",
+   "detail": "rerank score 0.0001 < measured threshold 0.0004002201894763857"
+  }
+ ],
+ "llm_called": true,
+ "llm": {
+  "model": "MiniMax-M3",
+  "usage": {}
+ },
+ "generation": {
+  "is_answerable": false,
+  "answer_text_emitted": false,
+  "answer_chars": 0
+ },
+ "outcome": {
+  "refused": true,
+  "gate": "llm",
+  "action": {
+   "gate": "llm",
+   "why": "refused at the llm gate",
+   "what_would_resolve": "the model judged the retrieved evidence insufficient to answer — supply a data module that states the answer, then re-index",
+   "owner": null,
+   "owner_reason": "the question names no data module, so no declared-missing module can be linked to it — the corpus is silent rather than incomplete in a named place",
+   "gap_signature": null
+  }
+ }
+}

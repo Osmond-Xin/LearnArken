@@ -147,6 +147,51 @@ mysterious. False-refusal and trap-refusal rates are **measured**
 ([§5](#5-golden-sets-and-measurement-discipline)), because a system that refuses
 everything is also broken.
 
+### The same three outcomes, in the browser
+
+The transcripts above are the CLI. Here is the identical behaviour through the
+demo UI. Each recording is **one take, cropped and scaled — nothing cut,
+retimed or reordered** ([the conversion is a committed
+script](tools/make_demo_gif.sh) run over a committed source recording),
+and each ships with **the trace of the run inside it**, so the claims below are
+checkable against the record rather than taken on trust.
+
+**An answer welded to its evidence.** Every claim lands on a chunk id, a DMC, an
+XPath and the verbatim quote that had to be found in the cited chunk.
+
+![An answered question, with its citation table](docs/assets/demo-answer.gif)
+
+*Trace: [`demo-answer.trace.json`](docs/assets/demo-answer.trace.json)*
+
+**A refusal that costs nothing.** Nothing in the corpus scored above the measured
+threshold, so the question is refused *before the model is ever called* — there
+is no `Generating (LLM)…` stage in this recording. Check it rather than believe
+it: the trace has **`"llm_called": false`**, because the engine writes no `llm`
+span at all when it refuses at the retrieval threshold. The refusal is still
+routed: what would resolve it, and who should act.
+
+![An off-corpus question refused at the retrieval threshold](docs/assets/demo-refusal.gif)
+
+*Trace: [`demo-refusal.trace.json`](docs/assets/demo-refusal.trace.json)*
+
+**A retraction, and what it did — and did not — withdraw.** Here the model judged
+the evidence insufficient *before* emitting any answer text, so the retraction
+protocol fired but nothing visible was taken off the screen. The UI says exactly
+that, rather than implying a withdrawal the viewer never saw — and the trace
+carries **`"answer_text_emitted": false`**, so that distinction is checkable too.
+Telling "the protocol ran" apart from "text was retracted" is precisely what a
+demo is tempted to blur.
+
+![A retraction and the routed refusal that follows](docs/assets/demo-retraction.gif)
+
+*Trace: [`demo-retraction.trace.json`](docs/assets/demo-retraction.trace.json)*
+
+Recording procedure, verbatim queries, the exact conversion commands and
+measured reproduction rates: [docs/assets/CAPTURE.md](docs/assets/CAPTURE.md).
+The published traces are **reduced** for publication — the full prompt and the
+model's raw output are dropped by [`tools/public_trace.py`](tools/public_trace.py),
+which says what it removes and why.
+
 ### Why the scenario came before the stack
 
 Before I was an engineer I was a product manager, and the rule I worked by was

@@ -1,9 +1,10 @@
 # Demo capture runbook — Phase 0.2
 
 > **AI-drafted** (Claude, implementer). Records Yi Xin's ruling of 2026-07-27:
-> the single `demo-retraction.gif` becomes **three short GIFs**, one idea each,
-> annotated with on-screen text rather than narration. First draft — written to
-> be revised before the recording session, not after.
+> the single `demo-retraction.gif` becomes **three short GIFs**, one idea each.
+> **Shot and shipped 2026-07-27** — the three GIFs below are in the README. The
+> planned on-screen caption layer was not needed in the end: the UI states the
+> nuance itself (see GIF 3), so nothing is burned into the frames.
 >
 > The plan's standing constraint is unchanged and governs everything below:
 > **one unedited take per GIF, never staged.** Retaking is allowed; making the
@@ -262,15 +263,54 @@ is not.**
 
 ---
 
-## After recording
+## What was actually shipped (2026-07-27)
 
-1. Copy each trace: `cp eval/traces/<trace_id>.json docs/assets/demo-<name>.trace.json`
-2. Write the captions into `docs/assets/demo-captions.md` with, per line, the
-   timestamp, the text, and the trace field that backs it.
-3. Burn them in with `tools/make_demo_gif.sh` (to be written) so the annotation
-   step is reproducible from source recording + caption file, even though the
-   recording itself is a one-off.
-4. Add all three to the README **in the same commit as the image links** —
-   `tests/test_readme_guards.py` asserts every relative link resolves, so a
-   link committed ahead of its file fails CI.
-5. Keep each GIF under 5 MB.
+Sources are committed in `demo/mp4/` (audio stripped — a screen recording can
+otherwise carry room audio or notifications that no frame review would catch).
+The exact conversion commands, reproducible against those sources:
+
+```bash
+tools/make_demo_gif.sh demo/mp4/question1.mp4 docs/assets/demo-answer.gif     1400
+tools/make_demo_gif.sh demo/mp4/question2.mp4 docs/assets/demo-refusal.gif    1400
+tools/make_demo_gif.sh demo/mp4/question3.mp4 docs/assets/demo-retraction.gif 1520
+```
+
+Produced with ffmpeg 8.1: 1.3 MB / 660 KB / 848 KB at 1600 px wide, all well
+inside the 5 MB budget. The script crops and scales; it does not cut, retime or
+reorder, so "one take" stays true.
+
+Traces are **reduced for publication** by `tools/public_trace.py`, which drops
+the full prompt (`llm.request_payload`) and the model's raw output
+(`generation.raw_content`). `answer/trace.py` already refuses to persist those
+in public-demo mode; publishing them here by hand would have contradicted it.
+What survives is what the README's claims rest on:
+
+| Claim beside the GIF | Field that settles it |
+| --- | --- |
+| "refused before the model was ever called" | `llm_called: false` |
+| "nothing visible was withdrawn" | `generation.answer_text_emitted: false` |
+| "every claim lands on a chunk-ID, DMC, XPath" | `outcome.citations` |
+| "the refusal is routed" | `outcome.action` |
+
+```bash
+cp eval/traces/<trace_id>.json /tmp/full.json    # from the id visible in the frame
+uv run python tools/public_trace.py /tmp/full.json docs/assets/demo-<name>.trace.json
+```
+
+Add GIFs and their README links **in the same commit** —
+`tests/test_readme_guards.py` asserts every relative link resolves, so a link
+committed ahead of its file fails CI. (It caught exactly that during this
+session.)
+
+## Known gaps in what shipped
+
+- **GIF 2 was recorded before the refusal-rendering fix** (commit `ca3084e`).
+  It shows the refusal text inside the blue info box; the current UI renders a
+  header line plus the text below it, as GIF 3 does. The behaviour and the trace
+  are unaffected, but the two GIFs do not look like the same build. Re-shooting
+  question 2 is a five-second take.
+- **The XPath column is truncated** in GIF 1 (`…/reqSafety/s`). The XPath is the
+  provenance claim, so the full value is worth showing; the trace carries it in
+  full either way.
+- `ffmpeg` is not pinned. The shipped GIFs were made with 8.1; a different
+  version may quantise differently.
