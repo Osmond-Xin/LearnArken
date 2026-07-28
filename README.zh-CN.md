@@ -24,13 +24,14 @@ AI engineer 岗位。所以它是**写来被核查的,不是写来被欣赏的**
 | 你有 | 读 |
 | --- | --- |
 | **3 分钟** | [§1](#1-为什么这个系统必须会说我不知道) 的三段终端输出——一个包被拒收、一个答案焊死在 XPath 上、一个问题被拒答且报出门名。然后是 [§6](#6-与受管推理架构的对照) 对 Arken 七条支柱的诚实自评 |
-| **15 分钟** | 加上 [§2](#2-拦截链四条泳道16-道门全部-fail-closed)(16 道门朝同一方向失效)与 [§4](#4-混合检索先讲清原理再看消融怎么判)(消融如何推翻了我自己的预期) |
+| **15 分钟** | 加上 [§2](#2-拦截链四条泳道16-道门全部-fail-closed)(16 道门朝同一方向失效,其中一道给出了源码摘录)与 [§4](#4-混合检索先讲清原理再看消融怎么判)(消融如何推翻了我自己的预期) |
+| **它是 AI 实现的——那你决定了什么？** | [Three AI proposals I rejected, and why](docs/ai-proposals-rejected.md)，取自人写的日志，每条都链到后来怎么样了的产物 |
 | **要审计** | [docs/EVIDENCE.md](docs/EVIDENCE.md) 是 主张→产物→命令 的映射;[llms.txt](llms.txt) 是同一张图的机器版——**把你自己的 AI agent 指过去核我的数字,别听我说**。对照 Arken 七条支柱、逐条引用其冻结定义的长版审计在 [docs/arken-alignment.md](docs/arken-alignment.md) |
 
 | | |
 | --- | --- |
 | **交付规模** | 13 个已交付日节点,`v0.1.0` → `v1.3.0`,外加一个 Arken 对齐工作包(`v1.4.0`)——每个都配人写的 SPEC **决策层**(AI 起草的展开层明确标注)、独立红队评审、人工裁决(多为整体指令;多数节点按条记录了处置、修复与钉住它的测试,[day 6](docs/reviews/day6.md) 与 [day 10](docs/reviews/day10.md) 只有一句;§7 说明每一份到底有多深) |
-| **测试** | 658 条——`make test`(即 pytest)离线跑 `646 passed, 12 skipped`(CI 即此环境);本地 Vespa + Neo4j 起着时 `649 passed, 9 skipped`。两个数字都是 2026-07-28 实跑测得,不是算出来的。lint 是单独的 `make lint` |
+| **测试** | 659 条——`make test`(即 pytest)离线跑 `647 passed, 12 skipped`(CI 即此环境);本地 Vespa + Neo4j 起着时 `650 passed, 9 skipped`。两个数字都是 2026-07-28 实跑测得,不是算出来的。lint 是单独的 `make lint` |
 | **证据规则** | 复现不了的数字不发布(INV-5)——[EVIDENCE.md](docs/EVIDENCE.md) 把**列在其中的**每条能力与基准主张映射到产物 + 命令 |
 | **诚实边界** | 合成 S1000D-like XML(INV-1)、教学级语料规模、分布式为单机模拟——完整清单见 [docs/constitution.md](docs/constitution.md) |
 
@@ -208,6 +209,56 @@ chunk 里逐字找到的那段原文。
 
 第 16 道门(一个信封、四道围栏):生成路径上的 **LLM 调用配额 + 并发上限**——模型花费不走云账单,这是唯一看得见它的围栏;所有状态变更/花钱路由上的共享 `X-Demo-Key`;**上传熔断**(上传会污染与下一位访客共享的语料);以及 VM 内按内核时钟执行的 **30 分钟闲置 + 3 小时硬顶自动关机**,外加预算告警。
 ([api/demo_guard.py](src/learnarken/api/demo_guard.py) · [deploy/](deploy/runbook.md))
+
+### 取一道门看源码,因为"fail-closed"这四个字太好说了
+
+第 10 道门是引用核验。它决定一个**已经流式输出到用户屏幕上**的答案能不能算数。
+取自 [`answer/engine.py`](src/learnarken/answer/engine.py)——为版面缩进对齐,
+四个条件加了本页注释,图形拒答分支在 `...` 处省略,其余未改动:
+
+```python
+for c in citations_raw:
+    cid, quote = c["chunk_id"], c["supporting_quote"]
+    normalized = _normalize(quote)
+    boilerplate = len(by_id) > 1 and all(
+        normalized in text for text in normalized_evidence.values()
+    )
+    if (
+        cid not in evidence_ids                        # 引了一个我们从没检索到的 chunk
+        or len(normalized) < MIN_QUOTE_CHARS           # 引文短到不足以充当证据
+        or normalized not in normalized_evidence[cid]  # 引文不在它所引的那个 chunk 里
+        or boilerplate                                 # 每个 chunk 里都有 ⇒ 什么都没支撑
+    ):
+        bad.append(cid)
+if bad or not citations_raw or not parsed["answer"].strip():
+    ...
+    return refuse("citation-validation", {"invalid_or_ungrounded": bad})
+```
+
+单条引用有四种作废方式,而这道门本身还会因另外两种情况拒答:一条引用都没有,
+或答案为空。引用不是模型贴上去的标签——那段原文必须能在它所引的 chunk 里被找到,
+经过空白折叠与大小写折叠(`_normalize`,所以重排过的换行仍能匹配,编造的内容不能)。
+
+后果是多数系统没有的那一半(同一文件,缩进对齐外逐字未改、无注释):
+
+```python
+if gate != "threshold":
+    # Generation happened (or was attempted) and a fail-closed gate
+    # voided it: anything already streamed must be withdrawn client-side.
+    emit(
+        "retract",
+        {
+            "gate": gate,
+            "message": f"generated content failed the {gate} gate and has been retracted",
+        },
+    )
+```
+
+**答案已经在屏幕上了。** 核验发生在生成之后,所以核验没过的唯一诚实反应,是把文字
+收回来并说出是哪道门收的——而不是因为撤回难看就悄悄把未核验的版本留在那儿。
+`gate != "threshold"` 是那处诚实细节:阈值门在模型被调用**之前**就拒了,没有东西
+可撤,在那里宣称"撤回"就是演戏。§1 的第三段录屏正是这个区分:撤回协议跑了,
+横幅如实说明屏幕上没有任何可见内容被拿走,因为本来就没有。
 
 ## 3. S1000D 是什么,以及它如何决定了上面每一道门
 
@@ -393,7 +444,7 @@ procedure 结构让这段距离比多数语料都短。没有建的原因是:真
 | --- | --- | --- |
 | SPEC **决策层**人写(目标/验收标准/砍掉什么/关键取舍) | [docs/specs/](docs/specs/) | 拆解与判断力直接暴露在文字里;AI 起草的展开层明确标注 |
 | 裁决人写 | [docs/reviews/](docs/reviews/) | 不理解实现就无法判断红队 finding 真假。**信这一行之前先去读它们。** *裁决*本身多为整体指令——「修正红队指出的问题」「所有的红队发现的问题都修改」——原话引用、标注日期、由 AI 转录并附声明。按条记录的是**处置**:一张列出修复及钉住它的测试的表([day 8](docs/reviews/day8.md)、[day 11](docs/reviews/day11.md)、[Arken 工作包](docs/reviews/arken-alignment-2026-07-26.md))。逐条*理由*出现在被否决或刻意不修的地方([F-21](docs/reviews/arken-alignment-2026-07-26.md)、[ADR-0004](docs/adr/0004-measurements-are-bound-to-their-corpus.md));有两个节点只有一句整体接受、连表都没有([day 6](docs/reviews/day6.md)、[day 10](docs/reviews/day10.md))。原样保留、不回填——重写过的裁决什么都证明不了 |
-| 日志人写 | [docs/journal/](docs/journal/) | 固定三问:学到什么 / AI 错在哪 / 我拒绝了 AI 什么 |
+| 日志人写 | [docs/journal/](docs/journal/) | 固定三问:学到什么 / AI 错在哪 / 我拒绝了 AI 什么。第三问才是承重的那一问,答案的英文整理在 **[Three AI proposals I rejected, and why](docs/ai-proposals-rejected.md)**——三条里有两条是同一个实现方倾向,两天之内被抓到两次 |
 
 红队纪律:**评审模型必须与实现模型不同**、只读不写。INV-6 规定红队报出的*数字*由人
 复跑,而诚实的记录是:这条执行得并不均匀——[day 11](docs/reviews/day11.md) 和
@@ -460,7 +511,7 @@ README 里那个数字没有更大的原因。
 
 ```bash
 uv sync --locked                               # Python 3.12 + 依赖(需要 uv)
-make lint && make test                         # ruff,再 pytest → 646 passed, 12 skipped(离线)
+make lint && make test                         # ruff,再 pytest → 647 passed, 12 skipped(离线)
 uv run learnarken inspect samples/package-a    # 查看样本包摘要
 uv run learnarken validate samples/package-b   # 四层校验 findings
 ```
@@ -519,11 +570,34 @@ LangGraph agent,以及它们底下的后端基础设施。
 
 | | |
 | --- | --- |
+| **简历** | **[Yi_Xin_Resume.pdf](https://www.niagaradataanalyst.com/resume/Yi_Xin_Resume.pdf)** |
 | **邮箱** | [jonzy.xin@outlook.com](mailto:jonzy.xin@outlook.com) |
 | **LinkedIn** | [linkedin.com/in/osmond-xin-92a736308](https://www.linkedin.com/in/osmond-xin-92a736308/) |
 | **GitHub** | [github.com/Osmond-Xin](https://github.com/Osmond-Xin) |
 | **作品集** | **[niagaradataanalyst.com](https://www.niagaradataanalyst.com/)** |
 | **工作许可** | 加拿大 PGWP,无需雇主 sponsorship |
+
+### 想拿你自己的问题跑一跑?
+
+在线 demo **按需开机,这是设计**——那套栈一直开着要花钱,所以它不一直开着。给我发邮件,
+我把按收件人分发的链接发给你。[链接背后](deploy/runbook.md)是一枚带**尽力而为**的每小时一次启动限流的 token
+(限流状态在函数实例内存里,冷启动会忘掉——代码自己这么写的)、一台在你点「启动」时
+才开机(不是你一到就开)的真 VM,以及那些真正**在执行**的控制:空闲 30 分钟断电、按内核
+时钟的 3 小时硬顶、LLM 调用配额。GCP 预算是**告警**不是熔断——它只通知我,不会停掉
+任何东西;把它列成一道围栏,正是这一页存在的意义所要避免的事。说准:token 把守的是**触发器**,它背后的应用另由一枚
+共享 demo key 把守——没有按访客的会话认证,这里也不公布任何公开 URL。
+
+你到的时候如果它是关的,页面会如实说它是关的、并写明开机要花多少钱,而不是假装宕机。
+那个页面和它背后的围栏是 [`api/demo_guard.py`](src/learnarken/api/demo_guard.py) 与
+[`deploy/`](deploy/runbook.md)——和本页其余部分同一条纪律:诚实的那一面写下来,
+包括"一个求职项目负担不起云上空转"这一面。
+
+核查这份工作并不需要它。系统本身可以用 [§9](#9-跑起来) 在本地跑起来,而
+**列在 [EVIDENCE.md](docs/EVIDENCE.md) 里的**每个数字都附着当初*产出*它的命令——
+那是基准与能力主张,不是这一页上的每一句话(§6 写明了哪些不在机器守卫内)。
+用"产出"而不是"重生成":有一张已发布的表今天已经跑不出原值了,因为它所测的语料后来
+被扩充过;[BENCHMARKS.md](docs/BENCHMARKS.md) 如实写明了这件事、以及差了多少,
+而不是悄悄换个数。
 
 如果这个项目让你感兴趣,**[niagaradataanalyst.com](https://www.niagaradataanalyst.com/)**
 上有其余的工作:约 20 节点的 LangGraph 求职 agent(460+ 测试)、带出处归因的

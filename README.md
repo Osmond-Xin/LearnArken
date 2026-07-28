@@ -26,13 +26,14 @@ system that overstates itself is the failure mode being engineered against.
 | You have | Read |
 | --- | --- |
 | **3 minutes** | The three terminal transcripts in [§1](#1-why-this-system-has-to-be-able-to-say-i-dont-know) — a package rejected, an answer welded to an XPath, a question refused with the gate named. Then the honest self-assessment against Arken's seven pillars in [§6](#6-mapped-to-a-governed-reasoning-architecture) |
-| **15 minutes** | Add [§2](#2-the-interception-chain) (16 gates, all failing in the same direction) and [§4](#4-hybrid-retrieval-how-it-works-and-what-the-ablation-proved) (what the ablation proved *against* my expectations) |
+| **15 minutes** | Add [§2](#2-the-interception-chain) (16 gates, all failing in the same direction — one shown as a source excerpt) and [§4](#4-hybrid-retrieval-how-it-works-and-what-the-ablation-proved) (what the ablation proved *against* my expectations) |
+| **It was AI-implemented — so what did *you* decide?** | [Three AI proposals I rejected, and why](docs/ai-proposals-rejected.md), from the human-written journals, each linked to the artifact that shows what happened next |
 | **You want to audit it** | [docs/EVIDENCE.md](docs/EVIDENCE.md) maps claim → artifact → command. [llms.txt](llms.txt) is the same map for a machine: **point your own AI agent at it and have it check my numbers rather than take them from me**. The long-form audit against Arken's seven pillars, quoting their frozen definitions, is [docs/arken-alignment.md](docs/arken-alignment.md) |
 
 | | |
 | --- | --- |
 | **Scale of delivery** | 13 shipped day nodes, `v0.1.0` → `v1.3.0`, plus one Arken-alignment work package (`v1.4.0`) — each with a human-written spec **decision layer** (AI-drafted elaboration labelled as such), an independent red-team review, and a human adjudication — usually a blanket ruling, recorded per finding with the fix and its test on most nodes and as a single line on [day 6](docs/reviews/day6.md) and [day 10](docs/reviews/day10.md); §7 says exactly how deep each one goes |
-| **Test suite** | 658 tests — `make test` (pytest) → `646 passed, 12 skipped` offline, which is what CI runs; `649 passed, 9 skipped` with the local Vespa + Neo4j services up. Both measured 2026-07-28, both by running them. Lint is the separate `make lint` |
+| **Test suite** | 659 tests — `make test` (pytest) → `647 passed, 12 skipped` offline, which is what CI runs; `650 passed, 9 skipped` with the local Vespa + Neo4j services up. Both measured 2026-07-28, both by running them. Lint is the separate `make lint` |
 | **Evidence rule** | a number that cannot be reproduced is not published (INV-5) — [EVIDENCE.md](docs/EVIDENCE.md) maps every **listed** capability and benchmark claim → artifact → command |
 | **Honest boundary** | synthetic S1000D-like XML (INV-1), educational corpus size, distribution simulated on one machine — full list in [docs/constitution.md](docs/constitution.md) |
 
@@ -308,6 +309,66 @@ from the kernel clock, plus a budget alert.
 > together they are the reason an answer from this system is worth something in
 > a domain where being wrong is expensive.
 
+### One gate in full, because "fail-closed" is easy to claim
+
+Gate 10 is citation verification. It is the one that decides whether an answer
+that has *already been streamed to the user* is allowed to stand. From
+[`answer/engine.py`](src/learnarken/answer/engine.py) — dedented to the page
+margin, with **the four conditions annotated for this page** and the
+figure-refusal branch elided at `...`; nothing else altered:
+
+```python
+for c in citations_raw:
+    cid, quote = c["chunk_id"], c["supporting_quote"]
+    normalized = _normalize(quote)
+    boilerplate = len(by_id) > 1 and all(
+        normalized in text for text in normalized_evidence.values()
+    )
+    if (
+        cid not in evidence_ids                      # cited a chunk we never retrieved
+        or len(normalized) < MIN_QUOTE_CHARS         # quote too short to be evidence
+        or normalized not in normalized_evidence[cid]  # quote not IN the chunk it cites
+        or boilerplate                               # true of every chunk ⇒ supports nothing
+    ):
+        bad.append(cid)
+if bad or not citations_raw or not parsed["answer"].strip():
+    ...
+    return refuse("citation-validation", {"invalid_or_ungrounded": bad})
+```
+
+Four ways for a single citation to be invalidated — and the gate refuses on two
+more: no citations at all, or an empty answer. A citation is not a label the
+model attaches; the quote has to be findable inside the chunk it names, after
+whitespace-collapse and case-folding (`_normalize`, so a reflowed line still
+matches but invented content does not). The `boilerplate` clause is the subtle one: a quote that appears
+in *every* retrieved chunk is technically present in the one cited and supports
+nothing, which is exactly the shape a model reaches for when it is padding.
+
+The consequence, from the same file — dedented, otherwise character for
+character and unannotated — is the part most systems do not have:
+
+```python
+if gate != "threshold":
+    # Generation happened (or was attempted) and a fail-closed gate
+    # voided it: anything already streamed must be withdrawn client-side.
+    emit(
+        "retract",
+        {
+            "gate": gate,
+            "message": f"generated content failed the {gate} gate and has been retracted",
+        },
+    )
+```
+
+**The answer was already on the screen.** Verification runs after generation, so
+the only honest response to failing it is to take the text back and say which
+gate took it — not to quietly serve the unverified version because withdrawing
+it looks bad. The condition `gate != "threshold"` is the honesty detail: the
+threshold gate refuses *before* the model is called, so there is nothing to
+retract, and claiming a retraction there would be theatre. The demo GIF in §1
+shows the distinction on screen — the retraction protocol ran and the banner
+says plainly that nothing visible was withdrawn, because nothing had been.
+
 ## 3. What S1000D is, and why it shapes every gate above
 
 S1000D is the international specification for technical publications in
@@ -553,7 +614,7 @@ Three understanding gates that cannot be faked, all committed:
 | --- | --- | --- |
 | Spec **decision layer** is human-written (goal, acceptance criteria, scope cuts, key decisions) | [docs/specs/](docs/specs/) | Decomposition and judgment show directly in the writing; AI-drafted elaboration is explicitly labelled |
 | Adjudications are human-written | [docs/reviews/](docs/reviews/) | You cannot judge red-team findings without understanding the implementation. **Read them before believing this row.** The *ruling* is usually a blanket instruction — "修正红队指出的问题", "所有的红队发现的问题都修改" — quoted, dated, and transcribed by the AI under a notice that says so. What is per-finding is the **record**: a disposition table with the fix and the test that pins it ([day 8](docs/reviews/day8.md), [day 11](docs/reviews/day11.md), [the Arken package](docs/reviews/arken-alignment-2026-07-26.md)). Per-finding *rationale* appears where a finding was rejected or deliberately not fixed ([F-21](docs/reviews/arken-alignment-2026-07-26.md), [ADR-0004](docs/adr/0004-measurements-are-bound-to-their-corpus.md)); two nodes are a one-line acceptance with no table at all ([day 6](docs/reviews/day6.md), [day 10](docs/reviews/day10.md)). Left as written rather than backfilled — a rewritten adjudication is evidence of nothing |
-| Journals are human-written | [docs/journal/](docs/journal/) | Three fixed questions: what did I learn / where was the AI wrong / what AI proposal did I reject and why |
+| Journals are human-written | [docs/journal/](docs/journal/) | Three fixed questions: what did I learn / where was the AI wrong / what AI proposal did I reject and why. The third one is the load-bearing one, and the answers are translated in **[Three AI proposals I rejected, and why](docs/ai-proposals-rejected.md)** — two of the three are the same implementer tendency caught twice in two days |
 
 Red-team discipline: **the reviewing model must differ from the implementing
 model**, and reviews are read-only. INV-6 makes re-running a red-team *number*
@@ -643,7 +704,7 @@ Stated up front so no reviewer has to discover it (INV-7):
 
 ```bash
 uv sync --locked                               # Python 3.12 + deps (needs uv)
-make lint && make test                         # ruff, then pytest → 646 passed, 12 skipped (offline)
+make lint && make test                         # ruff, then pytest → 647 passed, 12 skipped (offline)
 uv run learnarken inspect samples/package-a    # summarize a sample package
 uv run learnarken validate samples/package-b   # four-layer validation findings
 ```
@@ -710,11 +771,44 @@ under them.
 
 | | |
 | --- | --- |
+| **Résumé** | **[Yi_Xin_Resume.pdf](https://www.niagaradataanalyst.com/resume/Yi_Xin_Resume.pdf)** |
 | **Email** | [jonzy.xin@outlook.com](mailto:jonzy.xin@outlook.com) |
 | **LinkedIn** | [linkedin.com/in/osmond-xin-92a736308](https://www.linkedin.com/in/osmond-xin-92a736308/) |
 | **GitHub** | [github.com/Osmond-Xin](https://github.com/Osmond-Xin) |
 | **Portfolio** | **[niagaradataanalyst.com](https://www.niagaradataanalyst.com/)** |
 | **Work authorization** | PGWP-eligible in Canada — no employer sponsorship required |
+
+### Want to run it against your own questions?
+
+The live demo is **on demand, by design** — the stack costs money to leave
+running, so it does not run. Email me and I will send you a per-recipient link.
+[Behind it](deploy/runbook.md) is a token with a **best-effort** once-per-hour
+start throttle (per function instance, and a cold start forgets it — the code
+says so), a real VM that boots when you click Start rather than on arrival, and
+the controls that actually *enforce*: an in-VM watchdog powering off after 30
+idle minutes, a 3-hour cap enforced from the kernel clock, and an LLM call
+quota. The GCP budget is an **alert**, not a stop — it tells me, it does not
+halt anything, and listing it as a fence would be the sort of thing this page
+exists to avoid.
+Precisely: the token gates the *trigger*, and the app behind it is gated by a
+separate shared demo key — there is no per-visitor session auth, and no public
+URL is published here.
+
+If it is off when you arrive, the page tells you so and says what it costs to
+turn on, rather than pretending to be down. That page and the fences behind it
+are [`api/demo_guard.py`](src/learnarken/api/demo_guard.py) and
+[`deploy/`](deploy/runbook.md) — the same reading discipline as everything else
+on this page: the honest thing is written down, including the part where a
+portfolio project cannot afford to idle in the cloud.
+
+You do not need it to check the work. The system runs locally with
+[§9](#9-run-it), and every number **listed in
+[EVIDENCE.md](docs/EVIDENCE.md)** carries the command that *produced* it — which
+is the benchmark and capability claims, not every sentence on this page (§6 says
+which are not machine-guarded). "Produced", not "regenerates": one published
+table no longer reproduces, because the corpus it was measured on was later
+extended, and [BENCHMARKS.md](docs/BENCHMARKS.md) says so and says by how much
+rather than quietly restating it.
 
 If this project is interesting, **[niagaradataanalyst.com](https://www.niagaradataanalyst.com/)**
 has the rest of the work — a ~20-node LangGraph job-search agent with 460+

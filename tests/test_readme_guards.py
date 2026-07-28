@@ -18,7 +18,11 @@ READMES = [REPO / "README.md", REPO / "README.zh-CN.md"]
 # Outward-facing docs whose whole claim is "every row names a file you can open".
 # Resolution is relative to each document, so a doc under `docs/` is guarded on
 # the same terms as a README at the root.
-LINKED_DOCS = [*READMES, REPO / "docs/arken-alignment.md"]
+LINKED_DOCS = [
+    *READMES,
+    REPO / "docs/arken-alignment.md",
+    REPO / "docs/ai-proposals-rejected.md",
+]
 
 # [text](target) where target is not an external URL, mailto, or bare fragment.
 LINK = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)\)")
