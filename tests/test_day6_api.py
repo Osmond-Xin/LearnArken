@@ -645,6 +645,17 @@ def _frontend_render(entry: dict) -> _FakeSt:
     return fake
 
 
+def _citation(**overrides) -> dict:
+    c = {
+        "chunk_id": "106807baae8e3f1c",
+        "dmc": "DMC-LA100-A-29-10-00-00A-520A-A",
+        "source_path": "/dmodule/content",
+        "supporting_quote": "Release the pressure.",
+    }
+    c.update(overrides)
+    return c
+
+
 def _answered_result(**overrides) -> dict:
     result = {
         "refused": False,
@@ -690,6 +701,65 @@ class TestFrontendFailsClosedOnBadResults:
         fake = _frontend_render({"result": _answered_result()})
         assert "Citations verified" in fake.text_of("caption")
         assert "table" in fake.kinds()
+
+    def test_the_xpath_gets_a_row_of_its_own(self):
+        """An XPath contains no spaces, so it cannot wrap. Sharing a four-column
+        table with a long quote clipped it mid-path — and the XPath *is* the
+        provenance claim. One table per citation, one row per field, so the
+        value column has the width to hold it.
+
+        Measured on this corpus: the longest source_path is 73 characters, which
+        is the one the README GIF shows.
+        """
+        long_path = "/dmodule/content/procedure/preliminaryRqmts/reqSafety/safetyRqmts/warning"
+        fake = _frontend_render(
+            {"result": _answered_result(citations=[_citation(source_path=long_path)])}
+        )
+        rows = [args for kind, args in fake.calls if kind == "table"]
+        assert len(rows) == 1, "one table per citation"
+        by_field = {r["Evidence"]: r["Value"] for r in rows[0]}
+        assert by_field["XPath"] == long_path, "the XPath must survive whole"
+        assert set(by_field) == {"chunk_id", "DMC", "XPath", "Supporting quote"}
+
+    def test_the_corpus_cannot_produce_an_unshowable_xpath(self):
+        """The layout gives the XPath a column of its own, but `st.table` still
+        will not break a string with no spaces — so the fix holds only while
+        paths stay within the width that column has.
+
+        This pins the assumption rather than trusting it: source paths come from
+        `tree.getpath()`, so a deeply nested or heavily indexed module could grow
+        one past what fits. If this fails, the display needs a wrapping fallback,
+        not a bigger number (red-team 2026-07-27 P3).
+        """
+        from learnarken.chunking import chunk_package
+
+        paths = [
+            c.source_path
+            for pkg in ("samples/package-a", "samples/package-c")
+            for c in chunk_package(str(REPO_ROOT / pkg), strategy="structure")
+        ]
+        longest = max(paths, key=len)
+        assert len(longest) <= 120, f"XPath too long to display whole: {longest}"
+
+    def test_model_name_is_stripped_before_a_markdown_renderer(self):
+        """`model` comes off the wire and `st.caption` renders markdown. The
+        name may survive as inert text; the link syntax may not."""
+        fake = _frontend_render(
+            {"result": _answered_result(model="[pwn](https://attacker.example)")}
+        )
+        caption = fake.text_of("caption")
+        assert not any(ch in caption for ch in "[]()/:"), caption
+        assert "Citations verified" in caption
+
+    def test_each_citation_gets_its_own_table(self):
+        fake = _frontend_render(
+            {
+                "result": _answered_result(
+                    citations=[_citation(chunk_id="c1"), _citation(chunk_id="c2")]
+                )
+            }
+        )
+        assert len([k for k, _ in fake.calls if k == "table"]) == 2
 
     def test_a_complete_refusal_renders_its_routing(self):
         fake = _frontend_render({"result": _refusal_result()})

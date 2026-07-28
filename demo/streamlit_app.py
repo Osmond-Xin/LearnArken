@@ -264,20 +264,31 @@ def render_answer(entry: dict) -> None:
             st.text(f"Who should act:        unknown — {action.get('owner_reason', '—')}")
         return
     st.text(result["answer_text"])
-    st.caption(f"✅ Citations verified · model={result.get('model')} · trace={result['trace_id']}")
+    # `model` comes off the wire from the generation service, and st.caption
+    # renders markdown — so it is stripped to plain characters like any other
+    # value this file has not vetted (red-team 2026-07-27 P3).
+    model = "".join(c for c in str(result.get("model", "")) if c.isalnum() or c in " ._-")[:40]
+    st.caption(f"✅ Citations verified · model={model} · trace={result['trace_id']}")
+    # One table per citation, a row per field — not one row per citation with a
+    # column per field. An XPath contains no spaces, so it cannot wrap: in a
+    # four-column table it was silently clipped mid-path
+    # (`…/reqSafety/s`), and the XPath *is* the provenance claim. Given a
+    # column of its own it has the width to survive.
+    #
     # `classify_turn` has already established every field below is present and
     # non-empty, so these are plain reads rather than guesses at a default.
-    st.table(
-        [
-            {
-                "chunk_id": c["chunk_id"],
-                "DMC": c["dmc"],
-                "XPath": c["source_path"],
-                "Supporting quote": c["supporting_quote"],
-            }
-            for c in result["citations"]
-        ]
-    )
+    citations = result["citations"]
+    for index, c in enumerate(citations, start=1):
+        if len(citations) > 1:
+            st.caption(f"Citation {index} of {len(citations)}")
+        st.table(
+            [
+                {"Evidence": "chunk_id", "Value": c["chunk_id"]},
+                {"Evidence": "DMC", "Value": c["dmc"]},
+                {"Evidence": "XPath", "Value": c["source_path"]},
+                {"Evidence": "Supporting quote", "Value": c["supporting_quote"]},
+            ]
+        )
 
 
 def render_upload_outcome(status_code: int, payload: dict) -> None:
