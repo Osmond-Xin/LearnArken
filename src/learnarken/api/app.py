@@ -382,6 +382,10 @@ def create_app() -> FastAPI:
                             package_dirs=_query_packages(),
                             on_event=on_event,
                             clearance=body.clearance,
+                            # A retry is a second billed generation under the
+                            # same query, so it must be reserved before it is
+                            # spent, not counted afterwards (red-team P2).
+                            may_retry=GUARD.try_extra_llm_call,
                         )
                 except Exception as exc:  # reported below, fail closed
                     outcome["error"] = exc
@@ -400,10 +404,6 @@ def create_app() -> FastAPI:
                     # so a later transport failure must not claim to withdraw
                     # them (red-team 2026-07-28 P2).
                     tokens_emitted = False
-                    # A retry is a second billed generation under the same query.
-                    # The quota debits per user query, so without this the fence
-                    # permits 2x the completions it advertises (P1).
-                    GUARD.note_extra_llm_call()
                 yield _sse(kind, data)
             if "error" in outcome:
                 exc = outcome["error"]

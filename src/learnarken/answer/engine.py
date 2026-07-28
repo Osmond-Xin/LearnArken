@@ -176,6 +176,7 @@ def answer_question(
     mode: str = "hybrid-rerank",
     on_event: Callable[[str, dict], None] | None = None,
     clearance: str | None = None,
+    may_retry: Callable[[], bool] | None = None,
 ) -> AnswerResult:
     """Answer over the verified indexed corpus, or refuse. Never in between.
 
@@ -384,9 +385,39 @@ def answer_question(
             on_delta=_on_delta,
         )
 
+    def generate_well_shaped():
+        """One generation whose object carries the fields the contract names.
+
+        The shape check lives inside the retried unit, not after it, because a
+        malformed shape is the same kind of event as an unparseable body: a
+        generation glitch, not a statement about the corpus. Observed live —
+        M3 returned `{"is_answerable": false, "  answer": "", "citations": []}`,
+        valid JSON with two spaces inside a key. Under the 2026-07-28 ruling
+        that is a contract failure and gets the same single re-ask.
+        """
+        result = generate()
+        parsed = result.parsed
+        citations = parsed.get("citations")
+        if not (
+            isinstance(parsed.get("is_answerable"), bool)
+            and isinstance(parsed.get("answer"), str)
+            and isinstance(citations, list)
+            and all(
+                isinstance(c, dict)
+                and isinstance(c.get("chunk_id"), str)
+                and isinstance(c.get("supporting_quote"), str)
+                for c in citations
+            )
+        ):
+            raise LLMContractError(
+                f"response object is missing the contract's fields: keys={sorted(parsed)}",
+                retryable=True,
+            )
+        return result
+
     first_error: str | None = None
     try:
-        result = generate()
+        result = generate_well_shaped()
     except LLMContractError as exc:
         # One re-ask, ruled 2026-07-28. M3 intermittently closes its think block
         # a token late and swallows the start of what follows, so the response no
@@ -398,22 +429,32 @@ def answer_question(
         # Exactly one retry, and only for a *contract* failure — a transport
         # error still fails closed on the first try.
         if not exc.retryable:
-            # Truncated, filtered, or the wrong shape: asking again spends a
-            # second full generation on an outcome that will not change — or
-            # asks again after upstream already declined (red-team P1).
+            # Truncated, filtered, or an envelope we did not ask for: asking
+            # again spends a second full generation on an outcome that will not
+            # change — or asks again after upstream already declined (P1). A
+            # malformed *answer object* is different and does retry; it is
+            # raised as retryable by `generate_well_shaped` above.
             spans["llm"] = {"contract_error": str(exc)}
             return refuse("llm-contract", {"error": str(exc)})
         # Only the class of failure is kept, never the failed body: that body is
         # model output shaped by uploaded evidence, and it has no business
         # surviving in a log or in the trace of a run that *succeeded* (P2).
         first_error = str(exc).split(":")[0]
+        if may_retry is not None and not may_retry():
+            # The caller declined to fund a second generation — over quota in
+            # public mode. Refusing on the first failure is the fail-closed
+            # outcome; spending anyway would be the fence advertising a bound it
+            # does not hold (red-team P2).
+            logger.warning("llm contract failure (%s); retry not funded", first_error)
+            spans["llm"] = {"contract_error": str(exc)}
+            return refuse("llm-contract", {"error": str(exc), "retry_declined": True})
         logger.warning("llm contract failure (%s); re-asking once", first_error)
         # Tell the client to drop whatever it has shown: the next attempt streams
         # from the beginning. Deliberately not `retract`, which means "this answer
         # is void" and would make a successful retry look self-contradictory.
         emit("restart", {"reason": "llm-contract"})
         try:
-            result = generate()
+            result = generate_well_shaped()
         except LLMContractError as exc2:
             spans["llm"] = {"contract_error": str(exc2), "first_attempt_error": first_error}
             return refuse("llm-contract", {"error": str(exc2), "retried": True})
@@ -425,20 +466,9 @@ def answer_question(
     }
     spans["generation"] = {"raw_content": result.raw_content, "parsed": result.parsed}
 
+    # Shape is already established by `generate_well_shaped`.
     parsed = result.parsed
-    citations_raw = parsed.get("citations")
-    if not (
-        isinstance(parsed.get("is_answerable"), bool)
-        and isinstance(parsed.get("answer"), str)
-        and isinstance(citations_raw, list)
-        and all(
-            isinstance(c, dict)
-            and isinstance(c.get("chunk_id"), str)
-            and isinstance(c.get("supporting_quote"), str)
-            for c in citations_raw
-        )
-    ):
-        return refuse("llm-contract", {"keys": sorted(parsed)})
+    citations_raw = parsed["citations"]
     if not parsed["is_answerable"]:
         # only re-look when a figure is the TOP evidence — a stray figure lower
         # in top-k must not trigger VLM calls (red-team R2 P2 cost bound)

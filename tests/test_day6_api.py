@@ -280,7 +280,13 @@ class TestQuerySSE:
         """script(on_event) -> AnswerResult, wired as answer_question."""
 
         def fake(
-            question, package_dirs=None, k=5, mode="hybrid-rerank", on_event=None, clearance=None
+            question,
+            package_dirs=None,
+            k=5,
+            mode="hybrid-rerank",
+            on_event=None,
+            clearance=None,
+            may_retry=None,
         ):
             return script(question, on_event)
 
@@ -594,11 +600,73 @@ class TestContractRetry:
         assert len(prompts) == 2
         assert prompts[0] != prompts[1], "the re-ask must not be the same prompt"
 
+    def test_a_malformed_shape_is_re_asked_too(self, monkeypatch, wired):
+        """Observed live 2026-07-28: M3 returned
+        `{"is_answerable": false, "  answer": "", "citations": []}` — valid JSON
+        with two spaces inside a key. That is a generation glitch, not a
+        statement about the corpus, so under the same ruling it gets one
+        re-ask."""
+        bad = {"is_answerable": False, "  answer": "", "citations": []}
+        events, result, calls = self._run(monkeypatch, [bad, self.GOOD])
+        assert calls == 2
+        assert not result.refused
+        assert "restart" in [k for k, _ in events]
+
+    def test_a_shape_that_stays_malformed_refuses_with_its_keys(self, monkeypatch, wired):
+        bad = {"is_answerable": False, "  answer": "", "citations": []}
+        _, result, calls = self._run(monkeypatch, [bad, bad])
+        assert calls == 2
+        assert result.refused and result.refusal_gate == "llm-contract"
+
     def test_a_transport_error_is_not_retried(self, monkeypatch, wired):
         """Only a *contract* failure is re-asked; the network failing once fails
         closed, as it did before."""
         with pytest.raises(LLMError):
             self._run(monkeypatch, [LLMError("unreachable"), self.GOOD])
+
+    def test_a_recovered_run_keeps_no_attacker_controlled_keys(self, monkeypatch, wired, tmp_path):
+        """The first attempt's *keys* are model output shaped by uploaded
+        evidence. A run that recovered must not carry them (red-team P3)."""
+        import learnarken.answer.trace as trace_mod
+
+        monkeypatch.setattr(trace_mod, "TRACE_DIR", tmp_path)
+        smuggled = "copied_secret_from_module"
+        bad = {"is_answerable": False, smuggled: "", "citations": []}
+        _, result, _ = self._run(monkeypatch, [bad, self.GOOD])
+        assert smuggled not in (tmp_path / f"{result.trace_id}.json").read_text()
+
+    def test_the_retry_can_be_declined(self, monkeypatch, wired):
+        """Public mode over quota: refusing on the first failure is fail-closed;
+        spending anyway would make the fence advertise a bound it does not hold."""
+        calls = []
+
+        def fake(system, user, *, on_delta=None, **kwargs):
+            calls.append(1)
+            raise LLMContractError("post-think content is not JSON", retryable=True)
+
+        monkeypatch.setattr(engine, "chat_json_stream", fake)
+        result = answer_question(
+            "How do I remove the pump?", on_event=lambda k, d: None, may_retry=lambda: False
+        )
+        assert calls == [1], "a declined retry must not spend a second generation"
+        assert result.refused and result.refusal_gate == "llm-contract"
+
+    def test_the_non_streaming_path_retries_a_malformed_shape(self, monkeypatch, wired):
+        """The CLI takes the non-streaming path and deserves the same (P3)."""
+        results = [
+            {"is_answerable": False, "  answer": "", "citations": []},
+            self.GOOD,
+        ]
+        calls = []
+
+        def fake(system, user, **kwargs):
+            parsed = results[len(calls)]
+            calls.append(1)
+            return _fake_stream(parsed)(system, user, on_delta=lambda t: None)
+
+        monkeypatch.setattr(engine, "chat_json", fake)
+        result = answer_question("How do I remove the pump?")
+        assert len(calls) == 2 and not result.refused
 
     def test_the_retry_is_visible_in_the_trace(self, monkeypatch, wired, tmp_path):
         import learnarken.answer.trace as trace_mod

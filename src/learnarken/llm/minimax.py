@@ -73,13 +73,19 @@ class LLMContractError(LLMError):
     shape). This is a *refusal* condition, not a transport error — the answer
     layer maps it to `refuse("llm-contract")`, exit 3 (red-team day5 #3).
 
-    `retryable` marks the one class worth asking again: M3 closing its think
-    block a token late, which leaves the body unparseable and recurs at about
-    2 runs in 24. It is **not** set for a completion the service cut short
-    (`length`) or declined (`content_filter`, any non-`stop` reason), nor for a
-    response of the wrong shape — re-asking those spends a second full
-    generation on an outcome that will not change, or asks again after upstream
-    already declined (red-team 2026-07-28 P1).
+    `retryable` marks a failure worth asking again. Here that is one thing: M3
+    closing its think block a token late, which leaves the body unparseable and
+    recurs at about 2 runs in 24. It is **not** set for a completion the service
+    cut short (`length`) or declined (`content_filter`, any non-`stop` reason),
+    nor for an *envelope* of the wrong shape — more than one choice, a non-object
+    body — because re-asking those spends a second full generation on an outcome
+    that will not change, or asks again after upstream already declined
+    (red-team 2026-07-28 P1).
+
+    The answer layer raises its own retryable `LLMContractError` when the
+    *answer object* is malformed (a key with stray whitespace, say); that is a
+    generation glitch rather than an upstream verdict. See
+    `answer/engine.py::generate_well_shaped`.
     """
 
     def __init__(self, message: str, *, retryable: bool = False):

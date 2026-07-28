@@ -80,20 +80,26 @@ class DemoGuard:
         self._active = 0
         self._window_start = time.time()
 
-    def note_extra_llm_call(self) -> None:
-        """Debit a generation that was not the one `llm_slot` reserved.
+    def try_extra_llm_call(self) -> bool:
+        """Reserve a generation that was not the one `llm_slot` booked.
 
         The quota unit is a user query, but a query whose completion breaks the
         model's output contract is asked twice (engine, 2026-07-28). Counting
         only queries would let the fence permit twice the completions it
-        advertises (red-team P1). Deliberately does not raise: the second call
-        has already happened by the time this is reached, so the honest thing is
-        to record it and let the *next* query find the quota short.
+        advertises (red-team P1).
+
+        Asked *before* the second call, not reported after it: a module crafted
+        to make the model return a malformed object every time would otherwise
+        be a way to buy two full generations per query. Over quota, this returns
+        False and the query refuses on its first failure instead (P2).
         """
         if not self.public:
-            return
+            return True
         with self._lock:
+            if self._calls >= self.max_calls:
+                return False
             self._calls += 1
+            return True
 
     def key_ok(self, provided: str | None) -> bool:
         """Constant-time compare; open (True) when not in public mode."""

@@ -501,8 +501,18 @@ first — began to reproduce.
 > say the delimiter change helps. **The retry's effectiveness is unmeasured**,
 > and the honest way to measure it is another independent run.
 >
-> Two INV-6 runs, two findings the implementer's own testing missed — first the
-> rate, then the fix for the rate.
+> **Third run: the retry recovered a query for the first time**, and turned up a
+> failure class neither of us had seen — M3 returned `{"is_answerable": false,
+> "  answer": "", "citations": []}`. Valid JSON, two spaces inside a key. The
+> engine's shape check refused it at the same gate without a retry, because the
+> shape check sat *after* the retried unit. It has moved inside: a malformed
+> answer object is a generation glitch, not a statement about the corpus, so
+> under the same ruling it gets the same single re-ask. Verified live — late
+> tag and malformed shape each recover on the second call, a truncated
+> completion still refuses on the first.
+>
+> Three INV-6 runs, three findings the implementer's own testing missed: the
+> rate, then the fix for the rate, then a class the fix did not cover.
 
 **F-34 · P1 · The `</think>` salvage let attacker-reachable reasoning become
 the answer** `[external-only]` · **The finding of these rounds, and it took four
