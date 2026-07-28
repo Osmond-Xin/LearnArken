@@ -27,13 +27,13 @@ system that overstates itself is the failure mode being engineered against.
 | --- | --- |
 | **3 minutes** | The three terminal transcripts in [§1](#1-why-this-system-has-to-be-able-to-say-i-dont-know) — a package rejected, an answer welded to an XPath, a question refused with the gate named. Then the honest self-assessment against Arken's seven pillars in [§6](#6-mapped-to-a-governed-reasoning-architecture) |
 | **15 minutes** | Add [§2](#2-the-interception-chain) (16 gates, all failing in the same direction) and [§4](#4-hybrid-retrieval-how-it-works-and-what-the-ablation-proved) (what the ablation proved *against* my expectations) |
-| **You want to audit it** | [docs/EVIDENCE.md](docs/EVIDENCE.md) maps claim → artifact → command. [llms.txt](llms.txt) is the same map for a machine: **point your own AI agent at it and have it check my numbers rather than take them from me** |
+| **You want to audit it** | [docs/EVIDENCE.md](docs/EVIDENCE.md) maps claim → artifact → command. [llms.txt](llms.txt) is the same map for a machine: **point your own AI agent at it and have it check my numbers rather than take them from me**. The long-form audit against Arken's seven pillars, quoting their frozen definitions, is [docs/arken-alignment.md](docs/arken-alignment.md) |
 
 | | |
 | --- | --- |
-| **Scale of delivery** | 13 shipped nodes, `v0.1.0` → `v1.3.0`, each with a human-written spec, an independent red-team review, and a human adjudication |
-| **Test suite** | 657 tests — `make test` (pytest) → `645 passed, 12 skipped` offline, which is what CI runs; `648 passed, 9 skipped` with the local Vespa + Neo4j services up. Both measured 2026-07-28, both by running them. Lint is the separate `make lint` |
-| **Evidence rule** | a number that cannot be reproduced is not published (INV-5) — [EVIDENCE.md](docs/EVIDENCE.md) maps every claim → artifact → command |
+| **Scale of delivery** | 13 shipped day nodes, `v0.1.0` → `v1.3.0`, plus one Arken-alignment work package (`v1.4.0`) — each with a human-written spec **decision layer** (AI-drafted elaboration labelled as such), an independent red-team review, and a human adjudication — usually a blanket ruling, recorded per finding with the fix and its test on most nodes and as a single line on [day 6](docs/reviews/day6.md) and [day 10](docs/reviews/day10.md); §7 says exactly how deep each one goes |
+| **Test suite** | 658 tests — `make test` (pytest) → `646 passed, 12 skipped` offline, which is what CI runs; `649 passed, 9 skipped` with the local Vespa + Neo4j services up. Both measured 2026-07-28, both by running them. Lint is the separate `make lint` |
+| **Evidence rule** | a number that cannot be reproduced is not published (INV-5) — [EVIDENCE.md](docs/EVIDENCE.md) maps every **listed** capability and benchmark claim → artifact → command |
 | **Honest boundary** | synthetic S1000D-like XML (INV-1), educational corpus size, distribution simulated on one machine — full list in [docs/constitution.md](docs/constitution.md) |
 
 > **What `INV-n` means.** Before writing any code I wrote a
@@ -474,11 +474,11 @@ it does not reach:
 
 | Their pillar | What exists here | Layer |
 | --- | --- | --- |
-| **Refusal as first-class output** | Strict two-outcome answering, 5 refusal gates, and a refusal is now a **routed action item** in their three parts — the gate that fired, *what would resolve it* (registered per gate, so a new gate cannot ship without one), and *who should act*. False-refusal and trap-refusal rates measured. **Boundary, stated**: an owner is only attached when the question names a module the corpus declares and does not contain — inferring one from free text is the fabrication gate 10 exists to prevent, so most refusals carry an explicit `null` owner with a reason ([refusal.py](src/learnarken/refusal.py)) | Implemented — owner routing Toy-scale |
-| **Source-traceable output (the trace)** | Five-span trace per answer written *during* the run — retrieval candidates, rerank scores + threshold, injected graph facts, the exact LLM request, outcome + citations as chunk ID · DMC · XPath | Implemented |
+| **Refusal as first-class output** | Strict two-outcome answering, 5 refusal gates, and a refusal is now a **routed action item** in their three parts — the gate that fired, *what would resolve it* (registered per gate; every gate the system currently emits has one and a test pins that, but the registry is keyed by string and an unregistered gate degrades to a named placeholder — a convention with a test behind it, not a type-level contract), and *who should act*. False-refusal and trap-refusal rates measured. **Boundary, stated**: an owner is only attached when the question names a module the corpus declares and does not contain — inferring one from free text is the fabrication gate 10 exists to prevent, so most refusals carry an explicit `null` owner with a reason ([refusal.py](src/learnarken/refusal.py)) | Implemented — owner routing Toy-scale |
+| **Source-traceable output (the trace)** | Five-span trace per answer written *during* the run — retrieval candidates, rerank scores + threshold, injected graph facts, the exact LLM request, outcome + citations as chunk ID · DMC · XPath. **One named exception**: the public demo sets `LEARNARKEN_TRACE_DISABLED=1`, so the answer path still builds the same spans and runs the same gates, but no trace file is written and that run cannot be audited afterwards — persisting a stranger's question and the raw model output was ruled a local-run feature | Implemented — public demo drops persistence on purpose |
 | **Audit by design** | Traces generated in-operation, never reconstructed; [EVIDENCE.md](docs/EVIDENCE.md) maps claim → artifact → command; judge verdicts frozen to artifacts. **Guard scope, precisely**: CI guards dead links, the numbers tagged in EVIDENCE.md, and every benchmark table against its source JSON. Hand-written prose numbers elsewhere are still unguarded — the honest reason this is stated rather than claimed away is that a hand-typed table *did* drift, was caught by red team on 2026-07-25, and the response was to move it under the generator | Implemented — with a named residual gap |
 | **Sovereignty by deployment** | Local-first by construction: embeddings (Qwen3-8B), reranking, Vespa and Neo4j all run **on the machine**; index and source corpus never leave. Generation is OpenAI-compatible, so a loopback model server (llama.cpp / vLLM / Ollama) is a drop-in — and **`LEARNARKEN_LOCAL_ONLY=1` is a hard egress fence**: with it armed, a non-loopback endpoint raises instead of being called, on the chat path, the VLM path, the eval harness and the API alike ([config.py](src/learnarken/config.py)). **Residual gap, stated plainly**: this repo bundles no local chat/VLM model, so with the default config the retrieved evidence snippets and figure bytes *do* leave the machine. The fence is the enforcement; supplying the local model is the deployment step | Enforceable & tested — no local model bundled |
-| **Authorisation before reasoning** | Measured against their sharpest wording — "*Authorization constrains reasoning, not just retrieval*" ([/trust](https://thearken.com/trust)). Clearance is now applied **inside the retrieval call**: the BM25 corpus is built without inadmissible chunks and the Vespa query carries the constraint in its `where` clause ahead of `nearestNeighbor`, so a withheld chunk is never a candidate; the graph facts injected into the prompt are redacted the same way, because a DMC in the prompt is reasoning too. Exclusions are recorded in the trace with the classified DMC redacted ([clearance.py](src/learnarken/clearance.py)). **Honest limits**: this is *scoping*, not authentication — there is no identity model, so a caller states its own clearance; and there is no counterpart to their five disclosure levels or six RBAC roles | Partial — enforced pre-retrieval, no identity model |
+| **Authorisation before reasoning** | Measured against their sharpest wording — "*Authorization constrains reasoning, not just retrieval*" ([/trust](https://thearken.com/trust)). Clearance is now applied **inside the retrieval call**: the BM25 corpus is built without inadmissible chunks and the Vespa query carries the constraint **inside** its `where` clause, conjoined with `nearestNeighbor`, so the engine applies it during retrieval and the client never filters a returned row — what the committed test proves is that the predicate is in the query with the right closed vocabulary, *not* how Vespa orders its own execution, and the audit doc says so; the graph facts injected into the prompt are redacted the same way, because a DMC in the prompt is reasoning too. Exclusions are recorded in the trace with the classified DMC redacted ([clearance.py](src/learnarken/clearance.py)). **Honest limits**: this is *scoping*, not authentication — there is no identity model, so a caller states its own clearance; and there is no counterpart to their five disclosure levels or six RBAC roles | Partial — query-scoped and engine-side, no identity model |
 | **Gaps as a distinct class** | **Mechanism built, and it found the boundary.** `learnarken gaps` emits a first-class gap object — deterministic signature (the declared DMC), the declaration path (`dmRef` or DML registration), and an owner it routes to or an explicit unknown, never a guess ([gaps.py](src/learnarken/gaps.py)). **But their definition says "*admitted* knowledge", and in this system a declared-but-absent module is an ingest error, so the package carrying it is rejected and never admitted.** The two classes meet at a stage boundary: what ships is `pre_admission_declared_missing`. The admitted class is computed over the union of admitted packages and is **empty on this corpus** — reported as empty rather than filled with the pre-admission kind. Ownership is a project-authored map, not S1000D's `responsiblePartnerCompany` | Toy-scale — mechanism real, Arken's case not reachable yet |
 | **Goal-oriented foundation** | **Not built** — and the pillar I agree with most, see the note below. Knowledge here is organized by document structure (DM/DMC/SNS), not by organizational work goals | Gap |
 
@@ -544,7 +544,7 @@ Step 7 failure described above.
 
 The second artifact of this project is the delivery method. One node per day,
 seven fixed steps: **learn → spec (human-written) → implement (AI) → red-team
-review (independent read-only model) → adjudicate (human, finding by finding) →
+review (independent read-only model) → adjudicate (human) →
 verify (acceptance criteria) → ship (tag)**.
 
 Three understanding gates that cannot be faked, all committed:
@@ -552,20 +552,67 @@ Three understanding gates that cannot be faked, all committed:
 | Gate | Evidence | Why it can't be faked |
 | --- | --- | --- |
 | Spec **decision layer** is human-written (goal, acceptance criteria, scope cuts, key decisions) | [docs/specs/](docs/specs/) | Decomposition and judgment show directly in the writing; AI-drafted elaboration is explicitly labelled |
-| Adjudications are human-written | [docs/reviews/](docs/reviews/) | You cannot judge red-team findings without understanding the implementation |
+| Adjudications are human-written | [docs/reviews/](docs/reviews/) | You cannot judge red-team findings without understanding the implementation. **Read them before believing this row.** The *ruling* is usually a blanket instruction — "修正红队指出的问题", "所有的红队发现的问题都修改" — quoted, dated, and transcribed by the AI under a notice that says so. What is per-finding is the **record**: a disposition table with the fix and the test that pins it ([day 8](docs/reviews/day8.md), [day 11](docs/reviews/day11.md), [the Arken package](docs/reviews/arken-alignment-2026-07-26.md)). Per-finding *rationale* appears where a finding was rejected or deliberately not fixed ([F-21](docs/reviews/arken-alignment-2026-07-26.md), [ADR-0004](docs/adr/0004-measurements-are-bound-to-their-corpus.md)); two nodes are a one-line acceptance with no table at all ([day 6](docs/reviews/day6.md), [day 10](docs/reviews/day10.md)). Left as written rather than backfilled — a rewritten adjudication is evidence of nothing |
 | Journals are human-written | [docs/journal/](docs/journal/) | Three fixed questions: what did I learn / where was the AI wrong / what AI proposal did I reject and why |
 
 Red-team discipline: **the reviewing model must differ from the implementing
-model**, reviews are read-only, and every number a red team reports is re-run by
-me before merge. Several days returned `DO_NOT_MERGE` — those findings and their
+model**, and reviews are read-only. INV-6 makes re-running a red-team *number*
+the human's job, and the honest record is that this held unevenly: it is
+documented in detail on [day 11](docs/reviews/day11.md) and on
+[the Arken package](docs/reviews/arken-alignment-2026-07-26.md) — where an
+independent re-run corrected a published failure rate and, later, found a defect
+eleven review rounds had missed — while day 11 also records the *implementer*
+re-running one artifact, and some early nodes' re-run records are thin. The rule
+is real and its application improved over the thirteen days rather than being
+uniform from Day 1. Several days returned `DO_NOT_MERGE` — those findings and their
 adjudications are in the repo, not edited out
 ([docs/redteam.md](docs/redteam.md) · [docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md)).
 
-Delivery record: 13 nodes, `v0.1.0` → `v1.3.0` (skeleton & constitution →
+Delivery record: 13 day nodes, `v0.1.0` → `v1.3.0` (skeleton & constitution →
 canonical model & validators → BM25 baseline → hybrid retrieval → grounded QA →
 API & demo → repair agent → adversarial evaluation → evidence chain →
-on-demand deployment → KG-RAG → multimodal → performance experiments). Per-day
-acceptance criteria: [docs/execution-plan.md](docs/execution-plan.md).
+on-demand deployment → KG-RAG → multimodal → performance experiments).
+Per-day acceptance criteria:
+[docs/execution-plan.md](docs/execution-plan.md). The Arken-alignment work that
+follows them is `v1.4.0` and is deliberately **not** a day node —
+[its own spec says so](docs/specs/arken-alignment-2026-07-26.md), and counting it
+as one would be the first overclaim on this page.
+
+### The limit of review, found by running the thing
+
+The clearest evidence that this discipline is practised rather than described is
+where it **failed**, so here is the sharpest instance, in full.
+
+A small tool was built to measure whether one fix actually worked. Because its
+output was destined for a published review, it was built to fail closed: two
+independent readings of every run, and no number at all when the evidence has a
+hole. It went through **eleven rounds** of cross-host adversarial review. The
+eleventh returned `SHIP`.
+
+Then it was run for the first time, and the run immediately exposed a defect
+none of the eleven rounds had found: a third of its sample was a question the
+retrieval threshold refuses *before the model is called*, so those runs could
+never have produced the event being counted — while still sitting in the
+denominator. **The tool built to prevent an inflated denominator had one.**
+
+Two findings, not one, and the order matters. The tool's own verdict on that
+run was `UNQUOTABLE` — for the *first* reason it could see, that no run had
+exercised the fix at all, so there was no denominator. Inspecting the traces
+afterwards is what exposed the *second*: that a third of the sample could never
+have contributed one. It refused to print a recovery rate rather than print one
+it could not support — the same rule the answering path follows, and the reason
+the number in this README is not larger.
+
+What follows is the part I would defend in an interview: reading code
+adversarially has a ceiling, and running it is a different instrument, not a
+slower one.
+
+The finding, the eight rounds of fixes it triggered, and the ruling that closed
+the work are in
+[docs/reviews/arken-alignment-2026-07-26.md](docs/reviews/arken-alignment-2026-07-26.md)
+(Part 1f–1g, findings F-45 – F-61; Part 2 for the adjudication). The measurement
+it was built for is still **n=1**, and this README says so rather than rounding
+it up.
 
 ## 8. Honest boundaries
 
@@ -596,7 +643,7 @@ Stated up front so no reviewer has to discover it (INV-7):
 
 ```bash
 uv sync --locked                               # Python 3.12 + deps (needs uv)
-make lint && make test                         # ruff, then pytest → 645 passed, 12 skipped (offline)
+make lint && make test                         # ruff, then pytest → 646 passed, 12 skipped (offline)
 uv run learnarken inspect samples/package-a    # summarize a sample package
 uv run learnarken validate samples/package-b   # four-layer validation findings
 ```
@@ -644,7 +691,7 @@ envelope and exact commands: [deploy/runbook.md](deploy/runbook.md).
 | [docs/specs/](docs/specs/) · [docs/reviews/](docs/reviews/) · [docs/journal/](docs/journal/) | Daily evidence chain: specs / red team + adjudication / journals |
 | [docs/discussions/](docs/discussions/) | Distilled design discussions: question → options → decision → rationale |
 | [docs/adr/](docs/adr/) | Architecture decision records, including the techniques declined on evidence |
-| [docs/execution-plan.md](docs/execution-plan.md) · [docs/project-design.md](docs/project-design.md) | 13-node plan with per-day acceptance criteria; the original full design brief (written Day 0 — parts of it were later declined on evidence, see the ADRs) |
+| [docs/execution-plan.md](docs/execution-plan.md) · [docs/project-design.md](docs/project-design.md) | The 13-node day plan with per-day acceptance criteria (the later Arken-alignment package is not in it); the original full design brief (written Day 0 — parts of it were later declined on evidence, see the ADRs) |
 | [docs/research/](docs/research/README.md) · [docs/gemini-deepresearch/](docs/gemini-deepresearch/) | Daily deep-research reports + unknowns scans |
 | [docs/redteam.md](docs/redteam.md) · [docs/local-services.md](docs/local-services.md) | Red-team recipes; local Vespa/Neo4j/LLM service handbook |
 | [samples/](samples/README.md) | Sample-package notes and license audit |

@@ -88,15 +88,15 @@
 
 | Claim | Number(s) | Evidence | Reproduce | Layer |
 | --- | --- | --- | --- | --- |
-| A declared-but-absent data module becomes a first-class gap object with a deterministic signature (the DMC), its declaration path, and a routed owner | 2 gaps on package-b (1 via `dmRef`, 1 via DML registration) | [src/learnarken/gaps.py](../src/learnarken/gaps.py); [tests/test_arken_alignment.py](../tests/test_arken_alignment.py) | `uv run learnarken gaps samples/package-a samples/package-b` | `Toy-scale` |
+| A declared-but-absent data module becomes a first-class gap object with a deterministic signature (the DMC), its declaration path, and an owner field that either routes or explicitly reports unknown (this run: 1 routed, 1 unknown) | 2 gaps on package-b (1 via `dmRef`, 1 via DML registration) | [src/learnarken/gaps.py](../src/learnarken/gaps.py); [tests/test_arken_alignment.py](../tests/test_arken_alignment.py) | `uv run learnarken gaps samples/package-a samples/package-b` | `Toy-scale` |
 | Ownership routes or explicitly refuses to guess — an unknown owner surfaces as unknown with a reason | 1 routed, 1 unknown in the same run | [src/learnarken/owners.py](../src/learnarken/owners.py); [samples/package-b/owners.json](../samples/package-b/owners.json) | `uv run learnarken gaps samples/package-b` | `Toy-scale` |
-| Arken's *admitted*-knowledge gap is not reachable here: a declared-but-absent module is an ingest error, so its package is rejected and never admitted. Computed over admitted packages, the class is empty and reported empty | 0 admitted gaps | [tests/test_arken_alignment.py](../tests/test_arken_alignment.py) (`test_gap_from_a_rejected_package_is_not_claimed_as_an_admitted_gap`) | `uv run pytest tests/test_arken_alignment.py -q` | `Planned` |
+| Arken's *admitted*-knowledge gap is not reachable here: a declared-but-absent module is an ingest error, so its package is rejected and never admitted. Computed over admitted packages, the class is empty and reported empty | 0 admitted gaps | [tests/test_arken_alignment.py](../tests/test_arken_alignment.py) (`test_gap_from_a_rejected_package_is_not_claimed_as_an_admitted_gap`) | `uv run pytest tests/test_arken_alignment.py -q` | `Toy-scale` |
 
 ## Engineering discipline (cross-cutting)
 
 | Claim | Evidence | Reproduce | Layer |
 | --- | --- | --- | --- |
-| Every README number has a fixed seed + versioned golden set + repro command (INV-5) | this file; [eval/golden/](../eval/golden/) | `uv run pytest tests/test_day9_evidence.py -q` | `Implemented` |
+| Every number **listed in this file** has a fixed seed + versioned golden set + repro command (INV-5); hand-written prose numbers elsewhere in the READMEs are not machine-guarded, and README §6 says so | this file; [eval/golden/](../eval/golden/) | `uv run pytest tests/test_day9_evidence.py -q` | `Implemented` |
 | AI-first workflow with independent red-team + human adjudication | [docs/AI-COLLABORATION.md](AI-COLLABORATION.md); [docs/reviews/](reviews/) | read the review files | `Implemented` |
 | Fail-closed ingestion gate rejects non-compliant / out-of-domain modules | [tests/test_validation.py](../tests/test_validation.py); [samples/package-b](../samples/package-b) | `uv run learnarken validate samples/package-b` | `Implemented` |
 | Multiprocessing validation sharding is byte-equivalent to the serial baseline (INV-2 — sharding behind an abstraction, no shared-memory shortcut) | [src/learnarken/validation/parallel.py](../src/learnarken/validation/parallel.py); [tests/test_day13_perf.py](../tests/test_day13_perf.py) | `uv run pytest tests/test_day13_perf.py -q` | `Implemented` |

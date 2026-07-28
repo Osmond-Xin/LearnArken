@@ -25,13 +25,13 @@ AI engineer 岗位。所以它是**写来被核查的,不是写来被欣赏的**
 | --- | --- |
 | **3 分钟** | [§1](#1-为什么这个系统必须会说我不知道) 的三段终端输出——一个包被拒收、一个答案焊死在 XPath 上、一个问题被拒答且报出门名。然后是 [§6](#6-与受管推理架构的对照) 对 Arken 七条支柱的诚实自评 |
 | **15 分钟** | 加上 [§2](#2-拦截链四条泳道16-道门全部-fail-closed)(16 道门朝同一方向失效)与 [§4](#4-混合检索先讲清原理再看消融怎么判)(消融如何推翻了我自己的预期) |
-| **要审计** | [docs/EVIDENCE.md](docs/EVIDENCE.md) 是 主张→产物→命令 的映射;[llms.txt](llms.txt) 是同一张图的机器版——**把你自己的 AI agent 指过去核我的数字,别听我说** |
+| **要审计** | [docs/EVIDENCE.md](docs/EVIDENCE.md) 是 主张→产物→命令 的映射;[llms.txt](llms.txt) 是同一张图的机器版——**把你自己的 AI agent 指过去核我的数字,别听我说**。对照 Arken 七条支柱、逐条引用其冻结定义的长版审计在 [docs/arken-alignment.md](docs/arken-alignment.md) |
 
 | | |
 | --- | --- |
-| **交付规模** | 13 个已交付节点,`v0.1.0` → `v1.3.0`,每天配人写 SPEC、独立红队评审、人工逐条裁决 |
-| **测试** | 657 条——`make test`(即 pytest)离线跑 `645 passed, 12 skipped`(CI 即此环境);本地 Vespa + Neo4j 起着时 `648 passed, 9 skipped`。两个数字都是 2026-07-28 实跑测得,不是算出来的。lint 是单独的 `make lint` |
-| **证据规则** | 复现不了的数字不发布(INV-5)——[EVIDENCE.md](docs/EVIDENCE.md) 把每条主张映射到产物 + 命令 |
+| **交付规模** | 13 个已交付日节点,`v0.1.0` → `v1.3.0`,外加一个 Arken 对齐工作包(`v1.4.0`)——每个都配人写的 SPEC **决策层**(AI 起草的展开层明确标注)、独立红队评审、人工裁决(多为整体指令;多数节点按条记录了处置、修复与钉住它的测试,[day 6](docs/reviews/day6.md) 与 [day 10](docs/reviews/day10.md) 只有一句;§7 说明每一份到底有多深) |
+| **测试** | 658 条——`make test`(即 pytest)离线跑 `646 passed, 12 skipped`(CI 即此环境);本地 Vespa + Neo4j 起着时 `649 passed, 9 skipped`。两个数字都是 2026-07-28 实跑测得,不是算出来的。lint 是单独的 `make lint` |
+| **证据规则** | 复现不了的数字不发布(INV-5)——[EVIDENCE.md](docs/EVIDENCE.md) 把**列在其中的**每条能力与基准主张映射到产物 + 命令 |
 | **诚实边界** | 合成 S1000D-like XML(INV-1)、教学级语料规模、分布式为单机模拟——完整清单见 [docs/constitution.md](docs/constitution.md) |
 
 > **`INV-n` 是什么。** 动手写代码之前,我先写了一部
@@ -338,11 +338,11 @@ numba、自写 Rust 扩展、Python free-threading 同理,profiler 显示本语�
 
 | 支柱 | 本项目现状 | 层级 |
 | --- | --- | --- |
-| **拒答是一等公民输出** | 严格二值作答、5 道拒答门、拒答带门名返回、误拒率与陷阱拒答率实测。**部分**:入库 finding 带 `fix:` 补救建议,而**问答**拒答目前只报门名,还不会提出"怎样才能解决" | 已实现 / 部分 |
-| **可溯源输出(trace)** | 每次作答在**运行中**写五段 trace:检索候选、重排分数+阈值、注入的图谱事实、确切的 LLM 请求、结局与引用(chunk ID · DMC · XPath) | 已实现 |
+| **拒答是一等公民输出** | 严格二值作答、5 道拒答门、误拒率与陷阱拒答率实测。拒答现在是他们定义里的**三段式路由行动项**——哪道门拦下的、*怎样才能解决*(按门登记:系统当前会发出的每一道门都有,且有测试钉住;但注册表是字符串键的字典,未登记的门会退化成一句具名占位——是有测试兜底的约定,不是类型层面的契约)、*谁该处理*。**边界照直说**:只有当问题点名了语料声明过却不存在的模块时才附 owner;从自由文本推断 owner,正是第 10 道门存在的意义所要防的伪造,所以多数拒答带的是显式 `null` 加一条理由([refusal.py](src/learnarken/refusal.py)) | 已实现——owner 路由 Toy-scale |
+| **可溯源输出(trace)** | 每次作答在**运行中**写五段 trace:检索候选、重排分数+阈值、注入的图谱事实、确切的 LLM 请求、结局与引用(chunk ID · DMC · XPath)。**一处已点名的例外**:公开 demo 设 `LEARNARKEN_TRACE_DISABLED=1`,作答路径照样构建同样的 span、照样过同样的门,但不写 trace 文件,那次运行事后也就无法审计——把陌生访客的问题和模型原始输出写进磁盘,被裁定为本地运行的特性而非公开 demo 的 | 已实现——公开 demo 刻意不落盘 |
 | **审计内建** | trace 运行中生成、绝不事后重建;[EVIDENCE.md](docs/EVIDENCE.md) 映射 主张→产物→命令;裁判判定冻结为产物。**守卫范围要说准**:CI 守卫覆盖死链、EVIDENCE.md 里打标的数字,以及每一张基准表与其源 JSON 的比对。别处手写的散文数字仍不在守卫内——之所以照实写而不是抹掉,是因为确实有一张手敲的表漂移了,2026-07-25 被红队抓到,应对方式是把它挪进生成器 | 已实现——有已点名的残余缺口 |
 | **部署主权** | 本地优先:嵌入(Qwen3-8B)、重排、Vespa、Neo4j 全部**跑在本机**,索引与源语料不出机。生成端是 OpenAI 兼容的,所以本机回环模型服务(llama.cpp / vLLM / Ollama)可直接替换——并且 **`LEARNARKEN_LOCAL_ONLY=1` 是一道硬出网围栏**:armed 之后,非回环端点会直接抛错而不是被调用,chat 路径、VLM 路径、评估 harness 与 API 一视同仁([config.py](src/learnarken/config.py))。**残余缺口照直说**:本仓库不附带本地 chat/VLM 模型,所以默认配置下检索出的证据片段与图形字节**确实**会离开本机。围栏是强制力,提供本地模型是部署动作 | 可强制且已测——未附带本地模型 |
-| **推理前授权** | 有包级作用域检索、共享门钥、公网模式熔断。**用他们最锋利的那句话来量这个缺口**——"*Authorization constrains reasoning, not just retrieval*"([/trust](https://thearken.com/trust)):本项目 Vespa 系检索模式是*先检索、后过滤*([retrieval/\_\_init\_\_.py](src/learnarken/retrieval/__init__.py)),正是这句话所排除的姿态。他们的五级披露与六种 RBAC 角色,这里也没有任何对应物 | 部分——已点名缺口 |
+| **推理前授权** | 用他们最锋利的那句话来量——"*Authorization constrains reasoning, not just retrieval*"([/trust](https://thearken.com/trust))。密级约束现在被推进**检索调用本身**:BM25 语料在**构建时**就不含不可准入的 chunk,所以它们根本没法被打分;Vespa 查询把约束**放在 `where` 子句内部**、与 `nearestNeighbor` 合取,由引擎在检索中施加,客户端不对返回行做过滤。注入提示词的图谱事实同样被抹除,因为提示词里的一个 DMC 也是推理。排除项记进 trace,涉密 DMC 已脱敏([clearance.py](src/learnarken/clearance.py))。**说准边界**:已提交的测试证明的是"谓词带着正确的封闭词表进了查询",**不是** Vespa 内部先于候选生成求值它——那是引擎自己的执行决策,本仓库不作断言。此外这是*作用域*不是*身份认证*:没有身份模型,调用方自报密级;他们的五级披露与六种 RBAC 角色,这里没有对应物 | 部分——约束在查询内、由引擎施加,无身份模型 |
 | **Gap 作为独立类别** | **机制已建,并且它撞出了边界。** `learnarken gaps` 输出一等公民 gap 对象:确定性签名(被声明的 DMC)、声明路径(`dmRef` 或 DML 登记)、以及一个被路由到的 owner 或一个显式的"未知"——绝不猜([gaps.py](src/learnarken/gaps.py))。**但他们的定义说的是"*已准入*的知识",而在本系统里"声明了却不存在"是入库错误,所以携带它的包会被拒收、从未被准入。** 两个类别相接于一个阶段边界:能交付的是 `pre_admission_declared_missing`。已准入那一类在所有准入包的并集上计算,在当前语料上**为空**——如实报空,而不是拿 pre-admission 那类去填。owner 来自项目自撰的映射,不是 S1000D 的 `responsiblePartnerCompany` | Toy-scale——机制是真的,Arken 那个情形还够不着 |
 | **目标导向的知识组织** | **未实现**——而且是我最认同的一条,见下方附注。此处知识按文档结构(DM/DMC/SNS)组织,而非按组织的工作目标 | 缺口 |
 
@@ -384,7 +384,7 @@ procedure 结构让这段距离比多数语料都短。没有建的原因是:真
 ## 7. 怎么造出来的——规格驱动、AI 实现、对抗评审
 
 本项目的第二个作品是交付方法本身。每天一个节点,固定七步:
-**学 → 规(人写 SPEC)→ 做(AI 实现)→ 审(独立只读红队)→ 裁(人逐条裁决)→
+**学 → 规(人写 SPEC)→ 做(AI 实现)→ 审(独立只读红队)→ 裁(人)→
 证(验收)→ 交(tag)**。
 
 三道装不出来的理解闸,全部留痕:
@@ -392,17 +392,50 @@ procedure 结构让这段距离比多数语料都短。没有建的原因是:真
 | 闸 | 证据位置 | 为什么装不出来 |
 | --- | --- | --- |
 | SPEC **决策层**人写(目标/验收标准/砍掉什么/关键取舍) | [docs/specs/](docs/specs/) | 拆解与判断力直接暴露在文字里;AI 起草的展开层明确标注 |
-| 裁决人写 | [docs/reviews/](docs/reviews/) | 不理解实现就无法判断红队 finding 真假 |
+| 裁决人写 | [docs/reviews/](docs/reviews/) | 不理解实现就无法判断红队 finding 真假。**信这一行之前先去读它们。** *裁决*本身多为整体指令——「修正红队指出的问题」「所有的红队发现的问题都修改」——原话引用、标注日期、由 AI 转录并附声明。按条记录的是**处置**:一张列出修复及钉住它的测试的表([day 8](docs/reviews/day8.md)、[day 11](docs/reviews/day11.md)、[Arken 工作包](docs/reviews/arken-alignment-2026-07-26.md))。逐条*理由*出现在被否决或刻意不修的地方([F-21](docs/reviews/arken-alignment-2026-07-26.md)、[ADR-0004](docs/adr/0004-measurements-are-bound-to-their-corpus.md));有两个节点只有一句整体接受、连表都没有([day 6](docs/reviews/day6.md)、[day 10](docs/reviews/day10.md))。原样保留、不回填——重写过的裁决什么都证明不了 |
 | 日志人写 | [docs/journal/](docs/journal/) | 固定三问:学到什么 / AI 错在哪 / 我拒绝了 AI 什么 |
 
-红队纪律:**评审模型必须与实现模型不同**、只读不写、报出的每个数字本人复跑后才合并。
+红队纪律:**评审模型必须与实现模型不同**、只读不写。INV-6 规定红队报出的*数字*由人
+复跑,而诚实的记录是:这条执行得并不均匀——[day 11](docs/reviews/day11.md) 和
+[Arken 工作包](docs/reviews/arken-alignment-2026-07-26.md) 有详尽记录,后者一次独立复跑
+纠正了一个已发布的失败率,之后又找出了十一轮评审都没发现的缺陷;但同一份 day 11 也记着
+有一个产物是**实现方(AI)**复跑的,而早期若干节点的复跑记录很薄。这条规则是真的,
+但它是在十三天里逐步落实的,不是从 Day 1 起就一致。
 有几天红队直接给了 `DO_NOT_MERGE`——那些 finding 和对应裁决都留在仓库里,没有被抹掉
 ([docs/redteam.md](docs/redteam.md) · [docs/AI-COLLABORATION.md](docs/AI-COLLABORATION.md))。
 
-交付记录:13 个节点,`v0.1.0` → `v1.3.0`(骨架与宪法 → 规范模型与校验器 → BM25 基线 →
+交付记录:13 个日节点,`v0.1.0` → `v1.3.0`(骨架与宪法 → 规范模型与校验器 → BM25 基线 →
 混合检索 → 带引用问答 → API 与 demo → 修复 Agent → 对抗评估 → 证据链 → 按需部署 →
 KG-RAG → 多模态 → 性能实验)。逐日验收标准见
-[docs/execution-plan.md](docs/execution-plan.md)。
+[docs/execution-plan.md](docs/execution-plan.md)。其后的 Arken 对齐工作是 `v1.4.0`,
+它**刻意不是**一个日节点——[它自己的 SPEC 就这么写](docs/specs/arken-alignment-2026-07-26.md),
+把它算成一个节点会是这一页上的第一处夸大。
+
+### 评审的上限,是靠真跑发现的
+
+这套纪律是"在practice"还是"在描述",最有说服力的证据是它**失效**的那一次。原样写在这里。
+
+为了测量一处修复到底有没有用,做了个小工具。因为它的输出要进一份公开的评审,它被造成
+fail-closed:每次运行取两个独立读数,证据有洞就一个数都不给。它跑了**十一轮**跨主机
+对抗评审,第十一轮返回 `SHIP`。
+
+然后第一次真跑,当场暴露出十一轮都没找到的缺陷:它样本里有三分之一是一个**在模型被调用
+之前**就被检索阈值拒掉的问题——那些运行根本不可能产生被计数的事件,却仍然待在分母里。
+**那个为了防止分母虚高而造的工具,自己的分母是虚高的。**
+
+是**两条**发现,不是一条,顺序也重要。那次运行工具自己给出的判定是 `UNQUOTABLE`——
+针对它当场能看见的**第一个**理由:没有任何一次运行真正触发了那处修复,所以分母是 0。
+事后翻 trace 才暴露出**第二个**:样本里有三分之一压根不可能贡献分母。它宁可不打印
+恢复率,也不打印一个自己支撑不了的——这和问答路径遵守的是同一条规则,也正是这份
+README 里那个数字没有更大的原因。
+
+接下来这条是我会在面试里辩护的:对抗式读代码有上限,而"跑一遍"是**另一种仪器**,
+不是更慢的同一种。
+
+这条发现、它触发的八轮修复、以及关掉这项工作的裁决,都在
+[docs/reviews/arken-alignment-2026-07-26.md](docs/reviews/arken-alignment-2026-07-26.md)
+(Part 1f–1g,F-45 – F-61;Part 2 是裁决)。它要测的那个数**仍然是 n=1**,
+这份 README 如实这么写,而不是把它凑成整数。
 
 ## 8. 诚实边界
 
@@ -427,7 +460,7 @@ KG-RAG → 多模态 → 性能实验)。逐日验收标准见
 
 ```bash
 uv sync --locked                               # Python 3.12 + 依赖(需要 uv)
-make lint && make test                         # ruff,再 pytest → 645 passed, 12 skipped(离线)
+make lint && make test                         # ruff,再 pytest → 646 passed, 12 skipped(离线)
 uv run learnarken inspect samples/package-a    # 查看样本包摘要
 uv run learnarken validate samples/package-b   # 四层校验 findings
 ```

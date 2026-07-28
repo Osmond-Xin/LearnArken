@@ -157,6 +157,13 @@ Every acceptance criterion quotes the Phase 0.0 snapshot.
 - New `src/learnarken/gaps.py`, `learnarken gaps <package>` CLI, JSON out,
   schema'd like the existing Pydantic models (F-20). Validator behaviour and
   exit codes unchanged.
+- > **Superseded by the outcome (2026-07-28).** This criterion was written
+  > expecting an admitted gap to be producible. It was not: a package declaring
+  > a module it does not contain is rejected at ingest, so the admitted class is
+  > **empty on this corpus** and is reported as empty. The finding is recorded
+  > in README §6 and [docs/arken-alignment.md](../arken-alignment.md) §4; the
+  > criterion below is left as written rather than rewritten to match the
+  > result.
 - Acceptance: the new admitted fixture yields ≥1 `admitted_declared_missing`
   gap whose signature is the absent DMC; `samples/package-a` yields zero
   (verified today: `validate samples/package-a` → 0 errors, 0 warnings); gap
@@ -185,7 +192,7 @@ Every acceptance criterion quotes the Phase 0.0 snapshot.
 
 **1.4 Authorisation before reasoning** — [resolves F-01; the largest item]
 - C6 means this is not a filter addition: clearance must be pushed into **BM25
-  corpus construction** *and* into the **Vespa YQL before `nearestNeighbor`**,
+  corpus construction** *and* into the **Vespa YQL conjoined with `nearestNeighbor` in the same `where`**,
   and graph fact-injection must draw only from admitted chunks.
 - Acceptance: with a clearance below a DM's classification, the retrieval call
   itself never sees that DM (asserted at the query layer, not by inspecting the
@@ -279,7 +286,7 @@ are in [`docs/assets/CAPTURE.md`](../assets/CAPTURE.md).
 | 1.1 Gaps | Built. Found the structural boundary: a declared-missing module is an ingest *error*, so its package is never admitted — Arken's admitted-knowledge gap is unreachable behind a fail-closed gate. Ships `pre_admission_declared_missing`; the admitted class is computed and reported **empty** |
 | 1.2 Refusal | Three parts (why / what would resolve / who should act), option A. Owner routes only from an admitted gap — which, per 1.1, routes nothing on this corpus. Stated, not hidden |
 | 1.3 Trace | v2 with `sources_excluded` and per-citation `status` (from **XREF-007**, not the XREF-003 the plan named). v1 still readable |
-| 1.4 Authorisation | Clearance inside the retrieval call: BM25 corpus construction and the Vespa YQL `where` ahead of `nearestNeighbor`; graph facts redacted; CLI `--clearance` and API field; verified live against the engine |
+| 1.4 Authorisation | Clearance inside the retrieval call: BM25 corpus construction and the Vespa YQL `where` conjoined with `nearestNeighbor` in the same `where`; graph facts redacted; CLI `--clearance` and API field; verified live against the engine |
 
 **Three red-team rounds, 32 findings, all accepted** (standing ruling "红队发现的
 全修" + "该改的都改，不管是不是自己的烂摊子"). One deferred with reason
