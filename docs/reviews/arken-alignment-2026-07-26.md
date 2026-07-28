@@ -640,6 +640,206 @@ CLI prints its answer with no HF warning and no `Loading weights` bar, and the
 classifier was run against real `/query` payloads (answered / refused / refused)
 to confirm the stricter contract does not fail closed on legitimate traffic.
 
+## Part 1f — Rounds 13–23: the INV-6 retry probe (2026-07-28)
+
+Eleven cross-host rounds on one new file, `tools/probe_retry_effectiveness.py`
+— the instrument for raising the re-ask's effectiveness above its current n=1.
+Eleven rounds because **every single round found defects introduced by the
+previous round's fixes**; the first round that came back clean was the
+eleventh. The tool is small. What made it hard is that its output is a number
+destined for this document, so the failure mode to design against is not a
+crash but a *confident wrong answer*.
+
+**F-45 · P0 · The second reading was reading nothing** `[cross-validated]` ·
+**The one to remember.** The probe cross-checks the SSE stream against the
+run's committed trace, and read `spans.llm` from it. `write_trace` splats the
+spans into the trace *root* — `{"format":…, "trace_id":…, **spans}` — so there
+is no `spans` key. Every trace read returned an empty dict, and a cross-check
+that finds nothing agrees with everything. The implementer's own test passed
+because it fed synthetic dicts straight to the comparison function and never
+exercised the reader against a real artifact. **Fixed**: read the root, and
+the regression test is written against a real `write_trace()` output. This is
+the same shape as F-33 — a guard whose subject was never actually inspected.
+
+**F-46 · P0 · A re-ask that died in transport was scored as a recovery**
+`[external-only]` · The classifier tested "was there a restart?" before "did
+the run finish?". A second generation that dies mid-stream leaves a `restart`
+event, no `result`, and therefore no refusal gate — which fell through to
+`retried_recovered`. That is the precise value the probe exists to produce,
+reported wrongly. **Fixed**: indeterminacy is decided first and kept out of
+the denominator entirely.
+
+**F-47 · P0 · A sample with holes still printed a quotable number**
+`[cross-validated]` · A missing trace, a stream/trace disagreement, an
+indeterminate run, or a paid run with no logged outcome all still produced
+`recovered X of Y` on screen. **Fixed**: those become blockers, the run exits
+non-zero, and — after round 4 pointed out that a ratio printed beside a warning
+is the line that gets copied — the ratio is **withheld** rather than captioned.
+A sample where the re-ask never fired is also unquotable: "24 runs, nothing
+went wrong" measures the base rate and says nothing whatsoever about recovery.
+
+**F-48 · P0 · Resume erased a run that had been paid for**
+`[external-only]` · Run numbers were allocated above the *finished* rows, so a
+`start` with no matching outcome — a run killed after the money was spent —
+had its number reused, and the next resume saw start/outcome pairs that
+balanced. **Fixed**: allocate above every id ever seen.
+
+**F-49 · P0 · A resumed log could launder an older build's verdicts**
+`[external-only]` · Rows carry the conclusions of the logic that wrote them,
+and this file had already shipped a version whose cross-check agreed with
+everything (F-45). **Fixed**: the log carries a version, is only resumable by
+the build that wrote it, derived fields are recomputed on load, and — after
+round 6 — the version line must be the *first* record, so an old log cannot be
+laundered by appending a current one.
+
+**F-50 · P0 · Two probes could interleave into one artifact**
+`[external-only]` · Fixed in three rounds, each of which found the previous fix
+asymmetric: an existence check before an append (racy), then a sibling lock
+taken *after* replay (two probes read the same state first), then a lock keyed
+by pathname (a symlink, then a hard link, gets a different one). **Final
+shape**: the log's own inode is flocked before it is read, for new and resumed
+logs alike.
+
+**F-51 · P1 · Malformed payloads defaulted into clean verdicts**
+`[external-only]` · Across rounds 4–7: `refused` recorded but never read (so
+`{"refused": true, "refusal_gate": null}` after a restart scored as a
+recovery); `refusal_gate: ""` treated as a real gate; `stream_restarts: -1`
+truthy; `trace_llm: {}` accepted as a second reading; trace values of `false`
+or `""` read as affirmative evidence; `[]` as an SSE payload crashing on
+`.get()` after the call was already paid for. **Fixed**: one validator applied
+on both the live and replay paths, so the tool can never write a row its own
+resume rejects — pinned by a round-trip test over every row `run_once` can
+produce.
+
+**F-52 · P1 · An absent trace span was read as a silent one**
+`[external-only]` · Rounds 6–8. `read_trace(path).get("llm") or {}` collapsed
+"no span" and "corrupt span" into "nothing recorded". Round 7 narrowed it to
+pre-model refusals; round 8 caught that "refused with no generation span" is
+*also* true of a corrupt post-model trace, so it now names the one gate the
+engine takes before the model exists (`threshold`, `engine.py:331`). A gate
+added later fails closed here, which is the safe direction.
+
+**F-53 · P1 · The cross-check could switch itself off**
+`[external-only]` · Round 9 added a comparison of the trace's own recorded
+decision against the stream's, because a threshold refusal writes a
+legitimately *silent* llm span — so span-only agreement said nothing. Round 10
+then found that a trace with no readable `outcome` left that comparison
+skipped while the ratio still printed: the check was present in the code and
+absent from the evidence. **Fixed**: no readable decision ⇒ no reading at all.
+
+**F-54 · P2 · The spend fence advertised a bound it did not hold**
+`[external-only]` · A run was admitted with one generation of budget left and
+could then re-ask and spend two; unreadable runs were charged one when they may
+already have funded a retry; and the banner said "worst case" while the
+endpoint can also spend VLM second-look calls. **Fixed**: reserve the worst
+case before admitting a run, charge `max(2, 1 + restarts)` for unreadable ones,
+and scope the claim explicitly to answer generations.
+
+**F-55 · P2 · Losable evidence and misleading labels** `[external-only]` ·
+`flush()` survives this process dying, not the host dying, so a lost `start`
+line is a paid call the resume cannot know about — appends are now `fsync`'d.
+`tokens_streamed` counted SSE frames, not tokenizer tokens, and is now
+`token_events`. `--resume` on a typo'd path created the directory before
+refusing. The generation count is labelled "budget units charged", not
+"spent" — it is derived from observed restart events, not from the provider's
+usage counter.
+
+**A note on the shape of this round.** Ten of the eleven rounds found something,
+and most of what they found was created by the previous round's fix — a lock
+that closed one alias and not another, a validator that rejected the tool's own
+output, a cross-check that a later change could silently disable. The final
+round was asked three questions — can it print an unsupported ratio, can it
+false-block a legitimate run, can it write a row it cannot replay — and
+answered no to all three. The no-false-alarm case is now pinned by tests
+parameterised over five real engine trace shapes, because a guard that refuses
+everything fails exactly as badly as one that refuses nothing.
+
+**State**: `make lint` clean, **625 passed / 12 skipped** offline. The probe
+itself has **not been run against the paid endpoint** — that run is Yi Xin's,
+under INV-6, and the number it produces is the point of the exercise.
+
+## Part 1g — Rounds 24–30: the defect the instrument found by being used (2026-07-28)
+
+Seven more cross-host rounds, on the fix for the one defect eleven rounds of
+reading the code had missed and **one run of it found immediately**: a third of
+Yi Xin's 24-run sample was a query the retrieval threshold refuses *before the
+model is called*, so it could not have produced a contract failure however the
+model behaved — yet it counted as `clean`, sat in the denominator, and was
+charged a budget unit. The tool built to prevent an inflated denominator had
+one.
+
+The fix is two-sided on purpose: the query that cannot contribute is out of the
+mix, **and** the condition is now detected for any query, because which prompts
+clear the retrieval threshold is a property of the corpus and will change
+without the query list changing.
+
+**F-56 · P1 · A sample larger than the one that exists** `[host-only, from a
+real run]` · **The one to remember, and it was not found by reading.** New
+outcome `no_generation`, excluded from the recovery denominator and charged
+nothing (the model was never called, so nothing was billed). The tally now
+prints `runs=`, `reached the model=` and `refused before it=` as three separate
+counts. An earlier draft of this fix printed `generations=`, which round 24
+caught as false: a run whose re-ask fires spends two, so that label was wrong in
+exactly the sample where it mattered most.
+
+**F-57 · P1 · A verdict resting on the stream's word alone**
+`[external-only]` · `no_generation` was decided from the refusal gate's name.
+Rounds 25–26 closed it in three steps: it also requires zero token events; the
+second reading now preserves the raw fact `trace_spans` (did an `llm` span
+exist? a `generation` span?) rather than only the absence of contract fields;
+and `disagrees()` gives the outcome its own invariant — *no model span existed*
+— while every other determinate outcome now asserts the opposite. Without that
+last half, a stray `token` frame before a threshold refusal made the run
+`clean`, and a trace showing no model span agreed with it.
+
+**F-58 · P1 · A second reading not bound to the run it described**
+`[external-only]` · The trace was located by the id the *result* named, with no
+check that the id was even id-shaped and no check that the file agreed. Three
+holes, closed together: a path-like id can no longer become a filename
+(`TRACE_ID_RE`), the trace's own `trace_id` must match, and — the one that
+mattered — the trace's recorded `question` must be the question this run asked.
+Without it, a stale trace for a *different* question that happened to record a
+recovered re-ask could be collected as this run's corroboration and printed as
+`recovered 1 of 1`.
+
+**F-59 · P2 · Spend that could be under-counted three ways**
+`[external-only]` · A run admitted with one generation of budget left could
+re-ask and spend two; a stream that simply stopped carried no transport note
+and was charged one; and the charge trusted the stream's restart count even
+when the *trace* recorded a re-ask the stream had lost. Now: the worst case is
+reserved before a run is admitted, every indeterminate outcome charges
+`max(2, 1+restarts)`, and the charge takes the higher of the two readings. The
+fence may over-state spend; it may never under-state it.
+
+**F-60 · P2 · A headline that outran its evidence** `[external-only]` · The
+three-way count was computed from stream-derived outcomes even for rows whose
+two readings disagreed or which had no second reading — those now count as
+`unknown`, and the three always sum to the run count. `tally` also stopped
+depending on having been called after a validator: it has its own predicate for
+"a second reading is all three of its parts, or none".
+
+**F-61 · P2 · A sampling plan nobody wrote down** `[external-only]` · The log's
+meta row now records the exact ordered `(tag, question)` pairs, a resume onto a
+different mix is refused, and each row's query tag is audited against the tag
+the cycle assigns for its run number. Relying on someone remembering to bump
+`LOG_VERSION` when the questions change is not a guard.
+
+**On the evidence for this fix.** The committed artifact
+`eval/results/probe-retry-2026-07-28.jsonl` is a `probe-retry/5` log and the
+current `load_prior` **refuses** it — `run 1 is missing trace_spans` — which is
+the version gate working as designed. What was re-run is narrower and is not
+claimed as more: its 24 committed traces, re-read through the current reader
+with question binding and re-classified, give `runs=24 · reached the model=16 ·
+refused before it=8` with zero stream/trace disagreements. That is evidence the
+tightening does not false-alarm on real traces. It is not a replay, and the
+2026-07-28 sample is not resumable under the current schema — a new sample
+starts a new log, which is the honest consequence of changing what is measured.
+
+**State**: `make lint` clean, **645 passed / 12 skipped** offline, 648/9 with
+the services up. The re-ask's effectiveness is still **n=1**; nothing in this
+work package measured it, and the probe now says so in three ways instead of
+one.
+
 ## Part 2 — Adjudication (Yi Xin's rulings)
 
 > **Transcription notice.** Every ruling below was given by Yi Xin in-session on
@@ -670,6 +870,80 @@ One item is recorded as **deferred with reason** rather than fixed: the per-quer
 `analyze_package` cost in `statuses_for` / `collect_gaps` (round 3, P2). It is a
 latency question on a 45-chunk corpus behind an LLM call that dominates it, and
 the fix (caching keyed on package digest) is Phase 2 work.
+
+### Standing ruling extended — F-33 – F-61 (2026-07-28)
+
+> **Transcription notice.** The five rulings below were given by Yi Xin
+> in-session on 2026-07-28 and transcribed by the implementer at his direction,
+> quoting his words where they were given verbatim. The decisions are his; the
+> surrounding English is the implementer's and is subject to his correction.
+> Day 11 precedent, as elsewhere in this Part.
+
+> **"以后红队发现的一律全修"** (2026-07-28)
+
+**1 · The standing ruling is standing.** It reads forward, not only over
+F-01 – F-32. Accept **F-33 – F-61** — twenty-nine findings across rounds 4–31,
+covering the demo capture, the operator-facing polish, the INV-6 retry probe and
+the defect its first real run exposed — on the same terms as before: no severity
+triage, no deferral by ownership, all fixed in this work package. Every future
+red-team finding on this repository is accepted and fixed by default; a
+deferral now needs a reason recorded against it, not the other way round.
+
+**2 · The sampling plan may change when the measurement requires it.**
+> **"采样计划被改了就改了，不影响整体项目就没问题。"**
+
+Ratifies F-56: dropping the demo's coffee-maker query from the probe's mix.
+The 2026-07-28 run measured it refused before generation on 8 of 8 runs, so it
+could not contribute to the denominator while still being counted in it. The
+change is scoped to the probe's own sampling and touches no published benchmark.
+
+**3 · The 2026-07-28 sample is closed, not migrated.**
+> **"接受，重开一份。"**
+
+The log schema moved from `probe-retry/5` to `/9` while the findings were being
+fixed, so `load_prior` refuses the committed artifact
+(`run 1 is missing trace_spans`). Ruled: leave it as the record of what was
+measured that day and start a fresh log for any further sample; do not write a
+migration. This is ADR-0004's rule applied to the instrument rather than the
+corpus — when what is measured changes, the earlier sample is not approximately
+the same measurement, it is a different one.
+
+**4 · The cost fence may over-state, never under-state.**
+> **"高报没问题，有注释说明就行，计算用上限是核算成本的常见手段。"**
+
+Ratifies F-59: a run is admitted only if the worst case fits, indeterminate runs
+are charged `max(2, 1 + restarts)`, the charge takes the higher of the stream's
+and the trace's evidence, and a run the trace proves never reached the model is
+charged nothing. The requirement attached to the ruling — that the basis be
+stated rather than assumed — is met in the code comments and in the banner the
+probe prints before spending.
+
+**5 · No engine facts hard-coded in the instrument.**
+> **"修改探针，不许写死，要向后兼容。"**
+
+Amends F-52 / F-58 rather than accepting them as shipped. The probe had named
+the engine's one pre-model gate (`threshold`) and cited its line number, which
+tied the measurement to a single engine revision and would have made any later
+gate fail closed. Now whether a run reached the model is read from the trace's
+**structure** — an absent `llm` span together with an absent `generation` span —
+and the gate's name is reported rather than relied on. A gate this build has
+never heard of classifies correctly.
+
+The accepted consequence: a trace recording an `llm` span while refusing at a
+gate that ought to precede the model is now `clean` (the model demonstrably ran)
+instead of being flagged as an engine contradiction. The probe measures re-ask
+recovery; policing the engine's internal consistency was never its job, and
+buying that check with a hard-coded dependency was the wrong trade.
+
+**And the work on this instrument is closed.**
+> **"这个探针到此为止。要收敛了。不要再堆砌无用的内容了。"**
+
+Recorded as a ruling because it is one, and because the thing it stops is the
+implementer's behaviour, not the tool's: nineteen cross-host rounds on one
+measurement script, ending with the number it exists to produce still at n=1.
+INV-8 is the anti-slippage invariant and it applies to rigour that has stopped
+buying anything. One round was run on the change above — it returned SHIP — and
+the file is done.
 
 ### F-21 — accepted, and deliberately **not** fixed
 
@@ -715,7 +989,81 @@ mattered — per-query refusal non-regression — was verified independently.
 This is the case for INV-6 in one line: the implementer's own comparison had
 looked only at the refusal booleans and would not have surfaced the score drift.
 
+### Number re-run (INV-6) — performed by Yi Xin, 2026-07-28
+
+> **Transcription notice.** Yi Xin ran the probe himself and authorised the
+> implementer to write this section up from the run's output. The run and the
+> decision to publish it as-is are his; the wording is the implementer's and is
+> subject to his correction.
+
+Ran `tools/probe_retry_effectiveness.py --runs 24` against the live paid
+endpoint — the instrument the implementer built but, under INV-6, did not run.
+
+**Result: 24 runs, 24 clean, and the tool refused to publish a number.**
+
+```
+runs=24
+  clean                  24
+recovery metric withheld — see the blockers below
+
+UNQUOTABLE — the evidence has holes; do not publish a number from this run:
+  - no run exercised the re-ask — the recovery metric has no denominator
+```
+
+Not a single first attempt broke the output contract, so the re-ask never
+fired, so the sample contains **no observation whatsoever** about recovery. The
+probe exited non-zero rather than print `recovered 0 of 0`. That refusal is the
+one behaviour of this tool that mattered, and it is the behaviour that got
+exercised first.
+
+**What the run did establish, and what it did not.**
+
+- **The re-ask's effectiveness remains n=1.** It is no better measured today
+  than it was this morning. The review's existing statement — not sufficiently
+  measured — stands unchanged.
+- **The contract-failure base rate is now 2 observed failures across two
+  samples.** F-33's corrected figure was 2 in 24; this run adds 0 more. The two
+  samples are **not** simply addable, because their denominators are not the
+  same kind of thing — see below.
+- **A clean sample is not evidence the fault is gone.** At the ~8 % rate F-33
+  records, sixteen consecutive clean generations is an unremarkable outcome, not
+  a signal. The failure is intermittent; that intermittency is precisely why
+  F-33 was wrong in the first place, and why one run — by anyone — settles
+  nothing.
+
+**A defect in the instrument, found by running it.** Eleven rounds of cross-host
+review examined the probe's logic and none of them looked at what its three
+queries actually do. Checking the traces afterwards:
+
+| query | runs | reached the model | outcome |
+| --- | --- | --- | --- |
+| `answer` | 8 | 8 | answered |
+| `refusal` | 8 | **0** | refused at `threshold`, before generation |
+| `retraction` | 8 | 8 | refused at gate `llm` |
+
+The refusal query is refused by the retrieval threshold gate, so **no generation
+happens and no contract failure is possible**. A third of the sample could never
+have contributed to the denominator, while still charging a budget unit each.
+The honest size of this sample is therefore **16 generations, not 24 runs** —
+and "24 runs" is exactly the sort of inflated denominator this probe was built
+to prevent, reproduced by the probe itself.
+
+Whether the earlier 24-run sample has the same problem is **unknown**: its
+composition was not recorded. So the two cannot be pooled into a single rate
+without inventing the missing information, and no pooled rate is published here.
+
+This is the case for INV-6 in one line, again: the implementer built an
+instrument against a wrong number, had it adversarially reviewed eleven times,
+and the *first actual run of it* surfaced a defect that no amount of reading the
+code had found.
+
 ### Still open
 
-Phase 0.2 demo capture — needs the live stack and a human at the keyboard; the
-plan forbids staging it.
+- **The re-ask's effectiveness.** Denominator 0 after 24 runs. Raising it needs
+  either many more runs at ~8 % — roughly a dozen generations per observation —
+  or a way to induce a contract failure that is honest about not being the
+  natural event.
+  With the query mix fixed, both remaining queries reach the model, so a
+  24-run sample now buys 24 generations rather than 16.
+- **The probe's query mix** — closed by rulings 2 and 5 above; the instrument
+  itself is closed to further work.

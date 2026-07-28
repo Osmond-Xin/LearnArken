@@ -35,3 +35,6 @@ eval/traces/
 
 # Day 6 runtime state (demo uploads — never committed)
 var/
+
+# Probe session locks — an flock sibling, never an artifact
+*.jsonl.lock
