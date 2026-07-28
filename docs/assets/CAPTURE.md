@@ -271,11 +271,11 @@ The exact conversion commands, reproducible against those sources:
 
 ```bash
 tools/make_demo_gif.sh demo/mp4/question1.mp4 docs/assets/demo-answer.gif     1400
-tools/make_demo_gif.sh demo/mp4/question2.mp4 docs/assets/demo-refusal.gif    1400
+tools/make_demo_gif.sh demo/mp4/question2.mp4 docs/assets/demo-refusal.gif    1380
 tools/make_demo_gif.sh demo/mp4/question3.mp4 docs/assets/demo-retraction.gif 1520
 ```
 
-Produced with ffmpeg 8.1: 1.3 MB / 660 KB / 848 KB at 1600 px wide, all well
+Produced with ffmpeg 8.1: 1.3 MB / 760 KB / 804 KB at 1600 px wide, all well
 inside the 5 MB budget. The script crops and scales; it does not cut, retime or
 reorder, so "one take" stays true.
 
@@ -302,13 +302,15 @@ Add GIFs and their README links **in the same commit** —
 committed ahead of its file fails CI. (It caught exactly that during this
 session.)
 
+**Question 2 was re-shot** (2026-07-27, 23:23) after the refusal-rendering fix
+landed: the first take showed the refusal text inside the info box, which no
+longer matched GIF 3's build. New take, new run, new trace —
+`20260727T232321-c245ab34`, republished from it. The top crop moved from 70 to
+95 rows in the same pass, because a sliver of Streamlit's toolbar was surviving
+at the top right of every GIF.
+
 ## Known gaps in what shipped
 
-- **GIF 2 was recorded before the refusal-rendering fix** (commit `ca3084e`).
-  It shows the refusal text inside the blue info box; the current UI renders a
-  header line plus the text below it, as GIF 3 does. The behaviour and the trace
-  are unaffected, but the two GIFs do not look like the same build. Re-shooting
-  question 2 is a five-second take.
 - **The XPath column is truncated** in GIF 1 (`…/reqSafety/s`). The XPath is the
   provenance claim, so the full value is worth showing; the trace carries it in
   full either way.

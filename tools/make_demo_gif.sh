@@ -27,7 +27,7 @@ BOTTOM=${3:-}
 FORCE=${4:-}
 [[ -n $SRC && -n $OUT && -n $BOTTOM ]] || usage
 
-_TOP=70          # rows to drop from the top (Streamlit's Deploy toolbar)
+_TOP=95          # rows to drop from the top (Streamlit's Deploy toolbar)
 _FPS=12          # a UI recording has no motion that needs more
 _WIDTH=1600      # source is a retina capture; READMEs render this at ~900px
 _COLORS=128      # the UI is near-monochrome, so half a palette is plenty

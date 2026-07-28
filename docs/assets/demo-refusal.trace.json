@@ -1,6 +1,6 @@
 {
  "format": "learnarken-answer-trace/2",
- "trace_id": "20260727T221151-1e35a711",
+ "trace_id": "20260727T232321-c245ab34",
  "note": "Reduced from the full trace for publication; see tools/public_trace.py. Dropped: llm.request_payload — the full prompt, including system rules and evidence; generation.raw_content — the model's raw output, think block included; retrieval, graph — retrieved chunk bodies; the corpus is public under samples/",
  "question": "How do I replace the coffee maker in the galley?",
  "packages": [
