@@ -15,6 +15,10 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 READMES = [REPO / "README.md", REPO / "README.zh-CN.md"]
+# Outward-facing docs whose whole claim is "every row names a file you can open".
+# Resolution is relative to each document, so a doc under `docs/` is guarded on
+# the same terms as a README at the root.
+LINKED_DOCS = [*READMES, REPO / "docs/arken-alignment.md"]
 
 # [text](target) where target is not an external URL, mailto, or bare fragment.
 LINK = re.compile(r"\[(?P<text>[^\]]*)\]\((?P<target>[^)\s]+)\)")
@@ -49,7 +53,7 @@ def test_in_page_anchors_resolve(readme: Path) -> None:
     assert not broken, f"{readme.name}: unresolved in-page anchors {broken}"
 
 
-@pytest.mark.parametrize("readme", READMES, ids=lambda p: p.name)
+@pytest.mark.parametrize("readme", LINKED_DOCS, ids=lambda p: p.name)
 def test_relative_links_point_at_real_paths(readme: Path) -> None:
     body = readme.read_text(encoding="utf-8")
     missing = []
@@ -60,7 +64,7 @@ def test_relative_links_point_at_real_paths(readme: Path) -> None:
         path, _, fragment = target.partition("#")
         if not path:
             continue
-        resolved = (REPO / path).resolve()
+        resolved = (readme.parent / path).resolve()
         if not resolved.exists():
             missing.append(target)
             continue

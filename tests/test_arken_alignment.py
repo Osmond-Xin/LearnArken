@@ -255,7 +255,13 @@ def test_every_gate_says_what_would_resolve_it():
         if g.strip()
     }
     # The engine's gate names, taken from the module that emits them.
-    emitted = {"threshold", "llm", "llm-contract", "citation-validation"}
+    emitted = {
+        "threshold",
+        "llm",
+        "llm-contract",
+        "citation-validation",
+        "figure-out-of-description",
+    }
     assert emitted <= documented, f"gates without resolution advice: {emitted - documented}"
     assert declared <= documented or not declared
 
