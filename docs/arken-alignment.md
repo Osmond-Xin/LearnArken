@@ -43,6 +43,30 @@ it and have it check these claims against the code rather than take them from me
 | 6 | Sovereignty by Deployment | **Enforceable & tested** — no local model bundled (README §6 uses the same label) |
 | 7 | Goal-Oriented Knowledge Foundation | **Gap** — not built, and the one I agree with most |
 
+### Why I wrote it
+
+I am applying for the **AI Engineer — Multi-Modal LLM Orchestration,
+Knowledge-Graph RAG & S1000D/ASD-SPEC Compliance** role at Arken. This audit is
+the application: the parts of that job description I can already show, and the
+parts I cannot, in the same voice.
+
+| | |
+| --- | --- |
+| **Résumé** | [Yi_Xin_Resume_ARKEN_AI_Engineer.pdf](https://www.niagaradataanalyst.com/resume/arken/Yi_Xin_Resume_ARKEN_AI_Engineer.pdf) |
+| **Cover letter** | [Yi_Xin_CoverLetter_ARKEN_AI_Engineer.pdf](https://www.niagaradataanalyst.com/resume/arken/Yi_Xin_CoverLetter_ARKEN_AI_Engineer.pdf) |
+| **Email** | [jonzy.xin@outlook.com](mailto:jonzy.xin@outlook.com) · 249-874-5096 |
+| **Work authorization** | Authorized to work full-time in Canada for any employer, no restrictions on hours (IRCC-confirmed, PGWP processing) — no LMIA or sponsorship required, available immediately |
+
+What the résumé does **not** claim, because this page is where it gets said
+first: the inference-serving stack in the job description — vLLM, TensorRT-LLM,
+PagedAttention, speculative decoding — and the GPU/systems axis under it
+(PyTorch DDP/FSDP, ONNX, CUDA/Triton) are not shipped work of mine. Neither is
+the RDF/OWL/SPARQL half of knowledge-graph RAG; the graph here is Neo4j and
+property-shaped. The corpus is synthetic and toy-scale and the distribution is
+simulated on one machine, which §6 and [EVIDENCE.md](EVIDENCE.md) both say in
+those words. Those are ramps, and naming them is cheaper than being found out
+in a technical screen.
+
 ---
 
 ## 1 · Authorisation Before Reasoning
