@@ -77,6 +77,109 @@ def gate_label(gate) -> str:
     return "".join(c for c in gate if c.isalnum() or c in " _-")[:60] or "?"
 
 
+#: Questions offered on screen next to the free-form box, organised around the
+#: claim the system exists to make: **it stops rather than guesses**.
+#:
+#: A visitor who has never seen an S1000D corpus cannot aim at that on their
+#: own. Left to "ask anything" they ask two off-corpus questions, get two
+#: refusals, and read them as the system failing — the exact inversion of what a
+#: refusal means here. So the groups below are the *families of ways a question
+#: can fail to be answerable*, one baseline group of answerable questions first
+#: to make the contrast legible, and the refusal families after it.
+#:
+#: What the panel deliberately does NOT do:
+#:
+#: - **Promise a gate.** Whether an off-corpus question stops at `threshold`
+#:   (nothing scored above the frozen refusal threshold, so the model is never
+#:   called) or at `llm` (something scored, and the model judged it insufficient)
+#:   depends on retrieval scores this file cannot predict. The gate name on
+#:   screen is the answer to that question, not something to pre-announce.
+#: - **Offer a retraction button.** `citation-validation` — streamed text
+#:   visibly withdrawn — is the most striking gate, and by construction it fires
+#:   only when the model produces text it cannot ground. Nothing here can summon
+#:   it on demand, so nothing here claims to; the caption says so outright.
+#: - **Imply a named owner.** Routing resolves an owner only for a DMC the
+#:   package *declares missing*; the deployed corpus (package-a + package-c) has
+#:   no such gaps, so refusals carry an `owner_reason`, never a name.
+#:
+#: Each entry is *verbatim* from a human-reviewed golden set under
+#: `eval/golden/` (test-enforced), so the panel can never drift into questions
+#: nobody ever labelled, and each note is a question rather than a prediction:
+#: the generator is non-deterministic behind deterministic gates, and a demo
+#: that promised outcomes would be the overclaim Day 8 spent four rounds
+#: removing.
+SUGGESTED_QUESTIONS = [
+    {
+        "group": "1 · The control: answerable, so it answers",
+        "note": "the refusals below only mean something because these come back — "
+        "with a chunk-ID, DMC, XPath and the quote each claim rests on",
+        "questions": [
+            "How do I remove the hydraulic pump?",
+            "so what torque do those pump mounting bolts actually take?",
+        ],
+    },
+    {
+        "group": "2 · Nothing in the corpus covers it",
+        "note": "the last one the model certainly knows from training — probe: "
+        "does that get it answered anyway?",
+        "questions": [
+            "de-icing boot inspection intervals",
+            "how do I service the ship's ballast water pump per this manual?",
+            "what is standard atmospheric pressure at sea level in psi?",
+        ],
+    },
+    {
+        "group": "3 · The right document — which does not state that",
+        "note": "the pump module is retrieved and relevant; the detail asked for is "
+        "simply not in it. Probe: is the gap filled in?",
+        "questions": [
+            "what is the torque for the 7th mounting bolt on the pump?",
+            "show me the content of DMC-LA100-A-29-10-00-00A-720A-B",
+        ],
+    },
+    {
+        "group": "4 · The question asserts a wrong value",
+        "note": "each contradicts the document it points at — probe: confirmed back, "
+        "or corrected against the evidence?",
+        "questions": [
+            "confirm the pump mounting bolts are torqued to 30 Nm",
+            "you disconnect the positive terminal first, then the negative — correct?",
+        ],
+    },
+    {
+        "group": "5 · The answer would have to be derived",
+        "note": "both numbers are in the corpus; their sum is not. Probe: is a value "
+        "no document states produced anyway?",
+        "questions": [
+            "what is the combined torque of the pump mounting bolts and the line "
+            "fittings added together?",
+        ],
+    },
+    {
+        "group": "6 · Answerable, but only across modules",
+        "note": "one module holds half — probe: can the dmRef graph reach the other, "
+        "or does it stop half-answered?",
+        "questions": [
+            "Which gasket part number is required to install the hydraulic pump on the "
+            "accessory gearbox pad, and what supporting equipment is needed for this "
+            "installation?",
+            "If low system pressure troubleshooting leads to replacing the pump, what is "
+            "the torque requirement for the line fittings when installing the new one, "
+            "and what precaution must be taken before the first engine run?",
+        ],
+    },
+    {
+        "group": "7 · Illustrations, and their edge",
+        "note": "the first is in the figure's verified description; the second is "
+        "visible in the image but described nowhere",
+        "questions": [
+            "What part number is at hotspot 02 of the hydraulic pump figure?",
+            "What colour is the battery housing in the illustration?",
+        ],
+    },
+]
+
+
 def _filled(value) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
@@ -300,6 +403,121 @@ def render_answer(entry: dict) -> None:
         st.text(f"Supporting quote — {c['supporting_quote']}")
 
 
+def ask_backend(question: str, entry: dict) -> None:
+    """The one and only `/query` call this client makes; fills `entry` in place.
+
+    Extracted so that "clicking a suggestion spends exactly what typing it
+    would" is a *behavioural* claim a test can check — one POST, carrying the
+    gate-key header — rather than a shape a regex over this file happens to
+    match (red team 2026-07-29 P2). Nothing here is specific to how the
+    question was entered: there is one path, and both entry points are on it.
+    """
+    stage = st.empty()
+    stream_area = st.empty()
+    streamed = ""
+    try:
+        with requests.post(
+            f"{API_BASE}/query",
+            json={"question": question},
+            headers=_demo_headers(),
+            stream=True,
+            timeout=600,
+        ) as resp:
+            if resp.status_code != 200:
+                body = safe_json(resp.text, default={})
+                detail = body.get("detail", resp.text[:300]) if body else resp.text[:300]
+                entry["error"] = f"HTTP {resp.status_code}: {detail}"
+            else:
+                for event, data in sse_events(resp):
+                    payload = safe_json(data, default={}) if data else {}
+                    if not isinstance(payload, dict):
+                        payload = {}  # a wire payload that is not an object
+                    streamed = record_event(entry, event, payload, streamed)
+                    if event == "status":
+                        st_stage = payload.get("stage")
+                        st_stage = st_stage if isinstance(st_stage, str) else ""
+                        stage.caption(STAGE_LABELS.get(st_stage, st_stage))
+                    elif event == "token":
+                        stream_area.text(
+                            "⏳ Generating — the text below is not yet "
+                            "citation-verified and may be retracted:\n\n" + streamed
+                        )
+                    elif event == "restart":
+                        stream_area.text(
+                            "↻ The model broke its output contract; asking again. "
+                            "Nothing above is being kept."
+                        )
+                    elif event == "retract":
+                        stream_area.empty()  # withdraw the unverified text
+    except requests.RequestException as exc:
+        entry["error"] = f"Backend unreachable: {exc.__class__.__name__}"
+    stage.empty()
+    stream_area.empty()
+
+
+def render_suggested_questions(asked_before: bool, disabled: bool) -> str | None:
+    """Render the suggested-question panel; return a question if one was clicked.
+
+    Two affordances on purpose. `st.code` carries Streamlit's own copy button,
+    so a visitor can lift the text into the box and edit it — the point is that
+    these are examples, not a menu; the free-form box takes anything. The `Ask`
+    button spends exactly what typing the same sentence would: the click hands
+    the string back to the caller, which runs the one `/query` call this file
+    makes, with the same gate-key header and the same fences behind it.
+
+    `disabled` is the in-flight guard. Streamlit greys out `st.chat_input` while
+    a run is executing, but not buttons — so without this a visitor impatient
+    with a slow generation could click through several suggestions, each new
+    click aborting the previous run *after* its LLM call was already issued and
+    billed (red team 2026-07-29 P2). The buttons are therefore rendered disabled
+    on the run that performs the query, which is why the question is accepted on
+    one run and asked on the next.
+    """
+    clicked = None
+    with st.expander(
+        "Example questions — click Ask, or copy one; grouped by how a question "
+        "can fail to be answerable",
+        expanded=not asked_before,
+    ):
+        st.caption(
+            "The box below takes any question about the corpus (synthetic LA100 hydraulic, "
+            "landing-gear and electrical data modules) — these are only a way in. They are "
+            "grouped by the thing this system is built to get right: **what happens when "
+            "the evidence will not support an answer.** Group 1 answers; groups 2–5 and "
+            "the second illustration question cannot be answered from the corpus, and a "
+            "refusal there is the system working, not failing."
+        )
+        st.caption(
+            "**On a refusal, read three things**: the *gate* that stopped it (where it "
+            "stopped — retrieval scored nothing above the frozen threshold, or the model "
+            "judged the evidence insufficient, or a claim went beyond a figure's "
+            "description), *what would resolve it*, and *who should act* — this corpus "
+            "declares no missing modules, so that last line explains why no owner could "
+            "be named rather than naming one. Each note below is a question, not a "
+            "prediction: generation is non-deterministic behind deterministic gates, so "
+            "the same question can land differently twice. One gate cannot be summoned to "
+            "order — `citation-validation`, which withdraws text already on your screen — "
+            "because it fires only when the model produces a claim it cannot ground. You "
+            "may see it; nothing here promises it."
+        )
+        for group_index, group in enumerate(SUGGESTED_QUESTIONS):
+            st.markdown(f"**{group['group']}** — {group['note']}")
+            for question_index, suggestion in enumerate(group["questions"]):
+                text_col, ask_col = st.columns([9, 1], vertical_alignment="center")
+                with text_col:
+                    # st.code, not st.markdown: it escapes, and it is the only
+                    # widget that ships a copy-to-clipboard control.
+                    st.code(suggestion, language=None)
+                with ask_col:
+                    if st.button(
+                        "Ask",
+                        key=f"suggested-{group_index}-{question_index}",
+                        disabled=disabled,
+                    ):
+                        clicked = suggestion
+    return clicked
+
+
 def render_upload_outcome(status_code: int, payload: dict) -> None:
     status = payload.get("status", "")
     if status == "ingested":
@@ -420,58 +638,48 @@ if upload_tab is not None:
 with qa_tab:
     if "history" not in st.session_state:
         st.session_state.history = []
+    # A question is accepted on one run and asked on the next. The extra hop
+    # buys the only in-flight guard this client can honestly offer: on the run
+    # that spends, the suggestion buttons render disabled, so an impatient
+    # visitor cannot click through several of them and leave a trail of issued,
+    # billed generations whose answers nobody will ever see. (The backend
+    # concurrency semaphore and per-boot call cap remain the real fences — two
+    # browser tabs are outside any client's reach.)
+    pending = st.session_state.get("pending_question")
+
+    # Above the transcript, so its position does not move as the conversation
+    # grows; it folds itself away once the visitor has asked something.
+    suggested = render_suggested_questions(
+        asked_before=bool(st.session_state.history), disabled=pending is not None
+    )
     for entry in st.session_state.history:
         with st.chat_message("user"):
             st.text(entry["question"])
         with st.chat_message("assistant"):
             render_answer(entry)
 
-    question = st.chat_input("Ask a question about the admitted documents (3–500 characters)…")
-    if question:
+    # Typed input wins over a click in the same run: the visitor typed it later.
+    question = (
+        st.chat_input("Ask a question about the admitted documents (3–500 characters)…")
+        or suggested
+    )
+    if question and pending is None:
+        st.session_state.pending_question = question
+        st.rerun()
+
+    if pending is not None:
         with st.chat_message("user"):
-            st.text(question)
-        entry = {"question": question}
-        with st.chat_message("assistant"):
-            stage = st.empty()
-            stream_area = st.empty()
-            streamed = ""
-            try:
-                with requests.post(
-                    f"{API_BASE}/query",
-                    json={"question": question},
-                    headers=_demo_headers(),
-                    stream=True,
-                    timeout=600,
-                ) as resp:
-                    if resp.status_code != 200:
-                        body = safe_json(resp.text, default={})
-                        detail = body.get("detail", resp.text[:300]) if body else resp.text[:300]
-                        entry["error"] = f"HTTP {resp.status_code}: {detail}"
-                    else:
-                        for event, data in sse_events(resp):
-                            payload = safe_json(data, default={}) if data else {}
-                            if not isinstance(payload, dict):
-                                payload = {}  # a wire payload that is not an object
-                            streamed = record_event(entry, event, payload, streamed)
-                            if event == "status":
-                                st_stage = payload.get("stage")
-                                st_stage = st_stage if isinstance(st_stage, str) else ""
-                                stage.caption(STAGE_LABELS.get(st_stage, st_stage))
-                            elif event == "token":
-                                stream_area.text(
-                                    "⏳ Generating — the text below is not yet "
-                                    "citation-verified and may be retracted:\n\n" + streamed
-                                )
-                            elif event == "restart":
-                                stream_area.text(
-                                    "↻ The model broke its output contract; asking again. "
-                                    "Nothing above is being kept."
-                                )
-                            elif event == "retract":
-                                stream_area.empty()  # withdraw the unverified text
-            except requests.RequestException as exc:
-                entry["error"] = f"Backend unreachable: {exc.__class__.__name__}"
-            stage.empty()
-            stream_area.empty()
-            render_answer(entry)
-        st.session_state.history.append(entry)
+            st.text(pending)
+        entry = {"question": pending}
+        try:
+            with st.chat_message("assistant"):
+                ask_backend(pending, entry)
+                render_answer(entry)
+            st.session_state.history.append(entry)
+        finally:
+            # Cleared even if the run is torn down mid-answer, so a question can
+            # never be re-asked — and re-billed — by the rerun that follows.
+            st.session_state.pop("pending_question", None)
+        # Re-render from history: the turn takes its final place and the
+        # suggestion buttons come back enabled.
+        st.rerun()
