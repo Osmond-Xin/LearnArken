@@ -94,10 +94,12 @@ def gate_label(gate) -> str:
 #:   called) or at `llm` (something scored, and the model judged it insufficient)
 #:   depends on retrieval scores this file cannot predict. The gate name on
 #:   screen is the answer to that question, not something to pre-announce.
-#: - **Offer a retraction button.** `citation-validation` — streamed text
-#:   visibly withdrawn — is the most striking gate, and by construction it fires
-#:   only when the model produces text it cannot ground. Nothing here can summon
-#:   it on demand, so nothing here claims to; the caption says so outright.
+#: - **Offer a retraction button.** Retraction *itself* is routine — measured on
+#:   the live stack 2026-07-29, 5 of these 14 questions streamed text that was
+#:   then withdrawn before the gate was named — so the caption tells the visitor
+#:   that is normal rather than letting it read as a glitch. What no question can
+#:   summon is the `citation-validation` gate specifically: it fires only when
+#:   the model fails to ground its own claim.
 #: - **Imply a named owner.** Routing resolves an owner only for a DMC the
 #:   package *declares missing*; the deployed corpus (package-a + package-c) has
 #:   no such gaps, so refusals carry an `owner_reason`, never a name.
@@ -158,20 +160,26 @@ SUGGESTED_QUESTIONS = [
     {
         "group": "6 · Answerable, but only across modules",
         "note": "one module holds half — probe: can the dmRef graph reach the other, "
-        "or does it stop half-answered?",
+        "or does it stop half-answered? (count the DMCs under the answer)",
+        # Measured on the live stack 2026-07-29: the first cites the install
+        # procedure *and* the illustrated parts data; the second crosses ATA
+        # chapters, from landing gear (32-10) into hydraulic fault isolation
+        # (29-10). An earlier candidate here answered correctly from a single
+        # module, which made the group's own question unanswerable on screen.
         "questions": [
             "Which gasket part number is required to install the hydraulic pump on the "
             "accessory gearbox pad, and what supporting equipment is needed for this "
             "installation?",
-            "If low system pressure troubleshooting leads to replacing the pump, what is "
-            "the torque requirement for the line fittings when installing the new one, "
-            "and what precaution must be taken before the first engine run?",
+            "If the main landing gear does not retract and the hydraulic pressure is "
+            "low, which troubleshooting task should be performed first, and what "
+            "specific pressure threshold triggers this troubleshooting?",
         ],
     },
     {
         "group": "7 · Illustrations, and their edge",
         "note": "the first is in the figure's verified description; the second is "
-        "visible in the image but described nowhere",
+        "visible in the image but described nowhere — give it ~90 seconds, it "
+        "sends the image to a vision model before deciding",
         "questions": [
             "What part number is at hotspot 02 of the hydraulic pump figure?",
             "What colour is the battery housing in the illustration?",
@@ -495,10 +503,13 @@ def render_suggested_questions(asked_before: bool, disabled: bool) -> str | None
             "declares no missing modules, so that last line explains why no owner could "
             "be named rather than naming one. Each note below is a question, not a "
             "prediction: generation is non-deterministic behind deterministic gates, so "
-            "the same question can land differently twice. One gate cannot be summoned to "
-            "order — `citation-validation`, which withdraws text already on your screen — "
-            "because it fires only when the model produces a claim it cannot ground. You "
-            "may see it; nothing here promises it."
+            "the same question can land differently twice. **Text appearing and then "
+            "being withdrawn is normal here, not a glitch** — on a refusal, whatever "
+            "streamed is retracted before the gate is named (it happened on 5 of these "
+            "14 questions the last time they were run against the live stack). What "
+            "cannot be summoned to order is one specific gate, `citation-validation` — "
+            "a withdrawal caused by the model failing to ground its own claim — because "
+            "it fires only when the model does exactly that."
         )
         for group_index, group in enumerate(SUGGESTED_QUESTIONS):
             st.markdown(f"**{group['group']}** — {group['note']}")
