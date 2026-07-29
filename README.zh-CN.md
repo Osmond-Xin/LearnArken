@@ -571,6 +571,7 @@ LangGraph agent,以及它们底下的后端基础设施。
 | | |
 | --- | --- |
 | **简历** | **[Yi_Xin_Resume.pdf](https://www.niagaradataanalyst.com/resume/Yi_Xin_Resume.pdf)** |
+| **投递 Arken** | 针对 AI Engineer — Multi-Modal LLM Orchestration, Knowledge-Graph RAG & S1000D/ASD-SPEC Compliance 岗位的**[简历](https://www.niagaradataanalyst.com/resume/arken/Yi_Xin_Resume_ARKEN_AI_Engineer.pdf)**与**[求职信](https://www.niagaradataanalyst.com/resume/arken/Yi_Xin_CoverLetter_ARKEN_AI_Engineer.pdf)**,以及作为申请实质内容的[对齐审计](docs/arken-alignment.md)。里面每个数字都是本页上的数字之一,并注明测于哪一版语料 |
 | **邮箱** | [jonzy.xin@outlook.com](mailto:jonzy.xin@outlook.com) |
 | **LinkedIn** | [linkedin.com/in/osmond-xin-92a736308](https://www.linkedin.com/in/osmond-xin-92a736308/) |
 | **GitHub** | [github.com/Osmond-Xin](https://github.com/Osmond-Xin) |

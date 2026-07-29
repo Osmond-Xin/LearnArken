@@ -772,6 +772,7 @@ under them.
 | | |
 | --- | --- |
 | **Résumé** | **[Yi_Xin_Resume.pdf](https://www.niagaradataanalyst.com/resume/Yi_Xin_Resume.pdf)** |
+| **Applying to Arken** | The tailored **[résumé](https://www.niagaradataanalyst.com/resume/arken/Yi_Xin_Resume_ARKEN_AI_Engineer.pdf)** and **[cover letter](https://www.niagaradataanalyst.com/resume/arken/Yi_Xin_CoverLetter_ARKEN_AI_Engineer.pdf)** for the AI Engineer — Multi-Modal LLM Orchestration, Knowledge-Graph RAG & S1000D/ASD-SPEC Compliance role, alongside the [alignment audit](docs/arken-alignment.md) that is the application's substance. Every figure in them is one of the numbers on this page, and says which corpus revision it was measured on |
 | **Email** | [jonzy.xin@outlook.com](mailto:jonzy.xin@outlook.com) |
 | **LinkedIn** | [linkedin.com/in/osmond-xin-92a736308](https://www.linkedin.com/in/osmond-xin-92a736308/) |
 | **GitHub** | [github.com/Osmond-Xin](https://github.com/Osmond-Xin) |
