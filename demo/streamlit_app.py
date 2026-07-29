@@ -95,9 +95,9 @@ def gate_label(gate) -> str:
 #:   depends on retrieval scores this file cannot predict. The gate name on
 #:   screen is the answer to that question, not something to pre-announce.
 #: - **Offer a retraction button.** Retraction *itself* is routine — measured on
-#:   the live stack 2026-07-29, 6 of these 15 questions streamed text that was
-#:   then withdrawn before the gate was named — so the caption tells the visitor
-#:   that this is normal rather than letting it read as a glitch. What no
+#:   the live stack 2026-07-29, 6 and 7 of these 15 questions (two runs) streamed
+#:   text that was then withdrawn before the gate was named — so the caption tells
+#:   the visitor that this is normal rather than a glitch. What no
 #:   question can summon is the `citation-validation` gate specifically: it fires
 #:   only when the model fails to ground its own claim.
 #: - **Imply a named owner.** Routing resolves an owner only for a DMC the
@@ -158,8 +158,15 @@ SUGGESTED_QUESTIONS = [
     },
     {
         "group": "5 · The answer would have to be derived",
-        "note": "both numbers are in the corpus; their sum is not. Probe: is a value "
-        "no document states produced anyway?",
+        # Lands two ways, both correct — measured on the live stack 2026-07-29:
+        # once it listed the two torques separately and said no combined value
+        # is stated, once it refused at the `llm` gate. Neither produced a sum.
+        # The note asks only whether a number no document states comes out, so
+        # it stays true either way; saying so keeps a visitor who gets the
+        # refusal from reading it as the weaker outcome.
+        "note": "both numbers are in the corpus; their sum is not. Probe: does a value "
+        "no document states come out anyway? (listing them separately and refusing "
+        "outright are both correct)",
         "questions": [
             "what is the combined torque of the pump mounting bolts and the line "
             "fittings added together?",
@@ -514,8 +521,8 @@ def render_suggested_questions(asked_before: bool, disabled: bool) -> str | None
             "prediction: generation is non-deterministic behind deterministic gates, so "
             "the same question can land differently twice. **Text appearing and then "
             "being withdrawn is normal here, not a glitch** — on a refusal, whatever "
-            "streamed is retracted before the gate is named (on the last full live run "
-            "of this panel, 6 of the 15 below did it). What "
+            "streamed is retracted before the gate is named — 6 and 7 of the 15 below, "
+            "in the two live runs of this exact set). What "
             "cannot be summoned to order is one specific gate, `citation-validation` — "
             "a withdrawal caused by the model failing to ground its own claim — because "
             "it fires only when the model does exactly that."
