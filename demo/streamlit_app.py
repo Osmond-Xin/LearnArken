@@ -95,9 +95,9 @@ def gate_label(gate) -> str:
 #:   depends on retrieval scores this file cannot predict. The gate name on
 #:   screen is the answer to that question, not something to pre-announce.
 #: - **Offer a retraction button.** Retraction *itself* is routine — measured on
-#:   the live stack 2026-07-29, about a third of these questions stream text that
-#:   is then withdrawn before the gate is named — so the caption tells the
-#:   visitor that is normal rather than letting it read as a glitch. What no
+#:   the live stack 2026-07-29, 6 of these 15 questions streamed text that was
+#:   then withdrawn before the gate was named — so the caption tells the visitor
+#:   that this is normal rather than letting it read as a glitch. What no
 #:   question can summon is the `citation-validation` gate specifically: it fires
 #:   only when the model fails to ground its own claim.
 #: - **Imply a named owner.** Routing resolves an owner only for a DMC the
@@ -514,8 +514,8 @@ def render_suggested_questions(asked_before: bool, disabled: bool) -> str | None
             "prediction: generation is non-deterministic behind deterministic gates, so "
             "the same question can land differently twice. **Text appearing and then "
             "being withdrawn is normal here, not a glitch** — on a refusal, whatever "
-            "streamed is retracted before the gate is named (measured: it happens on "
-            "about a third of the questions below). What "
+            "streamed is retracted before the gate is named (on the last full live run "
+            "of this panel, 6 of the 15 below did it). What "
             "cannot be summoned to order is one specific gate, `citation-validation` — "
             "a withdrawal caused by the model failing to ground its own claim — because "
             "it fires only when the model does exactly that."
