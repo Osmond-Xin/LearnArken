@@ -95,11 +95,11 @@ def gate_label(gate) -> str:
 #:   depends on retrieval scores this file cannot predict. The gate name on
 #:   screen is the answer to that question, not something to pre-announce.
 #: - **Offer a retraction button.** Retraction *itself* is routine — measured on
-#:   the live stack 2026-07-29, 5 of these 14 questions streamed text that was
-#:   then withdrawn before the gate was named — so the caption tells the visitor
-#:   that is normal rather than letting it read as a glitch. What no question can
-#:   summon is the `citation-validation` gate specifically: it fires only when
-#:   the model fails to ground its own claim.
+#:   the live stack 2026-07-29, about a third of these questions stream text that
+#:   is then withdrawn before the gate is named — so the caption tells the
+#:   visitor that is normal rather than letting it read as a glitch. What no
+#:   question can summon is the `citation-validation` gate specifically: it fires
+#:   only when the model fails to ground its own claim.
 #: - **Imply a named owner.** Routing resolves an owner only for a DMC the
 #:   package *declares missing*; the deployed corpus (package-a + package-c) has
 #:   no such gaps, so refusals carry an `owner_reason`, never a name.
@@ -132,20 +132,28 @@ SUGGESTED_QUESTIONS = [
     },
     {
         "group": "3 · The right document — which does not state that",
-        "note": "the pump module is retrieved and relevant; the detail asked for is "
+        "note": "the pump module is retrieved and relevant; the thing asked for is "
         "simply not in it. Probe: is the gap filled in?",
         "questions": [
-            "what is the torque for the 7th mounting bolt on the pump?",
             "show me the content of DMC-LA100-A-29-10-00-00A-720A-B",
+            "give me the 2027 revision of the hydraulic pump installation procedure",
         ],
     },
     {
-        "group": "4 · The question asserts a wrong value",
+        "group": "4 · The question asserts something the document denies",
+        # The third one lands two ways, and both are correct: sometimes it
+        # corrects the premise with a citation ("the pump has four mounting
+        # bolts, torqued to 25 Nm"), sometimes it refuses at the `llm` gate.
+        # Measured 2026-07-29 on the live stack: 3 answered / 3 refused over six
+        # runs, never a fabricated 7th-bolt torque. It sits here rather than in
+        # group 3 because the premise, not the corpus, is what is wrong — and
+        # the note says outright that either outcome is the system behaving.
         "note": "each contradicts the document it points at — probe: confirmed back, "
-        "or corrected against the evidence?",
+        "or corrected against the evidence? (a refusal here is equally correct)",
         "questions": [
             "confirm the pump mounting bolts are torqued to 30 Nm",
             "you disconnect the positive terminal first, then the negative — correct?",
+            "what is the torque for the 7th mounting bolt on the pump?",
         ],
     },
     {
@@ -178,8 +186,9 @@ SUGGESTED_QUESTIONS = [
     {
         "group": "7 · Illustrations, and their edge",
         "note": "the first is in the figure's verified description; the second is "
-        "visible in the image but described nowhere — give it ~90 seconds, it "
-        "sends the image to a vision model before deciding",
+        "visible in the image but described nowhere — give the second one time "
+        "(25 s to 100 s measured), it sends the image to a vision model before "
+        "deciding",
         "questions": [
             "What part number is at hotspot 02 of the hydraulic pump figure?",
             "What colour is the battery housing in the illustration?",
@@ -505,8 +514,8 @@ def render_suggested_questions(asked_before: bool, disabled: bool) -> str | None
             "prediction: generation is non-deterministic behind deterministic gates, so "
             "the same question can land differently twice. **Text appearing and then "
             "being withdrawn is normal here, not a glitch** — on a refusal, whatever "
-            "streamed is retracted before the gate is named (it happened on 5 of these "
-            "14 questions the last time they were run against the live stack). What "
+            "streamed is retracted before the gate is named (measured: it happens on "
+            "about a third of the questions below). What "
             "cannot be summoned to order is one specific gate, `citation-validation` — "
             "a withdrawal caused by the model failing to ground its own claim — because "
             "it fires only when the model does exactly that."
