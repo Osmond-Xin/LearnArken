@@ -48,6 +48,7 @@ REVISIONS = {
     "qwen3-8b": "1d8ad4ca9b3dd8059ad90a75d4983776a23d44af",
 }
 
+
 @cache
 def resolve_device() -> str:
     """Accelerator for the local models; `LEARNARKEN_DEVICE` overrides.

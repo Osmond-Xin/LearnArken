@@ -35,9 +35,7 @@ def _public_view(payload: dict) -> dict:
     """
     if not isinstance(payload, dict):
         return {"status": "unreachable"}
-    return {
-        key: payload[key] for key in ("status", "services", "idle_seconds") if key in payload
-    }
+    return {key: payload[key] for key in ("status", "services", "idle_seconds") if key in payload}
 
 
 def _fetch_status() -> tuple[int, dict]:
@@ -50,10 +48,7 @@ def _fetch_status() -> tuple[int, dict]:
     when the flood was largest (R-18).
     """
     with _cache_lock:
-        if (
-            _cache["payload"] is not None
-            and time.time() - float(_cache["at"]) < CACHE_TTL_S
-        ):
+        if _cache["payload"] is not None and time.time() - float(_cache["at"]) < CACHE_TTL_S:
             return int(_cache["code"]), _cache["payload"]  # type: ignore[return-value]
         try:
             with urllib.request.urlopen(BACKEND_STATUS_URL, timeout=5) as resp:

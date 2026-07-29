@@ -333,18 +333,18 @@ class TestProvisionContainerLogicActuallyRuns:
             '  case "$*" in\n'
             f'    *"{{{{.Image}}}}"*) echo "{existing_image or ""}"; exit 0;;\n'
             '    *"{{.Id}}"*) echo "sha256:WANTED"; exit 0;;\n'
-            '  esac\n'
-            '  exit 0\n'
+            "  esac\n"
+            "  exit 0\n"
             "fi\n"
             "exit 0\n"
         )
         fake.chmod(0o755)
         runner = tmp_path / "run.sh"
-        runner.write_text(f"set -euo pipefail\nPATH={tmp_path}:$PATH\n{func}\n"
-                          'start_or_run learnarken-vespa -p 1:1 "some-image@sha256:WANTED"\n')
-        result = subprocess.run(
-            ["bash", str(runner)], capture_output=True, text=True, timeout=60
+        runner.write_text(
+            f"set -euo pipefail\nPATH={tmp_path}:$PATH\n{func}\n"
+            'start_or_run learnarken-vespa -p 1:1 "some-image@sha256:WANTED"\n'
         )
+        result = subprocess.run(["bash", str(runner)], capture_output=True, text=True, timeout=60)
         result.stdout += calls.read_text() if calls.exists() else ""
         return result
 
