@@ -98,6 +98,47 @@ _FAIL_CLOSED = (
 _STARTED_AT = time.time()
 _activity: dict[str, float | None] = {"ts": None}
 
+# "ready" used to mean "the services answer", which said nothing about whether
+# a question could actually be answered promptly: the embedding model and the
+# reranker are loaded lazily, so the first visitor paid a multi-GB load while
+# the page had already told them it was ready (deploy red team R-14). A warm
+# thread loads them at start-up and readiness now waits for it.
+_models_warm: dict[str, bool] = {"ok": False}
+
+
+WARM_ATTEMPTS = 3
+WARM_BACKOFF_S = 20.0
+
+
+def _warm_models() -> None:
+    """Load the retrieval models once, off the request path. Never raises —
+    a failure leaves the flag False, which keeps the page out of "ready".
+
+    Retried with a bounded backoff: the unit is `Restart=on-failure` and this
+    runs in a thread, so a single transient failure used to leave a *live*
+    process permanently not-ready — nothing would restart it and the VM would
+    burn until the idle fence fired (round-2 red team).
+    """
+    from learnarken.embedding.providers import get_embeddings
+    from learnarken.retrieval.hybrid import warm_reranker
+
+    for attempt in range(1, WARM_ATTEMPTS + 1):
+        try:
+            get_embeddings().embed_query("warm")
+            warm_reranker()
+            _models_warm["ok"] = True
+            logger.info("model warm-up complete (attempt %d)", attempt)
+            return
+        except Exception:
+            logger.exception("model warm-up attempt %d/%d failed", attempt, WARM_ATTEMPTS)
+            if attempt < WARM_ATTEMPTS:
+                time.sleep(WARM_BACKOFF_S)
+    logger.error(
+        "model warm-up failed %d times — demo stays not-ready (fail closed); "
+        "restart learnarken-demo to retry",
+        WARM_ATTEMPTS,
+    )
+
 
 def _touch_activity() -> None:
     _activity["ts"] = time.time()
@@ -284,6 +325,13 @@ def create_app() -> FastAPI:
         )
     _recover_interrupted_swap()
     app = FastAPI(title="LearnArken demo API", version="0.6.0")
+    # Public demo only. Warming unconditionally made every test that builds an
+    # app start a background multi-GB model load — noisy locally and a real
+    # failure in CI, which has no model cache. Outside public mode the models
+    # stay lazy, exactly as before. Daemon so a wedged download can never hold
+    # shutdown; readiness gates on the flag it sets, not on the thread (R-14).
+    if GUARD.public:
+        threading.Thread(target=_warm_models, name="warm-models", daemon=True).start()
 
     @app.get("/health")
     def health() -> dict:
@@ -309,6 +357,12 @@ def create_app() -> FastAPI:
             "neo4j": _probe(graph.is_up)["ok"],
             "llm_config": _probe(load_minimax_config)["ok"],
             "threshold_artifact": _probe(load_threshold)["ok"],
+            # Without these two the page could say "ready" while every query
+            # 403s on a missing gate key, or blocks on a cold model load (R-14).
+            "gate_key": bool(GUARD.gate_key) if GUARD.public else True,
+            # Only meaningful where warming runs; outside public mode the models
+            # load lazily on first use and readiness must not block on them.
+            "models_warm": _models_warm["ok"] if GUARD.public else True,
         }
         now = time.time()
         last = _activity["ts"]
@@ -386,6 +440,10 @@ def create_app() -> FastAPI:
                             # same query, so it must be reserved before it is
                             # spent, not counted afterwards (red-team P2).
                             may_retry=GUARD.try_extra_llm_call,
+                            # Same rule for the figure second look: each of its
+                            # up-to-5 consensus samples is a billed VLM call and
+                            # was outside the fence entirely (R-05).
+                            may_call_vlm=GUARD.try_extra_llm_call,
                         )
                 except Exception as exc:  # reported below, fail closed
                     outcome["error"] = exc

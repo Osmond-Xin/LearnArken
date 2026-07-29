@@ -9,6 +9,9 @@ from __future__ import annotations
 import hmac
 
 MIN_START_INTERVAL_S = 60 * 60  # one start per token per hour (Decision 4)
+# Global anti-hammering floor on real machine starts, enforced from the VM's own
+# lastStartTimestamp so it survives function cold starts (red team R-15).
+MIN_GLOBAL_START_INTERVAL_S = 5 * 60
 
 # GCE instance statuses, mapped onto the page's four visitor-facing states
 # (Decision 3: closed / starting / running / closing — every state has a next
@@ -28,6 +31,25 @@ def resolve_token(token: str, tokens: dict[str, str]) -> str | None:
         if hmac.compare_digest(token.encode(), known.encode()):
             found = recipient
     return found
+
+
+def start_floor_seconds_left(last_start_epoch: float | None, now: float) -> float:
+    """Seconds until another *machine* start is allowed, from the VM's own
+    `lastStartTimestamp`.
+
+    The per-token history below lives in one function instance's memory, so a
+    cold start or the second instance forgets it entirely (red team R-15). This
+    floor is global, needs no extra IAM permission and no writes, and survives
+    everything.
+
+    Deliberately much shorter than the per-token hour: this one is anti-hammering
+    only. Making it an hour would lock out a *legitimate* second recipient who
+    clicks after the idle watchdog powered the VM off — one visitor would consume
+    the whole hour for everybody. Returns 0.0 when a start is allowed.
+    """
+    if last_start_epoch is None:
+        return 0.0
+    return max(0.0, MIN_GLOBAL_START_INTERVAL_S - (now - last_start_epoch))
 
 
 def is_rate_limited(history: dict[str, float], token: str, now: float) -> bool:

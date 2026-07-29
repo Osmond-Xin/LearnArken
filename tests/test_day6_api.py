@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 from langchain_core.documents import Document
 
@@ -287,6 +288,7 @@ class TestQuerySSE:
             on_event=None,
             clearance=None,
             may_retry=None,
+            may_call_vlm=None,
         ):
             return script(question, on_event)
 
@@ -803,6 +805,154 @@ class TestFrontendPurity:
         assert "classify_turn" in called
 
 
+class TestSuggestedQuestions:
+    """The example-question panel (2026-07-29).
+
+    It exists so a visitor who has never seen an S1000D corpus can reach the
+    interesting behaviour without guessing at its contents. That only holds if
+    the questions are ones somebody actually labelled, and if clicking one is
+    indistinguishable from typing it.
+    """
+
+    def _questions(self) -> list[str]:
+        groups = _frontend_dict("SUGGESTED_QUESTIONS")
+        return [q for group in groups for q in group["questions"]]
+
+    def test_the_backend_would_accept_every_suggested_question(self):
+        """A suggested question the API rejects is a button that only ever
+        produces an HTTP 422 — the bound lives on `QueryRequest`, so it is
+        asked rather than restated here."""
+        for question in self._questions():
+            api.QueryRequest(question=question)
+
+    def test_every_group_is_labelled_and_non_empty(self):
+        groups = _frontend_dict("SUGGESTED_QUESTIONS")
+        assert groups
+        for group in groups:
+            assert group["group"].strip()
+            assert group["note"].strip()
+            assert group["questions"]
+
+    def test_no_question_is_offered_twice(self):
+        questions = self._questions()
+        assert len(questions) == len(set(questions))
+
+    def test_every_suggested_question_comes_from_a_reviewed_golden_set(self):
+        """Verbatim provenance. The panel is the first thing an outside viewer
+        reads, so it must not drift into questions invented for the screen:
+        every one is a row a human reviewed.
+
+        The reviewed sets are named rather than globbed. `eval/golden/` also
+        holds `*.candidates.jsonl` — AI-drafted rows that were *not* adjudicated
+        — and a glob would let one of those reach the public demo while this
+        test still passed (red team 2026-07-29 P3).
+        """
+        reviewed = (
+            "day4.jsonl",  # retrieval relevance, 82 rows reviewed 2026-07-16
+            "day8-adversarial.jsonl",  # adversarial set, labels adjudicated day 8
+            "day11-multihop.jsonl",  # questions human-authored 2026-07-19
+            "day12-multimodal.jsonl",  # labels confirmed by Yi Xin 2026-07-20
+        )
+        labelled = set()
+        for name in reviewed:
+            path = REPO_ROOT / "eval" / "golden" / name
+            assert path.exists(), f"reviewed golden set is missing: {name}"
+            for line in path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                row = json.loads(line)
+                text = row.get("question") or row.get("query")
+                if text:
+                    labelled.add(text)
+        unlabelled = [q for q in self._questions() if q not in labelled]
+        assert not unlabelled, f"suggested questions with no reviewed row: {unlabelled}"
+
+    def test_the_panel_shows_only_its_own_literal_text(self):
+        """Group names and notes reach `st.markdown`, which renders links and
+        emphasis. That is safe only while they are constants written in this
+        repo — `ast.literal_eval` below fails the moment the table is built
+        from anything computed, loaded or document-derived (red team
+        2026-07-29 P3). Question text is separately safe: it goes to `st.code`,
+        which escapes."""
+        groups = _frontend_dict("SUGGESTED_QUESTIONS")  # literal_eval or bust
+        for group in groups:
+            assert isinstance(group["group"], str)
+            assert isinstance(group["note"], str)
+            assert all(isinstance(q, str) for q in group["questions"])
+
+    def test_a_clicked_question_is_one_query_carrying_the_gate_key(self, monkeypatch):
+        """One-click ask must not become a second, unfenced call site.
+
+        Behavioural, not a regex over the source: the shipped `ask_backend` is
+        executed against a fake `requests`, and must issue exactly one POST, to
+        `/query`, with the gate-key header — the same call a typed question
+        makes, because it is the same function (red team 2026-07-29 P2).
+        """
+        monkeypatch.setenv("DEMO_PUBLIC", "1")
+        posts = []
+
+        class _FakeResponse:
+            status_code = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def iter_lines(self, decode_unicode=False):
+                yield from ()
+
+        class _FakeRequests:
+            RequestException = requests.RequestException
+
+            @staticmethod
+            def post(url, **kwargs):
+                posts.append((url, kwargs))
+                return _FakeResponse()
+
+        fake = _FakeSt()
+        # `st.empty()` returns a placeholder the caller writes into later, so it
+        # has to hand back something recordable rather than None.
+        fake.empty = _FakeSt
+        fake.query_params = {"k": "visitor-key"}
+        namespace = _frontend_namespace(
+            fake,
+            extra_names={
+                "ask_backend",
+                "_demo_headers",
+                "_visitor_key",
+                "safe_json",
+                "sse_events",
+                "API_BASE",
+                "STAGE_LABELS",
+            },
+        )
+        namespace["requests"] = _FakeRequests
+        namespace["DEMO_PUBLIC"] = True
+        entry: dict = {}
+        namespace["ask_backend"]("How do I remove the hydraulic pump?", entry)
+
+        assert len(posts) == 1
+        url, kwargs = posts[0]
+        assert url.endswith("/query")
+        assert kwargs["json"] == {"question": "How do I remove the hydraulic pump?"}
+        assert kwargs["headers"] == {"X-Demo-Key": "visitor-key"}
+
+    def test_the_buttons_are_disabled_on_the_run_that_spends(self):
+        """The in-flight guard: a question is accepted on one run and asked on
+        the next, and the panel that renders on the spending run must render
+        its buttons disabled — otherwise an impatient visitor clicking through
+        suggestions leaves a trail of issued, billed generations (red team
+        2026-07-29 P2)."""
+        source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
+        assert "disabled=pending is not None" in source
+        assert re.search(r"st\.button\(\s*\n\s*\"Ask\",[^)]*disabled=disabled", source)
+        # Cleared unconditionally, so a torn-down run cannot re-ask and re-bill.
+        assert re.search(r"finally:\s*\n\s*#.*\n\s*#.*\n\s*st\.session_state\.pop\(", source)
+
+
 class _FakeSt:
     """Records the Streamlit calls the frontend makes, so a test can assert what
     reached the operator's screen and through which renderer."""
@@ -823,13 +973,17 @@ class _FakeSt:
         return " ".join(str(a) for name, a in self.calls if name == kind)
 
 
-def _frontend_namespace(fake: _FakeSt | None = None) -> dict:
+def _frontend_namespace(fake: _FakeSt | None = None, extra_names: set[str] | None = None) -> dict:
     """Load the shipped frontend's pure logic, with `st` faked.
 
     The module cannot simply be imported: it needs streamlit installed, and
     importing it would run the page. Testing a copy of the logic would let the
     shipped code drift away from the test (red-team 2026-07-27 P2), so the real
     definitions are lifted out of the source file.
+
+    `extra_names` pulls in further top-level functions or constants by name —
+    used to exercise `ask_backend`, which needs a fake `requests` injected into
+    the namespace rather than a fake `st` alone.
     """
     source = (REPO_ROOT / "demo" / "streamlit_app.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -842,18 +996,15 @@ def _frontend_namespace(fake: _FakeSt | None = None) -> dict:
         "record_event",
         "render_answer",
         "visible_len",
-    }
+        "GATE_LABELS",
+        "CITATION_FIELDS",
+        "_INVISIBLE",
+    } | (extra_names or set())
     body = [
         n
         for n in tree.body
         if (isinstance(n, ast.FunctionDef) and n.name in wanted)
-        or (
-            isinstance(n, ast.Assign)
-            and any(
-                getattr(t, "id", None) in ("GATE_LABELS", "CITATION_FIELDS", "_INVISIBLE")
-                for t in n.targets
-            )
-        )
+        or (isinstance(n, ast.Assign) and any(getattr(t, "id", None) in wanted for t in n.targets))
     ]
     namespace: dict = {"st": fake if fake is not None else _FakeSt()}
     exec(compile(ast.Module(body=body, type_ignores=[]), "<frontend>", "exec"), namespace)

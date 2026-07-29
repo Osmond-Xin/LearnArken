@@ -33,6 +33,9 @@ from learnarken.multimodal.vlm import (
 # eval/results/day12-resolution.json) — how many agreeing reads convergence needs.
 VLM_CONSENSUS_K = 2
 VLM_MAX_SAMPLES = 5
+# Prefix on a FigureRefusal raised because the caller's spend fence said no,
+# so downstream can tell quota exhaustion from an evidence problem.
+QUOTA_EXHAUSTED = "quota-exhausted"
 
 
 class FigureRefusal(RuntimeError):
@@ -79,17 +82,31 @@ def consensus_read(
     describe: Callable[..., FigureDescription] = describe_figure,
     k: int = VLM_CONSENSUS_K,
     max_samples: int = VLM_MAX_SAMPLES,
+    budget: Callable[[], bool] | None = None,
 ) -> ConsensusReading:
     """Sample the VLM until `k` reads agree (early stop) and the agreed reading
     is anchor-corroborated. Raises FigureRefusal on 429, divergence, or
     exhaustion. Each sample is one independent call (no per-call retry — the
-    consensus loop IS the robustness mechanism)."""
+    consensus loop IS the robustness mechanism).
+
+    `budget` is asked **before** each sample and must return False once the
+    caller's spend fence is exhausted. Without it this loop could bill up to
+    `max_samples` VLM calls per question while the public demo's quota recorded
+    one — the fence not covering the spend it exists to cap (deploy red team
+    R-05). Denial refuses, like every other fence here.
+    """
     if k < 1 or max_samples < k:
         raise ValueError(f"need 1 <= k <= max_samples, got k={k} max_samples={max_samples}")
     reads: list[FigureDescription] = []
     votes: Counter[tuple] = Counter()
     attempts = 0
     while attempts < max_samples:
+        if budget is not None and not budget():
+            # Marked distinctly: this is quota exhaustion, not a claim about the
+            # figure. The caller records the reason in the trace, so "you ran out
+            # of demo budget" is not filed as "the figure lacks that detail"
+            # (round-2 red team).
+            raise FigureRefusal(f"{QUOTA_EXHAUSTED}: spend fence reached during second-look")
         attempts += 1
         try:
             desc = describe(png_bytes, declared_hotspots, question=question, max_retries=1)

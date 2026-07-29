@@ -234,7 +234,17 @@ class TestDemoStatus:
         first = client.get("/demo/status").json()
         assert first["last_business_activity"] is None
         assert first["idle_seconds"] >= 0
-        assert set(first["services"]) == {"vespa", "neo4j", "llm_config", "threshold_artifact"}
+        # gate_key and models_warm joined the contract so "ready" cannot be
+        # reported while every query would 403 or block on a cold model load
+        # (deploy red team R-14, 2026-07-29).
+        assert set(first["services"]) == {
+            "vespa",
+            "neo4j",
+            "llm_config",
+            "threshold_artifact",
+            "gate_key",
+            "models_warm",
+        }
         assert all(isinstance(v, bool) for v in first["services"].values())
 
         again = client.get("/demo/status").json()

@@ -1,4 +1,5 @@
-# Pinned to compatible-release (day10 #12: no bare wildcard majors). Regenerate
-# a hash-locked pin with `uv pip compile` before a production deploy.
-functions-framework~=3.8
-google-cloud-compute~=1.19
+# Exact pins, not compatible-release: the VM installs with `uv sync --locked`,
+# so leaving the *public* starter function on moving releases was the one
+# unpinned surface left (round-2 red team). Bump deliberately, then redeploy.
+functions-framework==3.8.2
+google-cloud-compute==1.19.2

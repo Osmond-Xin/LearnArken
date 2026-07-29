@@ -177,6 +177,7 @@ def answer_question(
     on_event: Callable[[str, dict], None] | None = None,
     clearance: str | None = None,
     may_retry: Callable[[], bool] | None = None,
+    may_call_vlm: Callable[[], bool] | None = None,
 ) -> AnswerResult:
     """Answer over the verified indexed corpus, or refuse. Never in between.
 
@@ -479,7 +480,7 @@ def answer_question(
             # before refusing, never guess (Decision 2 + 7).
             from learnarken.answer.figure_relook import figure_second_look
 
-            sl = figure_second_look(question, fig, packages)
+            sl = figure_second_look(question, fig, packages, budget=may_call_vlm)
             return refuse("figure-out-of-description", {"second_look": sl})
         return refuse("llm")
 
@@ -510,7 +511,7 @@ def answer_question(
         if fig is not None:
             from learnarken.answer.figure_relook import figure_second_look
 
-            sl = figure_second_look(question, fig, packages)
+            sl = figure_second_look(question, fig, packages, budget=may_call_vlm)
             return refuse(
                 "figure-out-of-description", {"second_look": sl, "invalid_or_ungrounded": bad}
             )
@@ -536,7 +537,9 @@ def answer_question(
         if ungrounded:
             from learnarken.answer.figure_relook import figure_second_look
 
-            sl = figure_second_look(question, next(iter(cited_chunks.values())), packages)
+            sl = figure_second_look(
+                question, next(iter(cited_chunks.values())), packages, budget=may_call_vlm
+            )
             return refuse(
                 "figure-out-of-description", {"second_look": sl, "ungrounded_tokens": ungrounded}
             )

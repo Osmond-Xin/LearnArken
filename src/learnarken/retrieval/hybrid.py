@@ -23,6 +23,8 @@ Pipeline (tutorial 04 §6, spec decisions 4-5):
 
 from __future__ import annotations
 
+import threading
+
 from langchain_classic.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 
@@ -108,20 +110,46 @@ def graph_hybrid_retriever(
 _RERANKER_CACHE: dict[str, CrossEncoderReranker] = {}
 
 
-def _reranker(top_n: int) -> CrossEncoderReranker:
-    if "model" not in _RERANKER_CACHE:
-        from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+# Single-flight, for the same reason as the embedding cache: an unlocked dict
+# lets the warm thread and a concurrent query both build the cross-encoder
+# (round-2 red team). What is cached is the *model* — the expensive part.
+_RERANKER_LOCK = threading.Lock()
 
-        _RERANKER_CACHE["model"] = CrossEncoderReranker(
-            model=HuggingFaceCrossEncoder(
+
+def _cross_encoder():
+    """The shared, lazily loaded cross-encoder model."""
+    with _RERANKER_LOCK:
+        if "model" not in _RERANKER_CACHE:
+            from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+
+            from learnarken.embedding.providers import resolve_device
+
+            _RERANKER_CACHE["model"] = HuggingFaceCrossEncoder(
                 model_name=RERANKER_MODEL,
-                model_kwargs={"device": "mps", "revision": RERANKER_REVISION},
-            ),
-            top_n=top_n,
-        )
-    reranker = _RERANKER_CACHE["model"]
-    reranker.top_n = top_n
-    return reranker
+                # Resolved, not hardcoded to "mps" — see providers.resolve_device
+                # (deploy red team R-02): the hardcode made this Mac-only.
+                model_kwargs={"device": resolve_device(), "revision": RERANKER_REVISION},
+            )
+    return _RERANKER_CACHE["model"]
+
+
+def _reranker(top_n: int) -> CrossEncoderReranker:
+    """A per-call wrapper around the shared model.
+
+    The wrapper used to be cached and its `top_n` reassigned on every call —
+    shared mutable state on a path two visitors can enter at once, so one
+    query could rerank to the other's depth. The wrapper is cheap; the model
+    is what must be shared (found while load-testing two concurrent visitors,
+    2026-07-29).
+    """
+    return CrossEncoderReranker(model=_cross_encoder(), top_n=top_n)
+
+
+def warm_reranker() -> None:
+    """Load the cross-encoder ahead of the first request (deploy red team
+    R-14). Scores one throwaway pair so the weights are actually resident, not
+    merely constructed."""
+    _reranker(1).model.score([("warm", "warm")])
 
 
 def rerank_scored(query: str, documents: list, k: int = 10) -> list[tuple[object, float]]:

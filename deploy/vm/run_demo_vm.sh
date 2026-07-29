@@ -10,6 +10,25 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# This script binds Streamlit to 0.0.0.0 on an internet-facing VM, but the gate
+# that decides whether a visitor may query is DEMO_PUBLIC-conditional: outside
+# public mode DemoGuard.key_ok() returns True for everyone and uploads are
+# allowed. A missing or typoed demo.env would therefore serve an *ungated* app
+# to the internet — the guard failing open exactly where it is load-bearing
+# (deploy red team R-07). Refuse to bind at all unless the gate is really on.
+if [ "${DEMO_PUBLIC:-}" != "1" ]; then
+  echo "STOP: DEMO_PUBLIC is not 1 — refusing to bind 0.0.0.0 with the gate off." >&2
+  echo "      (Local runs: use tools/run_demo.sh, which binds loopback.)" >&2
+  exit 1
+fi
+PLACEHOLDER_KEY="CHANGE-ME-must-match-the-Cloud-Function-link-key"
+if [ -z "${DEMO_GATE_KEY:-}" ] || [ "${DEMO_GATE_KEY}" = "$PLACEHOLDER_KEY" ] \
+  || [ "${#DEMO_GATE_KEY}" -lt 16 ]; then
+  echo "STOP: DEMO_GATE_KEY is unset, placeholder, or shorter than 16 chars —" >&2
+  echo "      refusing to bind publicly (fail closed; same rule as DemoGuard)." >&2
+  exit 1
+fi
+
 echo "waiting for vespa + neo4j ..."
 for _ in $(seq 1 120); do
   if curl -fsS http://127.0.0.1:8080/state/v1/health >/dev/null 2>&1 \
