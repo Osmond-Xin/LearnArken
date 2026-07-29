@@ -27,6 +27,24 @@ HARD_CAP_S = 3 * 60 * 60
 FAIL_LIMIT = 10  # x 1-minute timer = 10 minutes of unreachable/unparseable API
 FAIL_COUNT_FILE = Path("/run/learnarken-watchdog-fails")
 
+# An unreachable API is *expected* while the machine is still coming up: the
+# backend loads a multi-GB embedding model and a reranker from disk before it
+# answers. Striking through that window would let the fence power off the very
+# boot it exists to protect (deploy red team R-06).
+#
+# Measured cold boot on the deployed VM (c3-highmem-8, 100 GB pd-balanced,
+# 2026-07-29): **196 s** from `instances start` to status ready. The grace is
+# ~4.5x that — generous enough for a slower first boot, short enough that a
+# genuinely broken app still powers the machine off (INV-5: derived from a
+# measurement, not a guess; see deploy/runbook.md step 5).
+BOOT_GRACE_S = 15 * 60
+
+# Provisioning runs before there is any API to probe, and it is the step most
+# likely to fail — so the fence is armed first and this sentinel suppresses only
+# the unreachable strike, never the uptime hard cap (R-01). It lives in /run
+# (tmpfs), so a reboot re-arms the full fence even if provisioning died.
+PROVISIONING_SENTINEL = Path("/run/learnarken-provisioning")
+
 KEEP = "keep"
 SHUTDOWN_IDLE = "shutdown_idle"
 SHUTDOWN_CAP = "shutdown_cap"
@@ -84,8 +102,25 @@ def _strike(reason: str) -> None:
 
 
 def _shutdown(reason: str) -> None:
+    """Power off, and say whether it actually worked.
+
+    Swallowing the result meant the one command whose failure costs money left
+    no trace (R-19); a non-zero exit here is the signal that the VM is still
+    billing despite the fence having fired.
+    """
     print(f"watchdog: shutting down ({reason})")
-    subprocess.run(["systemctl", "poweroff"], check=False)
+    result = subprocess.run(["systemctl", "poweroff"], check=False, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(
+            f"watchdog: POWEROFF FAILED rc={result.returncode} — the VM is still "
+            f"billing: {result.stderr.strip()[:200]}",
+            file=sys.stderr,
+        )
+
+
+def _boot_window() -> bool:
+    """Is an unreachable API still explainable by start-up (or provisioning)?"""
+    return PROVISIONING_SENTINEL.exists() or vm_uptime_seconds() < BOOT_GRACE_S
 
 
 def main() -> int:
@@ -99,6 +134,11 @@ def main() -> int:
         with urllib.request.urlopen(STATUS_URL, timeout=10) as resp:
             status = json.load(resp)
     except Exception as exc:
+        # Still booting or provisioning: expected, not a strike. The hard cap
+        # above already ran, so this can never hold the VM past HARD_CAP_S.
+        if _boot_window():
+            print(f"watchdog: status unreachable during boot window ({type(exc).__name__})")
+            return 0
         _strike(f"status unreachable ({type(exc).__name__})")
         return 0
 

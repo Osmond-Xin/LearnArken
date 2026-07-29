@@ -357,4 +357,4 @@ def test_refusal_gate_fails_closed_when_neo4j_down(monkeypatch) -> None:
     module = _load_refusal_gate_module()
     monkeypatch.setattr(module.graph, "is_up", lambda: False)
     with pytest.raises(SystemExit, match="Neo4j is unreachable"):
-        module.main()
+        module.main([])  # not sys.argv — pytest's own flags are not this tool's

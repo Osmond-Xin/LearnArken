@@ -24,6 +24,7 @@ doc-vs-query cosine 0.857); BGE-M3 is symmetric.
 
 from __future__ import annotations
 
+import threading
 from functools import cache, lru_cache
 from typing import TYPE_CHECKING
 
@@ -47,23 +48,71 @@ REVISIONS = {
     "qwen3-8b": "1d8ad4ca9b3dd8059ad90a75d4983776a23d44af",
 }
 
+@cache
+def resolve_device() -> str:
+    """Accelerator for the local models; `LEARNARKEN_DEVICE` overrides.
+
+    The Day 4 bake-off ran on Apple silicon and the device was hardcoded to
+    `"mps"`, which raises `RuntimeError: PyTorch is not linked with support for
+    mps devices` on every other host — the whole stack was unrunnable off one
+    laptop until the demo VM proved it (deploy red team R-02, 2026-07-29).
+    Resolving keeps that machine on mps and lets Linux hosts run on cpu.
+    """
+    import os
+
+    override = os.environ.get("LEARNARKEN_DEVICE")
+    if override:
+        return override
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _dtype_for(device: str) -> str:
+    """fp16 halves the 8B model on accelerators; CPU fp16 is not usably
+    implemented in PyTorch, so a CPU host pays the full fp32 footprint."""
+    return "float32" if device == "cpu" else "float16"
+
+
+def _local_config(name: str) -> dict:
+    device = resolve_device()
+    config = {
+        "bge-m3": {
+            "model_name": "BAAI/bge-m3",
+            "model_kwargs": {"device": device, "revision": REVISIONS["bge-m3"]},
+            "encode_kwargs": {"normalize_embeddings": True},
+        },
+        "qwen3-8b": {
+            "model_name": "Qwen/Qwen3-Embedding-8B",
+            # fp16 where the device supports it: 8B in fp32 is ~30 GB.
+            "model_kwargs": {
+                "device": device,
+                "revision": REVISIONS["qwen3-8b"],
+                "model_kwargs": {"torch_dtype": _dtype_for(device)},
+            },
+            "encode_kwargs": {"normalize_embeddings": True},
+            # Qwen3's asymmetric side: documents plain, queries via its "query" prompt.
+            "query_encode_kwargs": {"normalize_embeddings": True, "prompt_name": "query"},
+        },
+    }
+    return config[name]
+
+
+# Device-independent identity of each provider (model name + pinned revision),
+# safe to read at import time; the device-bearing config comes from
+# `_local_config()` so importing this module never touches torch.
 _LOCAL_CONFIG: dict[str, dict] = {
     "bge-m3": {
         "model_name": "BAAI/bge-m3",
-        "model_kwargs": {"device": "mps", "revision": REVISIONS["bge-m3"]},
-        "encode_kwargs": {"normalize_embeddings": True},
+        "model_kwargs": {"revision": REVISIONS["bge-m3"]},
     },
     "qwen3-8b": {
         "model_name": "Qwen/Qwen3-Embedding-8B",
-        # fp16: 8B in fp32 would be ~30 GB; fp16 halves it and MPS prefers it.
-        "model_kwargs": {
-            "device": "mps",
-            "revision": REVISIONS["qwen3-8b"],
-            "model_kwargs": {"torch_dtype": "float16"},
-        },
-        "encode_kwargs": {"normalize_embeddings": True},
-        # Qwen3's asymmetric side: documents plain, queries via its "query" prompt.
-        "query_encode_kwargs": {"normalize_embeddings": True, "prompt_name": "query"},
+        "model_kwargs": {"revision": REVISIONS["qwen3-8b"]},
     },
 }
 
@@ -76,16 +125,27 @@ def pinned_revisions() -> dict[str, str]:
 def _local(name: str) -> HuggingFaceEmbeddings:
     from langchain_huggingface import HuggingFaceEmbeddings
 
-    return HuggingFaceEmbeddings(**_LOCAL_CONFIG[name])
+    return HuggingFaceEmbeddings(**_local_config(name))
+
+
+# `functools.cache` memoizes a *result*; it does not serialize the call, so two
+# threads missing at once both build the model. With the API's start-up warm
+# thread now running alongside request handlers, that meant two simultaneous
+# fp32 8B loads (~32 GB each) on a 64 GB VM (round-2 red team). Single-flight it.
+_LOADED: dict[str, Embeddings] = {}
+_LOAD_LOCK = threading.Lock()
 
 
 @cache
 def get_embeddings(provider: str | None = None) -> Embeddings:
     """One Embeddings instance per provider (cached — local models are heavy)."""
     name = provider or DEFAULT_PROVIDER
-    if name in _LOCAL_CONFIG:
-        return _local(name)
-    raise ValueError(f"unknown embedding provider {name!r}; choose from {sorted(DIMENSIONS)}")
+    if name not in _LOCAL_CONFIG:
+        raise ValueError(f"unknown embedding provider {name!r}; choose from {sorted(DIMENSIONS)}")
+    with _LOAD_LOCK:
+        if name not in _LOADED:
+            _LOADED[name] = _local(name)
+    return _LOADED[name]
 
 
 @lru_cache(maxsize=4096)

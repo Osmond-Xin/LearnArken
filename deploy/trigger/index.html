@@ -65,7 +65,7 @@
     <div id="closed-ui" class="hidden">
       <p style="margin:.6rem 0 1rem">The backend is currently <strong>off</strong>. To keep this
       honest and cheap, the stack runs on demand and shuts itself down after
-      <strong>30 idle minutes</strong> — start it and it will be ready in a few minutes.</p>
+      <strong>30 idle minutes</strong> — start it and it is ready in about <strong>3&nbsp;minutes</strong> (measured: 196&nbsp;s, 2026-07-29).</p>
       <button id="start-btn">Start the live demo</button>
       <p id="start-error" class="note hidden"></p>
     </div>
@@ -126,6 +126,10 @@
     neo4j: "Neo4j dependency graph",
     llm_config: "LLM (MiniMax) configuration",
     threshold_artifact: "Refusal-threshold artifact",
+    // Readiness also waits on these two; without labels the page could sit in
+    // "starting" with every visible check green (round-2 red team).
+    gate_key: "Access key configured",
+    models_warm: "Embedding + reranker loaded",
   };
   var els = {
     dot: document.getElementById("dot"),

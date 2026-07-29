@@ -455,7 +455,7 @@ def test_g15_figure_out_of_description(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         figure_relook,
         "figure_second_look",
-        lambda q, fc, pkgs: {
+        lambda q, fc, pkgs, budget=None: {
             "icn_id": PUMP_ICN,
             "attempted": True,
             "consensus": True,

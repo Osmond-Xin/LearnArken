@@ -19,11 +19,16 @@ figures is Roadmap.)
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from learnarken.chunking.base import Chunk
 from learnarken.multimodal import ingest
-from learnarken.multimodal.second_look import FigureRefusal, consensus_read
+from learnarken.multimodal.second_look import (
+    QUOTA_EXHAUSTED,
+    FigureRefusal,
+    consensus_read,
+)
 
 
 def _load_asset(
@@ -52,7 +57,13 @@ def _load_asset(
     return None
 
 
-def figure_second_look(question: str, figure_chunk: Chunk, package_dirs: list[str]) -> dict:
+def figure_second_look(
+    question: str,
+    figure_chunk: Chunk,
+    package_dirs: list[str],
+    *,
+    budget: Callable[[], bool] | None = None,
+) -> dict:
     """Consensus re-read of the figure behind `figure_chunk`. Never raises — a
     `FigureRefusal` is captured as `consensus=False`. Returns a trace dict."""
     icn_id = figure_chunk.icn_refs[0] if figure_chunk.icn_refs else ""
@@ -61,9 +72,20 @@ def figure_second_look(question: str, figure_chunk: Chunk, package_dirs: list[st
         return {"icn_id": icn_id, "attempted": False, "reason": "figure asset unavailable"}
     rec, png = asset
     try:
-        cr = consensus_read(png, set(rec.declared_hotspots), rec.part_numbers, question)
+        cr = consensus_read(
+            png, set(rec.declared_hotspots), rec.part_numbers, question, budget=budget
+        )
     except FigureRefusal as exc:
-        return {"icn_id": icn_id, "attempted": True, "consensus": False, "reason": str(exc)[:200]}
+        reason = str(exc)
+        return {
+            "icn_id": icn_id,
+            "attempted": True,
+            "consensus": False,
+            "reason": reason[:200],
+            # Distinguishes "we ran out of demo budget" from "the figure does
+            # not support that" — different remediation (round-2 red team).
+            "quota_exhausted": reason.startswith(QUOTA_EXHAUSTED),
+        }
     return {
         "icn_id": icn_id,
         "attempted": True,
