@@ -182,8 +182,36 @@ gcloud functions logs read learnarken-demo-gate --region=${ZONE%-*} --gen2 \
   --limit=50 | grep -E 'demo link opened|VM start issued'
 ```
 
-Each line carries `recipient=<company>` (from your private token→company note)
-and a token hash tag — never the raw token.
+Each line carries `recipient=<label>` (from your private token→company note) and
+a token hash tag. **The function never writes the raw token — but Cloud Run's
+own request log does**, in `httpRequest.requestUrl`, before any of this code
+runs. The tokens are therefore in Cloud Logging in the clear for anyone with log
+access on the project. That is you; it is not a visitor-facing leak, but do not
+describe the setup as keeping tokens out of logs.
+
+### Reading the signal honestly: a fetch is not a person
+
+One token per **channel**, not per company, is the useful granularity when the
+same company is approached twice (the first application, 2026-07-30, went to
+Arken through a web form and through LinkedIn: labels `arken-web-form` and
+`arken-linkedin`).
+
+A link posted into LinkedIn or a web form can be fetched by a **preview crawler
+or a security scanner** the moment it is sent — which logs an "opened" event no
+human caused. The user agent tells them apart, and it is only in the request
+log, not in the function's line:
+
+```bash
+gcloud logging read \
+  'resource.labels.service_name="learnarken-demo-gate" AND httpRequest.requestMethod="GET"' \
+  --freshness=7d --format='value(timestamp,httpRequest.userAgent,httpRequest.status)'
+```
+
+A real reader looks like a browser (`Mozilla/5.0 …`) and is followed within
+seconds by repeated `/api/state` polls from the page's own JavaScript. A crawler
+fetches `/` once, names itself (`LinkedInBot`, `Slackbot`, `facebookexternalhit`,
+`curl`), and never polls. **`VM start issued` is the only signal no crawler
+produces**: it takes a click on the page.
 
 ```bash
 gcloud functions deploy learnarken-demo-gate --gen2 \
