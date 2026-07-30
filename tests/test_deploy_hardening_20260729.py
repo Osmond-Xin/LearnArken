@@ -7,13 +7,16 @@ never been run on a machine other than the author's laptop.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+module_label = "demo-start-lock"
 VM_DIR = REPO_ROOT / "deploy" / "vm"
 
 
@@ -218,6 +221,232 @@ class TestTriggerRateLimitSurvivesColdStarts:
         logic = self._logic()
         assert logic.MIN_GLOBAL_START_INTERVAL_S < logic.MIN_START_INTERVAL_S
         assert logic.start_floor_seconds_left(1000.0, 1000.0 + 35 * 60) == 0.0
+
+
+class _FakeInstance:
+    def __init__(self, labels=None, fingerprint="fp-1", status="TERMINATED"):
+        self.labels = labels or {}
+        self.label_fingerprint = fingerprint
+        self.status = status
+        self.last_start_timestamp = ""
+        self.network_interfaces = []
+
+
+class _ApiError(Exception):
+    """An exception shaped like google.api_core's: it carries `.code`."""
+
+    def __init__(self, code):
+        super().__init__(f"api error {code}")
+        self.code = code
+
+
+class _FakeOperation:
+    def __init__(self, error=None, timeout=False):
+        self._error, self._timeout = error, timeout
+
+    def result(self, timeout=None):
+        if self._timeout:
+            raise TimeoutError("operation still running")
+        if self._error:
+            raise self._error
+
+
+class _FakeRequest:
+    def __init__(self, path="/api/start", method="POST", token="tok-a"):
+        self.path, self.method = path, method
+        self.args = {"t": token}
+
+
+def _load_trigger(monkeypatch, *, instance, set_labels=None, start=None):
+    """Import the **real** `main.py` behind stubbed GCP modules.
+
+    The previous harness lifted individual functions out with `ast`, which left
+    the handler itself covered only by substring assertions — `if lock ==
+    LOCK_HELD:` could stop returning and the checks would still pass (red team
+    round 2, 2026-07-29 P3). Stubbing `functions_framework` and
+    `google.cloud.compute_v1` in `sys.modules` costs a few lines and buys
+    end-to-end tests of `demo_gate` against fake Compute calls.
+    """
+    import importlib.util
+    import types
+
+    calls = {"set_labels": [], "start": [], "get": 0}
+
+    def _get(**kwargs):
+        calls["get"] += 1
+        return instance() if callable(instance) else instance
+
+    def _set_labels(**kwargs):
+        calls["set_labels"].append(kwargs)
+        if set_labels is not None:
+            return set_labels(**kwargs)
+        return None
+
+    def _start(**kwargs):
+        calls["start"].append(kwargs)
+        return start(**kwargs) if start is not None else _FakeOperation()
+
+    compute = types.SimpleNamespace(
+        Instance=object,
+        InstancesClient=lambda: types.SimpleNamespace(
+            get=_get, set_labels=_set_labels, start=_start
+        ),
+        InstancesSetLabelsRequest=lambda **kw: kw,
+    )
+    google_cloud = types.ModuleType("google.cloud")
+    google_cloud.compute_v1 = compute
+    monkeypatch.setitem(sys.modules, "google", types.ModuleType("google"))
+    monkeypatch.setitem(sys.modules, "google.cloud", google_cloud)
+    monkeypatch.setitem(sys.modules, "google.cloud.compute_v1", compute)
+    ff = types.ModuleType("functions_framework")
+    ff.http = lambda fn: fn
+    monkeypatch.setitem(sys.modules, "functions_framework", ff)
+
+    monkeypatch.setenv("GCP_PROJECT", "p")
+    monkeypatch.setenv("GCP_ZONE", "z")
+    monkeypatch.setenv("VM_NAME", "vm")
+    monkeypatch.setenv("TOKENS_JSON", '{"tok-a": "company-a", "tok-b": "company-b"}')
+    monkeypatch.setenv("DEMO_GATE_KEY", "k" * 20)
+    monkeypatch.syspath_prepend(str(REPO_ROOT / "deploy" / "trigger"))
+
+    spec = importlib.util.spec_from_file_location(
+        "demo_trigger_main", REPO_ROOT / "deploy" / "trigger" / "main.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module, calls
+
+
+class TestStartLockGuardsTheOnlyBillableCall:
+    """Part 1c / Yi Xin's ruling 2026-07-29: hold a lock across read→start.
+
+    The lock sits over an operation measured to be idempotent at GCE, so the
+    property that matters most is not that it locks — it is that it can never
+    *stop* a start. Every test below drives the shipped `demo_gate`.
+    """
+
+    def test_a_free_lock_is_won_and_the_write_is_conditional(self, monkeypatch):
+        module, calls = _load_trigger(monkeypatch, instance=_FakeInstance({"env": "demo"}))
+        body, code, _ = module.demo_gate(_FakeRequest())
+        assert code == 200 and json.loads(body)["state"] == "starting"
+        (write,) = calls["set_labels"]
+        payload = write["instances_set_labels_request_resource"]
+        # Without the fingerprint the write is unconditional and both concurrent
+        # requests would "win" — a lock that locks nothing.
+        assert payload["label_fingerprint"] == "fp-1"
+        assert payload["labels"]["env"] == "demo"  # pre-existing labels survive
+        assert module.START_LOCK_LABEL in payload["labels"]
+        assert len(calls["start"]) == 1
+
+    def test_a_live_lock_stops_the_second_start(self, monkeypatch):
+        held = _FakeInstance({module_label: str(int(time.time()))})
+        module, calls = _load_trigger(monkeypatch, instance=held)
+        body, code, _ = module.demo_gate(_FakeRequest(token="tok-b"))
+        assert code == 200 and json.loads(body)["state"] == "starting"
+        assert calls["start"] == []  # the whole point: no second billable call
+        assert calls["set_labels"] == []
+
+    @pytest.mark.parametrize("code", [409, 412])
+    def test_losing_the_race_starts_nothing_only_if_a_lock_is_really_held(self, code, monkeypatch):
+        """A stale fingerprint alone does not prove a starter won: any label
+        edit invalidates it (red team round 2 P2). The re-read decides."""
+        locked = _FakeInstance({module_label: str(int(time.time()))}, "fp-2")
+
+        def contended(**kwargs):
+            raise _ApiError(code)
+
+        # First read: free. Re-read after the 412: locked by someone else.
+        reads = iter([_FakeInstance(), locked, locked])
+        module, calls = _load_trigger(
+            monkeypatch, instance=lambda: next(reads), set_labels=contended
+        )
+        body, status, _ = module.demo_gate(_FakeRequest())
+        assert status == 200 and json.loads(body)["state"] == "starting"
+        assert calls["start"] == []
+
+    @pytest.mark.parametrize("code", [409, 412])
+    def test_a_fingerprint_race_with_no_lock_still_starts(self, code, monkeypatch):
+        def contended(**kwargs):
+            raise _ApiError(code)
+
+        reads = iter([_FakeInstance(), _FakeInstance({"env": "demo"}), _FakeInstance()])
+        module, calls = _load_trigger(
+            monkeypatch, instance=lambda: next(reads), set_labels=contended
+        )
+        module.demo_gate(_FakeRequest())
+        assert len(calls["start"]) == 1, "an unrelated label edit must not eat the start"
+
+    def test_a_permission_failure_does_not_block_the_start(self, monkeypatch):
+        """The regression the tri-state exists for: the deployed custom role
+        lacked `compute.instances.setLabels`, so a two-state lock would have
+        answered every Start click with 200 and started nothing."""
+
+        def denied(**kwargs):
+            raise _ApiError(403)
+
+        module, calls = _load_trigger(monkeypatch, instance=_FakeInstance(), set_labels=denied)
+        module.demo_gate(_FakeRequest())
+        assert len(calls["start"]) == 1
+
+    def test_backoff_still_honours_a_live_lock(self, monkeypatch):
+        """The fix's own bug (round 2 P2): consulting the backoff before reading
+        the labels let one transient write failure make this instance ignore a
+        lock the other instance legitimately holds."""
+
+        def denied(**kwargs):
+            raise _ApiError(500)
+
+        free, locked = _FakeInstance(), _FakeInstance({module_label: str(int(time.time()))})
+        # One `_instance()` read per request: the first sees a free VM, the
+        # second sees the lock the *other* function instance just wrote.
+        reads = iter([free, locked])
+        module, calls = _load_trigger(monkeypatch, instance=lambda: next(reads), set_labels=denied)
+        module.demo_gate(_FakeRequest())  # write fails → backoff armed, starts anyway
+        assert len(calls["start"]) == 1
+        module.demo_gate(_FakeRequest(token="tok-b"))  # inside backoff, but a lock is live
+        assert len(calls["start"]) == 1, "a live lock must win over the backoff"
+        assert len(calls["set_labels"]) == 1, "no pointless write inside the backoff window"
+
+    def test_an_asynchronous_start_failure_releases_the_lock_and_reports_it(self, monkeypatch):
+        """`instances.start` returning only means GCE accepted the request; a
+        stockout can land on the operation (round 2 P2)."""
+        taken = {}
+
+        def remember(**kwargs):
+            taken.update(kwargs["instances_set_labels_request_resource"]["labels"])
+
+        reads = iter([_FakeInstance(), _FakeInstance(), _FakeInstance()])
+        module, calls = _load_trigger(
+            monkeypatch,
+            instance=lambda: next(reads),
+            set_labels=remember,
+            start=lambda **kw: _FakeOperation(error=_ApiError(503)),
+        )
+        # The release re-reads: hand it back an instance carrying our own lock.
+        body, status, _ = module.demo_gate(_FakeRequest())
+        assert status == 503
+        assert "could not be started" in json.loads(body)["error"]
+
+    def test_a_slow_start_operation_is_reported_as_starting_not_failed(self, monkeypatch):
+        module, calls = _load_trigger(
+            monkeypatch,
+            instance=_FakeInstance(),
+            start=lambda **kw: _FakeOperation(timeout=True),
+        )
+        body, status, _ = module.demo_gate(_FakeRequest())
+        assert status == 200 and json.loads(body)["state"] == "starting"
+
+    def test_a_running_vm_never_reaches_the_lock(self, monkeypatch):
+        module, calls = _load_trigger(monkeypatch, instance=_FakeInstance(status="RUNNING"))
+        body, status, _ = module.demo_gate(_FakeRequest())
+        assert status == 200 and json.loads(body)["state"] == "starting"
+        assert calls["set_labels"] == [] and calls["start"] == []
+
+    def test_an_unknown_token_is_refused_before_anything_else(self, monkeypatch):
+        module, calls = _load_trigger(monkeypatch, instance=_FakeInstance())
+        body, status, _ = module.demo_gate(_FakeRequest(token="nope"))
+        assert status == 403
+        assert calls["get"] == 0 and calls["start"] == []
 
 
 class TestReadyEmailDoesNotCarryTheGateKey:

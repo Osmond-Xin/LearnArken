@@ -178,7 +178,8 @@ time ( gcloud compute instances start learnarken-demo --zone=$ZONE --project=$PR
 # 6a. 最小权限服务账号：只能 start/get 实例，不能删、不能 ssh
 gcloud iam service-accounts create learnarken-trigger --project=$PROJECT
 gcloud iam roles create learnarkenDemoStarter --project=$PROJECT \
-  --permissions=compute.instances.start,compute.instances.get,compute.zoneOperations.get
+  --permissions=compute.instances.start,compute.instances.get,\
+compute.instances.setLabels,compute.zoneOperations.get
 gcloud compute instances add-iam-policy-binding learnarken-demo --zone=$ZONE --project=$PROJECT \
   --member=serviceAccount:learnarken-trigger@$PROJECT.iam.gserviceaccount.com \
   --role=projects/$PROJECT/roles/learnarkenDemoStarter
