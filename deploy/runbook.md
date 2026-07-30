@@ -296,12 +296,30 @@ gcloud compute instances set-service-account learnarken-demo --zone=$ZONE \
   --service-account=$VM_SA \
   --scopes=https://www.googleapis.com/auth/logging.write
 
-# 9c. Install the agent (needs the VM running, once).
+# 9c. One boot: move the VM to the reviewed commit, install the agent, restart
+#     the app. SHA must already be on origin — the VM fetches from there.
 gcloud compute instances start learnarken-demo --zone=$ZONE
-gcloud compute ssh learnarken-demo --zone=$ZONE --command \
-  'cd /opt/learnarken/LearnArken && sudo git pull --ff-only \
-   && sudo bash deploy/vm/install_ops_agent.sh'
+SHA=<the merged commit>
+gcloud compute ssh learnarken-demo --zone=$ZONE --command "
+  sudo -u learnarken git -C /opt/learnarken/LearnArken fetch origin $SHA &&
+  sudo -u learnarken git -C /opt/learnarken/LearnArken checkout --detach $SHA &&
+  sudo bash /opt/learnarken/LearnArken/deploy/vm/install_ops_agent.sh &&
+  sudo systemctl restart learnarken-demo"
 ```
+
+Three things that are easy to get wrong here, all found by checking the live
+VM's actual state rather than assuming it:
+
+- **The checkout is detached and owned by `learnarken`** (provision pins a SHA,
+  R-11). `sudo git pull` fails twice over — no upstream branch on a detached
+  HEAD, and root touching another user's repo trips git's dubious-ownership
+  guard. Fetch the SHA as `learnarken`, exactly as `provision.sh` does.
+- **The agent alone changes nothing.** The lines it ships are written by the new
+  backend code, so the VM has to move to the new commit *and* restart
+  `learnarken-demo`. Agent first, restart second, so the app's output is
+  captured from its first line.
+- **The commit must be on `origin` first.** Until the branch is merged and
+  pushed, there is nothing for the VM to fetch.
 
 Leave the VM to its own 30-minute idle watchdog afterwards, or stop it by hand.
 

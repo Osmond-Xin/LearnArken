@@ -245,12 +245,25 @@ gcloud compute instances set-service-account learnarken-demo --zone=$ZONE \
   --service-account=$VM_SA \
   --scopes=https://www.googleapis.com/auth/logging.write --project=$PROJECT
 
-# 9c. 开一次机装 agent（只需一次）
+# 9c. 开一次机：把 VM 切到评审过的 commit、装 agent、重启应用
+#     SHA 必须已经在 origin 上——VM 是从那儿 fetch 的
 gcloud compute instances start learnarken-demo --zone=$ZONE --project=$PROJECT
-gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command \
-  'cd /opt/learnarken/LearnArken && sudo git pull --ff-only \
-   && sudo bash deploy/vm/install_ops_agent.sh'
+SHA=<合并后的 commit>
+gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command "
+  sudo -u learnarken git -C /opt/learnarken/LearnArken fetch origin $SHA &&
+  sudo -u learnarken git -C /opt/learnarken/LearnArken checkout --detach $SHA &&
+  sudo bash /opt/learnarken/LearnArken/deploy/vm/install_ops_agent.sh &&
+  sudo systemctl restart learnarken-demo"
 ```
+
+这一步有三个坑（是查了线上 VM 的真实状态才发现的，不是猜的）：
+
+- **仓库是 detached 状态、属主是 `learnarken`**（provision 按 SHA 钉住，红队 R-11）。
+  `sudo git pull` 会错两次：detached HEAD 没有上游分支；root 去动别人的仓库会触发
+  git 的 dubious-ownership 保护。要像 `provision.sh` 那样以 `learnarken` 身份 fetch。
+- **光装 agent 没用**：要送的那两行日志是新后端代码写的，所以 VM 必须切到新 commit
+  **并重启** `learnarken-demo`。顺序是先装 agent 后重启，这样应用的第一行输出就被收走。
+- **commit 得先在 `origin` 上**：分支没合并推上去之前，VM 无处可 fetch。
 
 装完不用管，30 分钟闲置看门狗会自己关机（也可手动 `instances stop`）。
 
