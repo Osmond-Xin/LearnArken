@@ -1,10 +1,45 @@
+# Ruff runs from the project's own lockfile, not from a pinned mirror rev.
+#
+# It used to be `astral-sh/ruff-pre-commit` at v0.8.4 while `uv.lock` carried
+# 0.15.21, and the two format the same code differently (an `assert ... , msg`
+# that 0.15 wraps one way and 0.8 the other). So the hook produced exactly the
+# diff CI then rejected: a guard that manufactures the failure it exists to
+# prevent. Found 2026-07-30 while chasing five red CI runs whose single cause
+# was `ruff format --check` — and whose real cause was that the hook had never
+# been installed in the working copy at all, so nothing checked format before
+# the push.
+#
+# `language: system` + `uv run --locked` means the hook and
+# `.github/workflows/ci.yml` can never again disagree about which ruff is right.
+# Files no hook may rewrite, whitespace fixers included. Running
+# `pre-commit run --all-files` on 2026-07-30 silently modified 45 files that
+# staged-only runs had never reached — among them `docs/journal/` (which
+# CLAUDE.md puts off-limits to AI entirely) and frozen `eval/results/`
+# measurement artifacts (ADR-0004: a measurement whose inputs changed is void).
+# A formatting tool must not be able to touch either, whatever it is invoked on.
+exclude: |
+  (?x)^(
+    docs/journal/.*             # human-written, AI never edits
+    |eval/results/.*            # frozen measurement artifacts (ADR-0004)
+    |eval/golden/.*             # human-reviewed labels
+    |docs/gemini-deepresearch/.*  # archived as downloaded, provenance-bearing
+    |docs/diagrams/rendered/.*  # generated output
+  )$
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+  - repo: local
     hooks:
       - id: ruff
-        args: [--fix]
+        name: ruff (project lockfile)
+        entry: uv run --locked ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
       - id: ruff-format
+        name: ruff-format (project lockfile)
+        entry: uv run --locked ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

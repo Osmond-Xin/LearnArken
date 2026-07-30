@@ -74,6 +74,14 @@ superior authority is [docs/constitution.md](docs/constitution.md)
 ## Technical Baseline
 
 - Python 3.12, ruff + pytest + pre-commit, type annotations (Pydantic models).
+- **Run `pre-commit install` in a fresh clone**, and before pushing run what CI
+  runs — `uv run --locked ruff check . && uv run --locked ruff format --check .`
+  over the *whole repo*, not just the files you touched. Five red CI runs on
+  2026-07-29 had one cause between them: `ruff format` on three files, in a
+  working copy where the hook had never been installed. Never run
+  `pre-commit run --all-files`: it reaches files staged runs do not, and the
+  config's `exclude` list is the only thing standing between the whitespace
+  fixers and `docs/journal/` and the frozen `eval/` artifacts.
 - Tests ship in the same PR as the implementation; benchmark numbers use fixed
   random seeds (INV-5).
 - Sample data is synthetic XML only (INV-1). When real structure is needed as
