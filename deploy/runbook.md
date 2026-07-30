@@ -45,7 +45,14 @@ gcloud compute instances create learnarken-demo \
 
 `--no-service-account`: an internet-facing VM running third-party Python must
 not carry project credentials its metadata server will hand to anything that
-achieves RCE (red team R-09). Nothing on this VM calls a Google API.
+achieves RCE (red team R-09).
+
+> **Amended 2026-07-30** — this is no longer how the deployed VM is
+> configured. It now carries a service account holding exactly
+> `roles/logging.logWriter`, so that what a visitor does on the demo survives
+> the boot. §9 records the trade and the reasoning; the shape above is still
+> the right *starting* point, and §9 is the smallest possible step away from
+> it.
 
 - `pd-balanced` (~$10/mo) over `pd-standard` (~$4/mo) on purpose: the cold
   boot reads the multi-GB embedding model from disk; standard HDD would add
@@ -255,6 +262,88 @@ gcloud billing budgets create \
 5. `gcloud billing budgets list --billing-account=$BILLING` shows
    the $20 fence.
 
+## 9. Visitor logging — what happened *on* the demo (added 2026-07-30)
+
+**Why.** On 2026-07-30 a real visitor (Bell Canada address in Nova Scotia, not
+the maintainer's own network) opened the `arken-web-form` link, clicked start,
+and the VM ran its full 34 minutes before self-stopping. The complete record of
+that visit was two lines from the gate function — `demo link opened` and
+`VM start issued`. Whether they asked anything, what they asked, whether the
+answer was refused: unrecorded, because the demo's own logs went to journald on
+a machine that was then powered off. The successful `/query` path did not log
+at all; only failures did.
+
+**The trade.** This reverses part of §1. The VM now has an identity, so an RCE
+on it yields a token — and that token can do exactly one thing: write log
+entries into this project. It cannot read data, start or stop instances, touch
+billing, or reach any other API. The realistic abuse is log spam, whose cost is
+Cloud Logging ingestion (first 50 GiB/month free; a 30-minute session produces
+single-digit MB), and whose ceiling is already watched by the $20 budget alert.
+That was judged worth paying for a record of who actually tried the demo.
+
+```bash
+# 9a. A service account that can do one thing.
+gcloud iam service-accounts create learnarken-demo-vm \
+  --display-name="LearnArken demo VM (logging only)"
+
+VM_SA=learnarken-demo-vm@$PROJECT.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$VM_SA" --role=roles/logging.logWriter
+
+# 9b. Attach it. The VM must be TERMINATED for this; the scope is the
+#     narrowest one that exists — logging.write, not cloud-platform.
+gcloud compute instances set-service-account learnarken-demo --zone=$ZONE \
+  --service-account=$VM_SA \
+  --scopes=https://www.googleapis.com/auth/logging.write
+
+# 9c. Install the agent (needs the VM running, once).
+gcloud compute instances start learnarken-demo --zone=$ZONE
+gcloud compute ssh learnarken-demo --zone=$ZONE --command \
+  'cd /opt/learnarken/LearnArken && sudo git pull --ff-only \
+   && sudo bash deploy/vm/install_ops_agent.sh'
+```
+
+Leave the VM to its own 30-minute idle watchdog afterwards, or stop it by hand.
+
+**Reading it back**, any time, without booting anything:
+
+```bash
+# What visitors asked, and how each one ended.
+gcloud logging read \
+  'resource.type="gce_instance" AND jsonPayload.event="demo_query"' \
+  --limit=50 --format="value(timestamp,jsonPayload.turn,jsonPayload.outcome,jsonPayload.question)"
+
+# How the question was entered: a suggestion button, or typed.
+gcloud logging read \
+  'resource.type="gce_instance" AND jsonPayload.event="demo_entry"' \
+  --limit=50 --format="value(timestamp,jsonPayload.turn,jsonPayload.source)"
+```
+
+Each line is *exactly* one JSON object, so a question containing a newline
+cannot forge an extra entry, and selection is on `jsonPayload.event` rather
+than a substring the visitor could simply type into their question. `turn`
+pairs the two lines of the same turn. Both are emitted **only** under
+`DEMO_PUBLIC=1`: local `make demo` and the test suite log nothing.
+
+Three things to know before trusting what you read:
+
+- **These are telemetry, not audit records.** They are written by the VM with
+  the VM's own credential, so anything that owns the VM can write them too.
+  Cloud Audit Logs (who started the instance, from the gate function) are the
+  trustworthy half; treat a `demo_query` line as "the demo says this happened".
+- **The whole journal ships, not just these two lines** — sshd, systemd, the
+  containers. That is deliberate (a demo that broke should be diagnosable
+  afterwards), and it is why the retention below matters. Measured 2026-07-30:
+  the shipped Streamlit logs no request lines at all, so the `?k=` gate key
+  does not reach the journal by that route.
+- **Volume is the cost.** Ingestion is free to 50 GiB/month and a 30-minute
+  session is single-digit MB, but a compromised VM could write until the $20
+  budget alert fires. That alert is the fence; there is no other.
+
+Entries land in the `_Default` bucket and expire on its retention (30 days
+unless changed) — if a visit matters for the job search, copy it out rather
+than trusting the bucket to keep it.
+
 ## Fence layering (unknowns T6, for the record)
 
 ① in-VM watchdog: 30 min business-idle → poweroff; ② in-VM hard cap: 3 h
@@ -268,4 +357,6 @@ service disappears; ③④ keep working if the VM misbehaves.
 gcloud functions delete learnarken-demo-gate --region=${ZONE%-*}
 gcloud compute instances delete learnarken-demo --zone=$ZONE
 gcloud compute firewall-rules delete learnarken-demo-ports
+gcloud iam service-accounts delete \
+  learnarken-demo-vm@$PROJECT.iam.gserviceaccount.com
 ```

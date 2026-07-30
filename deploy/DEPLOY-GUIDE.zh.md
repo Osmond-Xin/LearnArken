@@ -96,6 +96,10 @@ gcloud compute instances create learnarken-demo \
   --no-service-account --no-scopes
 ```
 
+> **2026-07-30 修订**：`--no-service-account` 已不是线上 VM 的现状。为了让访客在
+> demo 里做了什么能留下记录，它现在挂了一个只含 `roles/logging.logWriter` 的服务
+> 账号——见 Step 9，那里写了这笔交易和理由。新建机器仍从上面这个形态起步。
+
 - 不用 GPU：GPU 抢手、只能拿 Spot，演示中被抢占 = 面试官面前死机。CPU 慢几秒可接受。
 - `pd-balanced` 而非更便宜的 `pd-standard`：冷启动要从磁盘读多 GB 嵌入模型，HDD 会
   让每次等待多几分钟。这是唯一常驻成本项，若想更省可换 standard（代价是更慢的冷启动）。
@@ -214,6 +218,73 @@ gcloud billing budgets create --billing-account=$BILLING \
    `gcloud functions logs read learnarken-demo-gate --region=us-central1 --gen2 --limit=50 | grep -E '打开|demo link opened|VM start issued'`
 4. 页面开着挂 30 分钟不提问 → VM 自动关机，页面回到 **closed** + 可再启动。
 5. `gcloud billing budgets list --billing-account=$BILLING` 能看到 $20 围栏。
+### Step 9 — 访客日志：看清访客在 demo 里做了什么（2026-07-30 新增）
+
+**背景**：2026-07-30 有真实访客（Nova Scotia 的 Bell 家宽，不是你自己的网络）点开
+`arken-web-form` 链接、按了启动、VM 跑满 34 分钟自关。而这次访问留下的全部记录只有
+函数日志两行：`demo link opened` 和 `VM start issued`。他有没有提问、问了什么、被不被
+拒答——全都不知道，因为 demo 自己的日志写在 journald 里，随关机一起消失；而且成功的
+`/query` 以前根本不写日志，只有失败才写。
+
+**代价说清楚**：这一步推翻了 Step 1 的 `--no-service-account`。VM 从此有身份，被 RCE
+就等于交出一个 token——但这个 token 只能做一件事：往本项目写日志。读不了数据、开不了
+机器、碰不了账单。现实滥用是刷日志，成本是 Cloud Logging 摄入（每月前 50 GiB 免费，
+一次 30 分钟会话只有个位数 MB），且 $20 预算告警照样在上面兜着。
+
+```bash
+# 9a. 只能干一件事的服务账号
+gcloud iam service-accounts create learnarken-demo-vm \
+  --display-name="LearnArken demo VM (logging only)" --project=$PROJECT
+
+VM_SA=learnarken-demo-vm@$PROJECT.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member="serviceAccount:$VM_SA" --role=roles/logging.logWriter
+
+# 9b. 挂上去（VM 必须处于停机状态；scope 用最窄的 logging.write，不给 cloud-platform）
+gcloud compute instances set-service-account learnarken-demo --zone=$ZONE \
+  --service-account=$VM_SA \
+  --scopes=https://www.googleapis.com/auth/logging.write --project=$PROJECT
+
+# 9c. 开一次机装 agent（只需一次）
+gcloud compute instances start learnarken-demo --zone=$ZONE --project=$PROJECT
+gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command \
+  'cd /opt/learnarken/LearnArken && sudo git pull --ff-only \
+   && sudo bash deploy/vm/install_ops_agent.sh'
+```
+
+装完不用管，30 分钟闲置看门狗会自己关机（也可手动 `instances stop`）。
+
+**以后怎么查（不用开机）**：
+
+```bash
+# 访客问了什么、结果如何
+gcloud logging read 'resource.type="gce_instance" AND jsonPayload.event="demo_query"' \
+  --limit=50 \
+  --format="value(timestamp,jsonPayload.turn,jsonPayload.outcome,jsonPayload.question)" \
+  --project=$PROJECT
+
+# 是点的推荐问题还是自己打的
+gcloud logging read 'resource.type="gce_instance" AND jsonPayload.event="demo_entry"' \
+  --limit=50 --format="value(timestamp,jsonPayload.turn,jsonPayload.source)" --project=$PROJECT
+```
+
+每条日志的正文**就是一个 JSON 对象**：问题里带换行伪造不出第二条记录，而且筛选走
+`jsonPayload.event` 字段，不是访客能在提问里打出来的子串。`turn` 把同一轮的两条串起来。
+两条都只在 `DEMO_PUBLIC=1` 下才写，本地 `make demo` 和测试套件一行都不产。
+
+读之前要知道的三件事：
+
+- **这是遥测，不是审计**：日志由 VM 用自己的凭据写，所以能控制 VM 的人也能写。可信的
+  那一半是 Cloud Audit Logs（谁启的机、来自网关函数）；`demo_query` 只代表"demo 自己
+  说发生了这件事"。
+- **整个 journal 都会上传**，不只这两行——sshd、systemd、容器都在内。这是有意的（demo
+  出问题事后要能查），也正因如此保留期很重要。2026-07-30 实测：线上这版 Streamlit 根本
+  不打请求日志，所以 `?k=` 密钥不会从这条路进 journal。
+- **成本在量上**：每月前 50 GiB 摄入免费，一次 30 分钟会话只有个位数 MB；但被攻陷的 VM
+  可以一直写到 $20 预算告警响。那个告警就是唯一的围栏。
+
+日志进 `_Default` 桶，按其保留期（默认 30 天）过期——真有价值的访问记录请自己拷出来存。
+
 
 ---
 
@@ -235,6 +306,7 @@ gcloud billing budgets create --billing-account=$BILLING \
 | 页面一直 starting 不到 running | 冷启动确实要几分钟（首跑更久）；若超 10 分钟，`gcloud compute ssh` 上去看 `journalctl -u learnarken-demo` |
 | demo 链接打不开但页面 running | 外网 IP 每次开机会变——用页面给出的 `demo_url`，别用旧 IP |
 | 想知道谁点了 | 不再走邮件；看函数日志里的 `demo link opened by recipient=…`，对照你私人笔记里的 token→公司 表 |
+| 想知道访客在 demo 里做了什么 | Step 9 的两条日志：`demo query`（问了什么、答/拒/错、耗时）与 `demo entry`（点推荐还是自己打）；VM 停机也能查 |
 | 提问报"reached its daily question limit" | 触发了 LLM 调用配额（默认 200/开机）；重启 VM 重置，或调 `demo.env` 的 `DEMO_MAX_LLM_CALLS` |
 | VM 没按时关机 | 看门狗每分钟跑；`systemctl status learnarken-watchdog.timer`、`journalctl -u learnarken-watchdog` |
 | 容量报错（起不来 VM） | e2-highmem-8 偶发 stockout，换个 zone（us-central1-b/c）重试 |
@@ -259,6 +331,8 @@ gcloud billing budgets create --billing-account=$BILLING \
 gcloud functions delete learnarken-demo-gate --region=${ZONE%-*} --project=$PROJECT
 gcloud compute instances delete learnarken-demo --zone=$ZONE --project=$PROJECT
 gcloud compute firewall-rules delete learnarken-demo-ports --project=$PROJECT
+gcloud iam service-accounts delete \
+  learnarken-demo-vm@$PROJECT.iam.gserviceaccount.com --project=$PROJECT
 ```
 
 预算告警和服务账号可保留或一并删除。删实例后磁盘一起删，月费归零。

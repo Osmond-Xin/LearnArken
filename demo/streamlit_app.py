@@ -14,6 +14,8 @@ HTML/JS into the operator's browser.
 
 import json
 import os
+import secrets
+import sys
 
 import requests
 import streamlit as st
@@ -36,8 +38,49 @@ def _visitor_key() -> str:
         return ""
 
 
-def _demo_headers() -> dict:
-    return {"X-Demo-Key": _visitor_key()} if DEMO_PUBLIC else {}
+def new_turn() -> str:
+    """An id shared by this turn's two log lines (client entry, backend query).
+
+    Without it, "which of these two `demo_query` records belongs to the
+    suggestion click" is guesswork the moment two visitors are on the machine at
+    once — and the whole point of the log is telling visits apart.
+    """
+    return secrets.token_urlsafe(8)
+
+
+def _demo_headers(turn: str = "") -> dict:
+    if not DEMO_PUBLIC:
+        return {}
+    headers = {"X-Demo-Key": _visitor_key()}
+    if turn:
+        headers["X-Demo-Turn"] = turn
+    return headers
+
+
+def log_entry(question: str, source: str, turn: str) -> None:
+    """Record how the visitor entered a question (public demo only).
+
+    The backend logs what was asked and how it ended; only this client knows
+    whether the visitor clicked a suggestion or typed their own. That stays out
+    of the `/query` *body* on purpose: the POST must remain byte-identical
+    either way, so "clicking a suggestion spends exactly what typing it would"
+    is still a claim a test can check on the wire (red team 2026-07-29 P2). The
+    turn header carries no such information — it is random for both.
+
+    The message is exactly one JSON object, for the same reasons as the
+    backend's: free text cannot forge a second journald line, and the Ops Agent
+    parses it into `jsonPayload` so readback selects on a field instead of
+    grepping for a string a visitor could type.
+    """
+    if not DEMO_PUBLIC:
+        return
+    payload = {
+        "event": "demo_entry",
+        "turn": turn,
+        "source": source,
+        "question": question[:500],
+    }
+    print(json.dumps(payload, ensure_ascii=False), file=sys.stderr, flush=True)
 
 
 STAGE_LABELS = {
@@ -427,7 +470,7 @@ def render_answer(entry: dict) -> None:
         st.text(f"Supporting quote — {c['supporting_quote']}")
 
 
-def ask_backend(question: str, entry: dict) -> None:
+def ask_backend(question: str, entry: dict, turn: str = "") -> None:
     """The one and only `/query` call this client makes; fills `entry` in place.
 
     Extracted so that "clicking a suggestion spends exactly what typing it
@@ -435,6 +478,8 @@ def ask_backend(question: str, entry: dict) -> None:
     gate-key header — rather than a shape a regex over this file happens to
     match (red team 2026-07-29 P2). Nothing here is specific to how the
     question was entered: there is one path, and both entry points are on it.
+    The turn id is drawn the same way for both, so it carries nothing that
+    distinguishes them.
     """
     stage = st.empty()
     stream_area = st.empty()
@@ -443,7 +488,7 @@ def ask_backend(question: str, entry: dict) -> None:
         with requests.post(
             f"{API_BASE}/query",
             json={"question": question},
-            headers=_demo_headers(),
+            headers=_demo_headers(turn),
             stream=True,
             timeout=600,
         ) as resp:
@@ -686,13 +731,21 @@ with qa_tab:
             render_answer(entry)
 
     # Typed input wins over a click in the same run: the visitor typed it later.
-    question = (
-        st.chat_input("Ask a question about the admitted documents (3–500 characters)…")
-        or suggested
-    )
+    typed = st.chat_input("Ask a question about the admitted documents (3–500 characters)…")
+    question = typed or suggested
     if question and pending is None:
-        st.session_state.pending_question = question
-        st.rerun()
+        # The backend answers 422 to anything outside 3–500 characters without
+        # reaching the query path, so accepting one here would record an entry
+        # whose outcome is never written — a half-turn in the log that reads
+        # like a question that vanished.
+        if not 3 <= len(question) <= 500:
+            st.error("Questions are 3–500 characters; that one was not sent.")
+        else:
+            turn = new_turn()
+            log_entry(question, "typed" if typed else "suggested", turn)
+            st.session_state.pending_question = question
+            st.session_state.pending_turn = turn
+            st.rerun()
 
     if pending is not None:
         with st.chat_message("user"):
@@ -700,13 +753,14 @@ with qa_tab:
         entry = {"question": pending}
         try:
             with st.chat_message("assistant"):
-                ask_backend(pending, entry)
+                ask_backend(pending, entry, st.session_state.get("pending_turn", ""))
                 render_answer(entry)
             st.session_state.history.append(entry)
         finally:
             # Cleared even if the run is torn down mid-answer, so a question can
             # never be re-asked — and re-billed — by the rerun that follows.
             st.session_state.pop("pending_question", None)
+            st.session_state.pop("pending_turn", None)
         # Re-render from history: the turn takes its final place and the
         # suggestion buttons come back enabled.
         st.rerun()

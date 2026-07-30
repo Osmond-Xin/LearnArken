@@ -91,6 +91,14 @@ systemctl enable --now learnarken-watchdog.timer
 # The real fence is armed; the pre-clone backstop has done its job.
 systemctl stop learnarken-emergency-poweroff.timer >/dev/null 2>&1 || true
 
+# The journal is the only record of what a visitor did on the demo, and it dies
+# with the boot unless something ships it (2026-07-30). Never fatal: a missing
+# log agent is not a reason to abandon a provisioned machine, and the script
+# fails closed on its own when there is no service account to send with.
+phase 'shipping the journal to Cloud Logging'
+bash "$REPO_DIR"/deploy/vm/install_ops_agent.sh \
+  || echo "  WARNING: ops agent not installed — this boot's journal stays on the VM" >&2
+
 # uv manages its own Python 3.12; the systemd shim/watchdog use system python3.
 sudo -u learnarken bash -c 'command -v ~/.local/bin/uv >/dev/null 2>&1 \
   || curl -LsSf https://astral.sh/uv/install.sh | sh'
