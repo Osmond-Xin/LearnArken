@@ -144,13 +144,21 @@ gcloud iam service-accounts create learnarken-trigger
 
 gcloud iam roles create learnarkenDemoStarter \
   --project=$PROJECT \
-  --permissions=compute.instances.start,compute.instances.get,compute.zoneOperations.get
+  --permissions=compute.instances.start,compute.instances.get,\
+compute.instances.setLabels,compute.zoneOperations.get
 
 gcloud compute instances add-iam-policy-binding learnarken-demo \
   --zone=$ZONE \
   --member=serviceAccount:learnarken-trigger@$PROJECT.iam.gserviceaccount.com \
   --role=projects/$PROJECT/roles/learnarkenDemoStarter
 ```
+
+`compute.instances.setLabels` is what the start lock writes with (one label,
+`demo-start-lock`, on the VM itself — the fingerprint precondition is the
+compare-and-swap). It was **missing** from the role as first deployed, which
+the function survives by design — a lock it cannot write is logged and the
+start proceeds unlocked — but without it the lock is decorative. If you rebuild
+the role, keep this permission in it.
 
 Generate tokens (one per recipient — the token IS the interest signal):
 

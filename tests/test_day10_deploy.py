@@ -5,6 +5,7 @@ calls, never on status polling (SPEC day10 acceptance 2). Live GCP behaviour
 is drilled manually via deploy/runbook.md §8."""
 
 import importlib.util
+import re
 import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -172,6 +173,68 @@ class TestTriggerLogic:
         logic.record_start(history, "tok-alpha", now=1000.0)
         assert logic.is_rate_limited(history, "tok-alpha", now=1000.0)
         assert not logic.is_rate_limited(history, "tok-beta", now=1000.0)
+
+    def test_a_free_lock_is_taken_and_a_live_one_is_not(self):
+        """Two requests, one winner. The second sees the label the first wrote
+        and plans nothing (Yi Xin's ruling 2026-07-29: add the lock even though
+        `instances.start` is idempotent)."""
+        labels: dict[str, str] = {"env": "demo"}
+        first = logic.plan_start_lock(labels, now=1000.0)
+        assert first is not None
+        assert first["env"] == "demo"  # existing labels are preserved, not replaced
+        assert logic.plan_start_lock(first, now=1000.5) is None
+
+    def test_the_lock_expires_so_a_crashed_request_cannot_wedge_starts(self):
+        taken = logic.plan_start_lock({}, now=1000.0)
+        assert logic.plan_start_lock(taken, now=1000.0 + logic.START_LOCK_TTL_S - 1) is None
+        assert logic.plan_start_lock(taken, now=1000.0 + logic.START_LOCK_TTL_S + 1) is not None
+
+    @pytest.mark.parametrize(
+        "value", [None, "", "not-a-number", "1e", "  ", "inf", "-inf", "nan", "9999999999"]
+    )
+    def test_an_unusable_lock_value_counts_as_free(self, value):
+        """Every unusable value must fail *open*. A value nobody can parse — or
+        one stamped in the future — must not hold the Start button shut for
+        every visitor; releasing too eagerly costs at most the duplicate start
+        GCE already absorbs.
+
+        `inf` and `nan` are here because they parse as floats: `float("inf")`
+        succeeds, and the first version's clamp then returned the full TTL on
+        every call. So did `9999999999` — a lock held until the year 2286, from
+        a clamp the implementer wrote *and tested* as if it were a bound (red
+        team 2026-07-29 P1)."""
+        assert logic.start_lock_seconds_left(value, now=1000.0) == 0.0
+
+    def test_a_lock_from_a_moment_ago_still_holds(self):
+        """The fail-open rules must not swallow the ordinary case: a lock
+        written seconds ago by the request that is starting the VM."""
+        assert logic.start_lock_seconds_left("995", now=1000.0) == pytest.approx(115.0)
+        # Small skew forward is tolerated rather than treated as garbage.
+        assert logic.start_lock_seconds_left("1003", now=1000.0) > 0
+
+    def test_the_lock_value_is_a_legal_gce_label(self):
+        """Label values accept [a-z0-9_-]{0,63}; an illegal one would make the
+        conditional write fail and the lock silently never be taken."""
+        value = logic.plan_start_lock({}, now=1755039600.5)[logic.START_LOCK_LABEL]
+        assert re.fullmatch(r"[a-z0-9_-]{1,63}", value), value
+        assert re.fullmatch(r"[a-z][a-z0-9_-]{0,62}", logic.START_LOCK_LABEL)
+
+    def test_the_lock_covers_at_least_the_full_ttl(self):
+        """Stamped with `ceil`, not `int`: flooring made the lock up to a second
+        shorter than the TTL it advertises (red team 2026-07-29 P3)."""
+        taken = logic.plan_start_lock({}, now=1000.9)
+        assert taken[logic.START_LOCK_LABEL] == "1001"
+
+    def test_release_drops_the_lock_and_keeps_everything_else(self):
+        taken = logic.plan_start_lock({"env": "demo"}, now=1000.0)
+        assert logic.release_start_lock(taken) == {"env": "demo"}
+        # Releasing a label set that has no lock is a no-op, not a KeyError.
+        assert logic.release_start_lock({"env": "demo"}) == {"env": "demo"}
+
+    def test_the_lock_is_shorter_than_the_global_start_floor(self):
+        """It only has to cover read→start; after that the 5-minute floor and
+        the instance status both refuse a second start on their own."""
+        assert logic.START_LOCK_TTL_S < logic.MIN_GLOBAL_START_INTERVAL_S
 
     @pytest.mark.parametrize(
         ("instance_status", "app_ready", "expected"),

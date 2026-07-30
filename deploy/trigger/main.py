@@ -33,9 +33,12 @@ from pathlib import Path
 import functions_framework
 from google.cloud import compute_v1
 from logic import (
+    START_LOCK_LABEL,
     is_rate_limited,
     page_state,
+    plan_start_lock,
     record_start,
+    release_start_lock,
     resolve_token,
     start_floor_seconds_left,
 )
@@ -98,6 +101,141 @@ def _external_ip(instance: compute_v1.Instance) -> str | None:
             if cfg.nat_i_p:
                 return cfg.nat_i_p
     return None
+
+
+# Start-lock outcomes. Three, not two: "somebody else is starting it" and "the
+# lock machinery is broken" must not lead to the same response, or a missing IAM
+# permission turns every Start click into a 200 that starts nothing (red team
+# 2026-07-29 P1 — and the deployed custom role really did lack
+# `compute.instances.setLabels`, so this was live, not theoretical).
+LOCK_WON, LOCK_HELD, LOCK_ERROR = "won", "held", "error"
+# HTTP codes GCE returns when the fingerprint we sent was already superseded.
+_LOCK_CONTENDED_CODES = (409, 412)
+# After a write failure, stop trying for a while: pointless label writes under a
+# broken permission or a rate limit are pure churn (red team 2026-07-29 P2).
+_LOCK_WRITE_BACKOFF_S = 300
+# Bounded wait on the start operation itself; the function's HTTP budget is 60 s.
+_START_OP_TIMEOUT_S = 20
+_lock_write_broken_until = 0.0
+
+
+def _set_labels(labels: dict[str, str], fingerprint: str) -> None:
+    compute_v1.InstancesClient().set_labels(
+        project=os.environ["GCP_PROJECT"],
+        zone=os.environ["GCP_ZONE"],
+        instance=os.environ["VM_NAME"],
+        instances_set_labels_request_resource=compute_v1.InstancesSetLabelsRequest(
+            labels=labels,
+            label_fingerprint=fingerprint,
+        ),
+    )
+
+
+def _lock_is_live(instance: compute_v1.Instance, now: float) -> bool:
+    return plan_start_lock(dict(instance.labels or {}), now) is None
+
+
+def _take_start_lock(instance: compute_v1.Instance, now: float, tag: str) -> tuple[str, str | None]:
+    """Try to take the start lock; returns (outcome, the value we wrote).
+
+    The compare-and-swap is GCE's `labelFingerprint` precondition: the write
+    carries the fingerprint read a moment ago, so of two concurrent writers the
+    loser is told the fingerprint is stale. Losing is not an error for the
+    visitor, because whoever won is starting the very machine they asked for
+    (same reasoning as S-07).
+
+    **Anything unresolved is `LOCK_ERROR`, and the caller starts the VM anyway.**
+    The lock is defence in depth over an operation measured to be idempotent at
+    GCE; it is not permitted to become a new hard dependency in front of the one
+    call this function exists to make.
+    """
+    global _lock_write_broken_until
+    labels = plan_start_lock(dict(instance.labels or {}), now)
+    if labels is None:
+        logger.info("start lock held by a concurrent request tag=%s", tag)
+        return LOCK_HELD, None
+    # Backoff is consulted only *after* establishing that no live lock exists.
+    # Checking it first let one transient write failure make this function
+    # instance ignore a lock the other instance legitimately holds — the fix
+    # growing its own bug (red team round 2, 2026-07-29 P2).
+    if now < _lock_write_broken_until:
+        logger.warning("start lock skipped: label writes failed recently tag=%s", tag)
+        return LOCK_ERROR, None
+    try:
+        _set_labels(labels, instance.label_fingerprint)
+    except Exception as exc:
+        code = getattr(exc, "code", None)
+        if code in _LOCK_CONTENDED_CODES:
+            # A stale fingerprint does **not** prove a starter won the race: any
+            # label edit invalidates it. Re-read before telling a visitor their
+            # demo is starting when nothing is (red team round 2 P2).
+            try:
+                fresh = _instance()
+            except Exception:
+                logger.exception("start lock re-read failed after %s tag=%s", code, tag)
+                return LOCK_ERROR, None
+            if _lock_is_live(fresh, now):
+                logger.info("start lock lost the fingerprint race (%s) tag=%s", code, tag)
+                return LOCK_HELD, None
+            logger.info("labels changed under us (%s) but no lock is held tag=%s", code, tag)
+            return LOCK_ERROR, None
+        # Permission, quota, outage: name it. "another request holds it, or the
+        # write failed" made a broken deployment indistinguishable from healthy
+        # contention in the logs (red team 2026-07-29 P2).
+        _lock_write_broken_until = now + _LOCK_WRITE_BACKOFF_S
+        logger.exception(
+            "start lock write failed (%s: %s) tag=%s — starting unlocked",
+            type(exc).__name__,
+            code,
+            tag,
+        )
+        return LOCK_ERROR, None
+    return LOCK_WON, labels[START_LOCK_LABEL]
+
+
+def _release_start_lock(value: str) -> None:
+    """Best-effort release after the winner's own start failed.
+
+    Re-reads the instance because our own write invalidated the fingerprint we
+    were holding — and checks the lock still carries **our** value before
+    dropping it. Without that check, a start that hung past the TTL would come
+    back and delete the lock a later request had legitimately taken (red team
+    round 2, 2026-07-29 P2). Never raises: this runs on a path that is already
+    returning an error to the visitor.
+    """
+    try:
+        instance = _instance()
+        labels = dict(instance.labels or {})
+        if labels.get(START_LOCK_LABEL) != value:
+            logger.info("start lock not released: it is no longer the one we took")
+            return
+        _set_labels(release_start_lock(labels), instance.label_fingerprint)
+    except Exception:
+        logger.exception("start lock release failed (it will expire on its own)")
+
+
+def _await_start(operation) -> None:
+    """Surface an asynchronous start failure as an exception.
+
+    `instances.start` returns a zone operation: the API call succeeding only
+    means GCE accepted the request. A stockout — observed here on 2026-07-29 —
+    can land on the *operation*, and the previous version reported that as
+    `starting`, recorded the token's hour, and never released the lock (red team
+    round 2, 2026-07-29 P2).
+
+    Bounded, because the caller is an HTTP request with a 60 s budget. Still
+    running when the wait expires is not a failure: the visitor is told
+    `starting`, which is exactly what it is.
+    """
+    waiter = getattr(operation, "result", None)
+    if not callable(waiter):
+        return
+    try:
+        waiter(timeout=_START_OP_TIMEOUT_S)
+    except TimeoutError:
+        logger.info(
+            "start operation still running after %ss — reported as starting", _START_OP_TIMEOUT_S
+        )
 
 
 def _app_status(ip: str) -> dict | None:
@@ -219,17 +357,32 @@ def demo_gate(request):
                 },
                 429,
             )
+        # Last gate before the only billable call in this function: exactly one
+        # concurrent request may proceed. Placed after the limits so a request
+        # that was going to be refused anyway never churns the VM's labels.
+        # LOCK_ERROR deliberately falls through to the start — see _take_start_lock.
+        lock, lock_value = _take_start_lock(instance, now, _tok_tag(token))
+        if lock == LOCK_HELD:
+            return _json({"state": "starting"})
         try:
-            compute_v1.InstancesClient().start(
+            operation = compute_v1.InstancesClient().start(
                 project=os.environ["GCP_PROJECT"],
                 zone=os.environ["GCP_ZONE"],
                 instance=os.environ["VM_NAME"],
             )
+            # The API returning is only GCE *accepting* the request; the failure
+            # can land on the operation (red team round 2 P2).
+            _await_start(operation)
         except Exception:
             # A zone stockout is a real, observed outcome (e2-highmem-8 was
             # unavailable in us-central1-a on 2026-07-29). Say so instead of
             # returning a 500 the page renders as a dead button.
             logger.exception("instances.start failed tag=%s", _tok_tag(token))
+            if lock_value is not None:
+                # Hand the lock back rather than letting it answer the next
+                # visitor with "starting" for two minutes while nothing is
+                # starting — and a stockout is exactly when someone retries.
+                _release_start_lock(lock_value)
             return _json(
                 {"error": "the demo host could not be started right now — please retry shortly"},
                 503,
