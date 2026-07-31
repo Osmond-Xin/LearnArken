@@ -384,6 +384,24 @@ Entries land in the `_Default` bucket and expire on its retention (30 days
 unless changed) — if a visit matters for the job search, copy it out rather
 than trusting the bucket to keep it.
 
+**Verified end to end 2026-07-31** (VM up 15 min, ~$0.13). One real query
+through the shipped stack, read back afterwards **with the VM stopped**:
+
+```
+timestamp                  turn       outcome  gate  retracted  ms      question
+2026-07-31T03:03:58.392Z   e2e-verify refused  llm   True       14344   What torque is specified …
+```
+
+Two things that run is worth keeping:
+
+- `retracted: True` on an `llm`-gate refusal is the case the first
+  implementation hard-coded to `False` (F-02). It is not an edge case; it was
+  the very first real query.
+- The agent reports metrics refusals on its own `ops-agent-health` stream about
+  once a minute while the VM runs, because metrics are deliberately
+  unprivileged. Expected. Logs are unaffected, and the installer says so rather
+  than failing.
+
 ## Fence layering (unknowns T6, for the record)
 
 ① in-VM watchdog: 30 min business-idle → poweroff; ② in-VM hard cap: 3 h

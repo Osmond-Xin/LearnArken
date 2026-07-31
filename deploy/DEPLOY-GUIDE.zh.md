@@ -314,6 +314,21 @@ gcloud logging read 'resource.type="gce_instance" AND jsonPayload.event="demo_en
 
 日志进 `_Default` 桶，按其保留期（默认 30 天）过期——真有价值的访问记录请自己拷出来存。
 
+**2026-07-31 已端到端实测**（VM 开机 15 分钟，约 $0.13）：走真栈提了一个真问题，然后
+**在 VM 停机状态下**把记录读了回来：
+
+```
+timestamp                  turn       outcome  gate  retracted  ms      question
+2026-07-31T03:03:58.392Z   e2e-verify refused  llm   True       14344   What torque is specified …
+```
+
+这次实跑有两点值得记住：
+
+- `llm` 门拒答带 `retracted: True` —— 正是第一版写死成 `False` 的那种情况（F-02）。
+  它根本不是边缘案例，而是**第一个真实提问**就撞上了。
+- VM 运行期间，agent 会在自己的 `ops-agent-health` 流上每分钟报一次 metrics 被拒
+  ——因为我们**故意没给** metrics 权限。属于预期，不影响日志；安装脚本会提示而不是失败。
+
 
 ---
 
