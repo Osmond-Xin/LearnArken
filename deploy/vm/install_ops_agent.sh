@@ -107,21 +107,49 @@ fi
 apt-mark hold google-cloud-ops-agent >/dev/null
 echo "ops agent version: $installed (held)"
 
-# Metrics are deliberately off: sending them needs monitoring.metricWriter,
-# which this VM's service account does not have, so leaving the built-in metrics
-# pipeline enabled would produce a steady stream of 403s in the agent's own log
-# for the whole boot. Logs are what was asked for; metrics are not worth a
-# second role.
+# Every line of this config was arrived at by deploying it and reading what came
+# out the other end (2026-07-31), not from the docs:
+#
+# - `parse_message_json` is what makes the documented readback work at all. The
+#   journald receiver ships the record with the log line as an *unparsed string*
+#   in `jsonPayload.MESSAGE`, so `jsonPayload.event="demo_query"` — the query
+#   written into both runbooks — matched nothing until this processor existed.
+#   Verified both ways: the field is selectable afterwards, and journal lines
+#   that are not JSON (most of them) still arrive intact rather than being
+#   dropped.
+# - `logging.default_pipeline: receivers: []` removes the built-in syslog
+#   pipeline. It reads /var/log/syslog, which is the same content journald
+#   already holds, so leaving it on shipped **every line to Cloud Logging
+#   twice** — measured: one probe arrived under both logs/syslog and
+#   logs/journal. Half the ingestion volume for nothing.
+# - `metrics.default_pipeline: receivers: []` — sending metrics needs
+#   monitoring.metricWriter, which this VM's account deliberately does not have.
+#   Note this does *not* silence the agent's own self-metrics: it still tries,
+#   is refused, and reports that on its `ops-agent-health` stream about once a
+#   minute. Expected, harmless, and cheaper than a second IAM role.
+# - `drop_agent_metric_refusals` keeps those refusals from also riding the
+#   journal pipeline into the log we actually read.
 install -d -m 755 /etc/google-cloud-ops-agent
 cat > /etc/google-cloud-ops-agent/config.yaml <<'EOF'
 logging:
   receivers:
     journal:
       type: systemd_journald
+  processors:
+    parse_message_json:
+      type: parse_json
+      field: MESSAGE
+    drop_agent_metric_refusals:
+      type: exclude_logs
+      match_any:
+        - 'jsonPayload.MESSAGE =~ "monitoring.googleapis.com"'
   service:
     pipelines:
+      default_pipeline:
+        receivers: []
       journal:
         receivers: [journal]
+        processors: [parse_message_json, drop_agent_metric_refusals]
 metrics:
   service:
     pipelines:
@@ -134,24 +162,41 @@ systemctl restart google-cloud-ops-agent
 
 # A scope is not a permission. The scope check at the top passes even when the
 # IAM role was never granted or was later removed, and the agent then spends the
-# whole boot retrying 403s while the operator believes the visit is being
-# recorded. So: emit a marker, give the agent a moment, and read its own log for
-# a refusal. Silence here is the only evidence available on-box that ingestion
-# is actually working — the VM cannot read Cloud Logging back (logWriter is
-# write-only, deliberately).
+# whole boot retrying refusals while the operator believes the visit is being
+# recorded. So: emit a marker, give the agent a moment, and read its own log.
+# Silence here is the only evidence available on-box that ingestion works — the
+# VM cannot read Cloud Logging back (logWriter is write-only, deliberately).
+#
+# Two corrections, both from running this for real on 2026-07-31:
+#
+# 1. It grepped `-u google-cloud-ops-agent`, which is the *wrapper* unit and
+#    logs almost nothing. The work happens in `-fluent-bit` and
+#    `-opentelemetry-collector`. Measured at the time: the wrapper unit showed 0
+#    refusals while the real units showed 8 — the check that exists to catch
+#    exactly this reported all-clear.
+# 2. It must not fail on *metrics* refusals. Those are permanent and intended
+#    (no monitoring.metricWriter, by design), so a check that treated them as
+#    failure would make every future install fail. Only a refusal from the
+#    logging API means the record is not being kept.
+AGENT_UNITS='google-cloud-ops-agent*'
 MARKER="learnarken-ops-smoke $(date -u +%FT%TZ)"
 logger -t learnarken-ops-smoke -- "$MARKER"
 sleep 20
-if journalctl -u google-cloud-ops-agent --since '2 min ago' --no-pager 2>/dev/null \
-  | grep -qiE 'permissiondenied|403|unauthenticated'; then
-  echo "the agent is being refused by Cloud Logging — check the IAM grant:" >&2
-  journalctl -u google-cloud-ops-agent --since '2 min ago' --no-pager \
-    | grep -iE 'permissiondenied|403|unauthenticated' | tail -5 >&2
+refusals=$(journalctl -u "$AGENT_UNITS" --since '2 min ago' --no-pager 2>/dev/null \
+  | grep -iE 'permissiondenied|unauthenticated' || true)
+if printf '%s' "$refusals" | grep -qi 'logging.googleapis.com'; then
+  echo "Cloud Logging is refusing this agent — the record is NOT being kept:" >&2
+  printf '%s\n' "$refusals" | grep -i 'logging.googleapis.com' | tail -5 >&2
+  echo "check the roles/logging.logWriter grant (runbook §9a)." >&2
   exit 1
+fi
+if printf '%s' "$refusals" | grep -qi 'monitoring.googleapis.com'; then
+  echo "note: metrics are being refused, as intended — this VM has no" >&2
+  echo "      monitoring.metricWriter. Logs are unaffected." >&2
 fi
 
 cat <<EOF
 ops agent installed; journald now ships to Cloud Logging.
 Confirm from your laptop that the marker arrived (the VM cannot check for you):
-  gcloud logging read 'resource.type="gce_instance" AND textPayload:"$MARKER"' --limit=1
+  gcloud logging read 'resource.type="gce_instance" AND "$MARKER"' --limit=1
 EOF

@@ -305,12 +305,13 @@ gcloud compute ssh learnarken-demo --zone=$ZONE --command "
   REPO=/opt/learnarken/LearnArken
   sudo -u learnarken git -C \$REPO fetch origin $SHA
   sudo -u learnarken git -C \$REPO checkout --detach $SHA
-  # Prove the tree is the reviewed commit and nothing else before running any
-  # of it as root, then run from a root-owned copy.
   test \"\$(sudo -u learnarken git -C \$REPO rev-parse HEAD)\" = '$SHA'
-  test -z \"\$(sudo -u learnarken git -C \$REPO status --porcelain)\"
-  sudo install -o root -g root -m 755 \
-    \$REPO/deploy/vm/install_ops_agent.sh /usr/local/sbin/learnarken-install-ops-agent
+  # Root runs the bytes git has under that commit hash, never whatever the
+  # working tree happens to hold.
+  sudo -u learnarken git -C \$REPO cat-file blob $SHA:deploy/vm/install_ops_agent.sh \
+    | sudo tee /usr/local/sbin/learnarken-install-ops-agent >/dev/null
+  sudo chown root:root /usr/local/sbin/learnarken-install-ops-agent
+  sudo chmod 755 /usr/local/sbin/learnarken-install-ops-agent
   sudo /usr/local/sbin/learnarken-install-ops-agent
   sudo systemctl restart learnarken-demo"
 ```
@@ -325,9 +326,16 @@ VM's actual state rather than assuming it:
 - **Root must not execute a file out of that checkout on trust.** Anything that
   compromised the VM as `learnarken` could rewrite `install_ops_agent.sh` and
   wait for the next operator to `sudo bash` it — a clean privilege escalation
-  handed over by the runbook itself (round-2 red team P2). Hence the two
-  assertions above: HEAD *is* the reviewed SHA and the tree is clean, then run
-  from a root-owned copy.
+  handed over by the runbook itself (round-2 red team P2). So root runs the blob
+  git stores under the reviewed commit hash, copied to a root-owned path.
+  Forging that content means forging a SHA-1 collision; editing the working tree
+  achieves nothing.
+
+  The first version of this step asserted `git status --porcelain` was empty
+  instead. **It could never have passed on this machine**: the live VM's
+  checkout carries a dozen untracked macOS `._*` AppleDouble sidecars, created
+  when the deploy files were `scp`-ed from a Mac on 2026-07-29. Found by running
+  the step for real on 2026-07-31, not by reading it.
 - **The agent alone changes nothing.** The lines it ships are written by the new
   backend code, so the VM has to move to the new commit *and* restart
   `learnarken-demo`. Agent first, restart second, so the app's output is

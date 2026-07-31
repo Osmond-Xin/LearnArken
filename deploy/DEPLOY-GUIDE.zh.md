@@ -254,11 +254,12 @@ gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command "
   REPO=/opt/learnarken/LearnArken
   sudo -u learnarken git -C \$REPO fetch origin $SHA
   sudo -u learnarken git -C \$REPO checkout --detach $SHA
-  # 以 root 跑之前，先证明这棵树就是评审过的那个 commit、且没有被改过
   test \"\$(sudo -u learnarken git -C \$REPO rev-parse HEAD)\" = '$SHA'
-  test -z \"\$(sudo -u learnarken git -C \$REPO status --porcelain)\"
-  sudo install -o root -g root -m 755 \
-    \$REPO/deploy/vm/install_ops_agent.sh /usr/local/sbin/learnarken-install-ops-agent
+  # root 跑的是 git 在那个 commit 哈希下存的字节，而不是工作区里恰好是什么
+  sudo -u learnarken git -C \$REPO cat-file blob $SHA:deploy/vm/install_ops_agent.sh \
+    | sudo tee /usr/local/sbin/learnarken-install-ops-agent >/dev/null
+  sudo chown root:root /usr/local/sbin/learnarken-install-ops-agent
+  sudo chmod 755 /usr/local/sbin/learnarken-install-ops-agent
   sudo /usr/local/sbin/learnarken-install-ops-agent
   sudo systemctl restart learnarken-demo"
 ```
@@ -270,8 +271,12 @@ gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command "
   git 的 dubious-ownership 保护。要像 `provision.sh` 那样以 `learnarken` 身份 fetch。
 - **root 不能凭信任去执行那个目录里的文件**：以 `learnarken` 身份攻陷 VM 的人可以改写
   `install_ops_agent.sh`，等下一次操作者 `sudo bash` 它——这等于 runbook 亲手递上一条
-  提权路径（二轮红队 P2）。所以上面先断言 HEAD 就是评审过的 SHA、工作区干净，再从
-  root 自己的副本运行。
+  提权路径（二轮红队 P2）。所以 root 执行的是 **git 在那个 commit 哈希下存的 blob**，
+  拷到 root 自己的路径再跑：要伪造它得先伪造一次 SHA-1 碰撞，改工作区没有用。
+
+  这一步的第一版是断言 `git status --porcelain` 为空。**它在这台机器上永远不可能通过**：
+  线上 VM 的工作区里有十几个未跟踪的 macOS `._*` 文件，是 2026-07-29 从 Mac `scp`
+  部署文件时带过去的。这是 2026-07-31 真跑了一遍才发现的，不是读出来的。
 - **光装 agent 没用**：要送的那两行日志是新后端代码写的，所以 VM 必须切到新 commit
   **并重启** `learnarken-demo`。顺序是先装 agent 后重启，这样应用的第一行输出就被收走。
 - **commit 得先在 `origin` 上**：分支没合并推上去之前，VM 无处可 fetch。
