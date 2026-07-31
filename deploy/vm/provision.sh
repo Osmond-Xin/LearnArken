@@ -92,12 +92,26 @@ systemctl enable --now learnarken-watchdog.timer
 systemctl stop learnarken-emergency-poweroff.timer >/dev/null 2>&1 || true
 
 # The journal is the only record of what a visitor did on the demo, and it dies
-# with the boot unless something ships it (2026-07-30). Never fatal: a missing
-# log agent is not a reason to abandon a provisioned machine, and the script
-# fails closed on its own when there is no service account to send with.
+# with the boot unless something ships it (2026-07-30).
+#
+# Fatal *only* when logging was asked for and could not be delivered. Exit 78
+# means this machine carries no service account at all — a deliberate
+# no-identity build, which is how the VM ran until 2026-07-30 — and provisioning
+# continues. Any other failure means an identity was attached, so the operator
+# intends the demo to be logged, and a public demo that silently records nothing
+# is the exact failure this whole change exists to prevent (round-2 red team).
 phase 'shipping the journal to Cloud Logging'
-bash "$REPO_DIR"/deploy/vm/install_ops_agent.sh \
-  || echo "  WARNING: ops agent not installed — this boot's journal stays on the VM" >&2
+set +e
+bash "$REPO_DIR"/deploy/vm/install_ops_agent.sh
+agent_status=$?
+set -e
+if [ "$agent_status" -eq 78 ]; then
+  echo "  no service account on this VM — journal stays local, continuing" >&2
+elif [ "$agent_status" -ne 0 ]; then
+  echo "  FATAL: this VM has an identity for logging but the agent failed to install." >&2
+  echo "  Refusing to provision a public demo that would record nothing." >&2
+  exit "$agent_status"
+fi
 
 # uv manages its own Python 3.12; the systemd shim/watchdog use system python3.
 sudo -u learnarken bash -c 'command -v ~/.local/bin/uv >/dev/null 2>&1 \

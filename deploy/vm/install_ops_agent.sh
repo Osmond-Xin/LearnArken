@@ -19,15 +19,21 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Exit codes, so a caller can tell "logging was never asked for" apart from
+# "logging was asked for and is broken" — provision.sh treats the first as a
+# machine deliberately built without an identity and the second as fatal
+# (round-2 red team P1).
+EX_NOT_REQUESTED=78
+
 # Least privilege is the whole design of this VM (it carried no service account
 # at all until today), so the agent gets exactly one credential — logWriter —
 # and this check fails closed rather than installing an agent that will spend
 # the boot retrying 403s. See deploy/runbook.md §9 for the grant.
 SCOPES_URL='http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/scopes'
 if ! scopes=$(curl -fsS -H 'Metadata-Flavor: Google' "$SCOPES_URL" 2>/dev/null); then
-  echo "this VM has no service account attached — the agent could not send anything." >&2
-  echo "attach one first (runbook §9), then re-run." >&2
-  exit 1
+  echo "this VM has no service account attached — nothing could be sent anywhere." >&2
+  echo "attach one first (runbook §9) if this machine is meant to keep logs." >&2
+  exit "$EX_NOT_REQUESTED"
 fi
 case "$scopes" in
   *logging.write* | *cloud-platform*) ;;
@@ -72,8 +78,10 @@ apt-get update
 
 # Exact version, then held: "major 2" still lets an unattended upgrade swap the
 # agent under a live demo. The version is whatever the repo offers the first
-# time this runs, recorded in the log line below — re-pin deliberately by
-# unholding, never silently.
+# time this runs, and is then *enforced* — a re-run against a machine whose
+# agent drifted (or was never held) refuses rather than reporting success over
+# an unknown build (round-2 red team P2).
+VERSION_FILE=/etc/learnarken-ops-agent.version
 if ! dpkg -s google-cloud-ops-agent >/dev/null 2>&1; then
   AGENT_VERSION=$(apt-cache policy google-cloud-ops-agent | awk '/Candidate:/ {print $2}')
   [ -n "$AGENT_VERSION" ] && [ "$AGENT_VERSION" != "(none)" ] || {
@@ -81,9 +89,23 @@ if ! dpkg -s google-cloud-ops-agent >/dev/null 2>&1; then
     exit 1
   }
   apt-get install -y "google-cloud-ops-agent=$AGENT_VERSION"
-  apt-mark hold google-cloud-ops-agent
+  printf '%s\n' "$AGENT_VERSION" > "$VERSION_FILE"
 fi
-echo "ops agent version: $(dpkg-query -W -f='${Version}' google-cloud-ops-agent)"
+
+installed=$(dpkg-query -W -f='${Version}' google-cloud-ops-agent)
+if [ -s "$VERSION_FILE" ] && [ "$installed" != "$(cat "$VERSION_FILE")" ]; then
+  echo "installed ops agent $installed does not match the pinned $(cat "$VERSION_FILE")." >&2
+  echo "Upgrading is a deliberate act:" >&2
+  echo "  apt-mark unhold google-cloud-ops-agent && apt-get install -y google-cloud-ops-agent" >&2
+  echo "  then record the new version in $VERSION_FILE and re-run this script." >&2
+  exit 1
+fi
+# Re-applied every run, not only on first install: an unheld package is one
+# unattended upgrade away from changing under a live demo. The flip side is that
+# a held package stops receiving security fixes — the upgrade path above is the
+# intended way out, and it is a decision, not a default.
+apt-mark hold google-cloud-ops-agent >/dev/null
+echo "ops agent version: $installed (held)"
 
 # Metrics are deliberately off: sending them needs monitoring.metricWriter,
 # which this VM's service account does not have, so leaving the built-in metrics

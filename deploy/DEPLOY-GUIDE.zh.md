@@ -250,9 +250,16 @@ gcloud compute instances set-service-account learnarken-demo --zone=$ZONE \
 gcloud compute instances start learnarken-demo --zone=$ZONE --project=$PROJECT
 SHA=<合并后的 commit>
 gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command "
-  sudo -u learnarken git -C /opt/learnarken/LearnArken fetch origin $SHA &&
-  sudo -u learnarken git -C /opt/learnarken/LearnArken checkout --detach $SHA &&
-  sudo bash /opt/learnarken/LearnArken/deploy/vm/install_ops_agent.sh &&
+  set -e
+  REPO=/opt/learnarken/LearnArken
+  sudo -u learnarken git -C \$REPO fetch origin $SHA
+  sudo -u learnarken git -C \$REPO checkout --detach $SHA
+  # 以 root 跑之前，先证明这棵树就是评审过的那个 commit、且没有被改过
+  test \"\$(sudo -u learnarken git -C \$REPO rev-parse HEAD)\" = '$SHA'
+  test -z \"\$(sudo -u learnarken git -C \$REPO status --porcelain)\"
+  sudo install -o root -g root -m 755 \
+    \$REPO/deploy/vm/install_ops_agent.sh /usr/local/sbin/learnarken-install-ops-agent
+  sudo /usr/local/sbin/learnarken-install-ops-agent
   sudo systemctl restart learnarken-demo"
 ```
 
@@ -261,6 +268,10 @@ gcloud compute ssh learnarken-demo --zone=$ZONE --project=$PROJECT --command "
 - **仓库是 detached 状态、属主是 `learnarken`**（provision 按 SHA 钉住，红队 R-11）。
   `sudo git pull` 会错两次：detached HEAD 没有上游分支；root 去动别人的仓库会触发
   git 的 dubious-ownership 保护。要像 `provision.sh` 那样以 `learnarken` 身份 fetch。
+- **root 不能凭信任去执行那个目录里的文件**：以 `learnarken` 身份攻陷 VM 的人可以改写
+  `install_ops_agent.sh`，等下一次操作者 `sudo bash` 它——这等于 runbook 亲手递上一条
+  提权路径（二轮红队 P2）。所以上面先断言 HEAD 就是评审过的 SHA、工作区干净，再从
+  root 自己的副本运行。
 - **光装 agent 没用**：要送的那两行日志是新后端代码写的，所以 VM 必须切到新 commit
   **并重启** `learnarken-demo`。顺序是先装 agent 后重启，这样应用的第一行输出就被收走。
 - **commit 得先在 `origin` 上**：分支没合并推上去之前，VM 无处可 fetch。

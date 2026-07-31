@@ -47,6 +47,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -176,10 +178,25 @@ def _sse(event: str, data: object) -> str:
 # re-applies it rather than trusting the caller, so a direct call to the helper
 # cannot write an unbounded record.
 _ACCESS_LOG_MAX_Q = 500
+# How long the SSE stream may go silent before it sends a comment frame. Long
+# enough to be invisible next to a multi-second generation, short enough that a
+# stalled query is noticed while the VM is still up.
+_SSE_KEEPALIVE_S = 15.0
 # Client-supplied turn id, echoed so the Streamlit "how was this entered" line
-# and this one can be paired. Untrusted, so it is bounded and stripped of
-# anything that is not a plain identifier before it goes anywhere near a log.
+# and this one can be paired. Untrusted — the field is named `turn_claimed` in
+# the record for that reason — so it is bounded and stripped of anything that is
+# not a plain identifier before it goes anywhere near a log.
 _TURN_RE = re.compile(r"[^A-Za-z0-9_-]")
+
+# Its own logger, not `learnarken`: these records must reach the journal as
+# *nothing but* a JSON object. A shared logger would sooner or later acquire a
+# formatter or a parent handler that prefixes a timestamp, and one prefix is
+# enough to stop the Ops Agent parsing the line into `jsonPayload` — which is
+# what the documented readback query selects on. The first attempt at this did
+# exactly that (round-2 red team P1): the handler formatted
+# "%(asctime)s %(levelname)s %(message)s", so `jsonPayload.event="demo_query"`
+# would have matched nothing in production while every test stayed green.
+access_logger = logging.getLogger("learnarken.demo_access")
 
 
 def _turn_tag(request: Request) -> str:
@@ -187,23 +204,28 @@ def _turn_tag(request: Request) -> str:
 
 
 def enable_public_access_log() -> None:
-    """Make INFO actually come out of the deployed process.
+    """Make the access records actually come out of the deployed process.
 
     Python's root level is WARNING and uvicorn configures only its own loggers,
-    so `learnarken` inherits an effective level of 30 and the last-resort
-    handler drops anything below it. Measured on this code, not assumed: with
-    uvicorn's LOGGING_CONFIG applied, `logger.info(...)` produced empty stderr.
-    Without this the whole access log would have shipped, passed its tests, and
-    recorded nothing in production — which is exactly how the trigger
-    function's click record was lost on 2026-07-29.
+    so an inherited effective level of 30 drops INFO at the last-resort handler.
+    Measured, not assumed: with uvicorn's LOGGING_CONFIG applied,
+    `logger.info(...)` produced empty stderr. Without this the whole access log
+    would have shipped, passed its tests, and recorded nothing — which is
+    exactly how the trigger function's click record was lost on 2026-07-29.
+
+    `propagate = False` matters as much as the handler: with it left on, a
+    parent handler (uvicorn's, or any future `basicConfig`) would emit the same
+    record a second time *with its own formatting*, and the prefixed copy is not
+    parseable JSON.
     """
-    if any(getattr(h, "_learnarken_access_log", False) for h in logger.handlers):
+    if any(getattr(h, "_learnarken_access_log", False) for h in access_logger.handlers):
         return
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    handler.setFormatter(logging.Formatter("%(message)s"))  # the message IS the record
     handler._learnarken_access_log = True  # type: ignore[attr-defined]
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    access_logger.addHandler(handler)
+    access_logger.setLevel(logging.INFO)
+    access_logger.propagate = False
 
 
 def _log_query_access(
@@ -235,7 +257,10 @@ def _log_query_access(
         return
     record = {
         "event": "demo_query",
-        "turn": turn,
+        # Named for what it is: the client says this is its turn id. Nothing
+        # verifies that, and nothing can — the visitor holds the gate key. It
+        # pairs two log lines; it is not evidence of anything (round-2 P3).
+        "turn_claimed": turn,
         "question": question[:_ACCESS_LOG_MAX_Q],
         "clearance": clearance,
         "outcome": outcome,
@@ -244,7 +269,7 @@ def _log_query_access(
         "retracted": retracted,
         "ms": round((time.monotonic() - started) * 1000),
     }
-    logger.info(json.dumps(record, ensure_ascii=False))
+    access_logger.info(json.dumps(record, ensure_ascii=False))
 
 
 def _guard_csrf(request: Request) -> None:
@@ -409,6 +434,32 @@ def create_app() -> FastAPI:
         enable_public_access_log()
         threading.Thread(target=_warm_models, name="warm-models", daemon=True).start()
 
+    @app.exception_handler(RequestValidationError)
+    async def _log_rejected_query(request: Request, exc: RequestValidationError):
+        """A question the wire refuses never reaches `/query`, so without this it
+        produced a client `demo_entry` with no outcome ever written — a half-turn
+        that reads like a question that vanished (round-2 P2). The client checks
+        the same bounds first; this covers anything reaching the backend by
+        another route.
+
+        Registered unconditionally and gated inside `_log_query_access`, like
+        every other call: gating on `GUARD.public` *here* would bind the
+        behaviour to whatever the flag was when the app object was built, which
+        is not the same thing as public mode being on.
+        """
+        if request.url.path == "/query":
+            submitted = exc.body if isinstance(exc.body, dict) else {}
+            question = submitted.get("question")
+            _log_query_access(
+                question=question if isinstance(question, str) else "",
+                clearance=None,
+                turn=_turn_tag(request),
+                started=time.monotonic(),
+                outcome="rejected",
+                error_type="RequestValidationError",
+            )
+        return await request_validation_exception_handler(request, exc)
+
     @app.get("/health")
     def health() -> dict:
         services = {
@@ -550,8 +601,25 @@ def create_app() -> FastAPI:
             worker = threading.Thread(target=work, daemon=True)
             worker.start()
             tokens_emitted = False
+            terminal: tuple[str, dict] | None = None
             try:
-                while (item := beats.get()) is not None:
+                while True:
+                    try:
+                        item = beats.get(timeout=_SSE_KEEPALIVE_S)
+                    except queue.Empty:
+                        # Nothing to say, but something must be *sent*. A sync
+                        # generator blocked in `get()` cannot be interrupted by a
+                        # disconnect — Starlette can only raise GeneratorExit
+                        # when it next resumes — so a generation that stalls
+                        # before its first token would sit here holding an LLM
+                        # slot with no record ever written (round-2 P1). An SSE
+                        # comment is ignored by every conforming client (the
+                        # demo's own parser reads only `event:`/`data:`) and
+                        # fails against a client that has gone away.
+                        yield ": keepalive\n\n"
+                        continue
+                    if item is None:
+                        break
                     kind, data = item
                     if kind == "token":
                         tokens_emitted = True
@@ -560,20 +628,21 @@ def create_app() -> FastAPI:
                         # abandoned, so a later transport failure must not claim
                         # to withdraw them (red-team 2026-07-28 P2).
                         tokens_emitted = False
-                    elif kind == "retract":
-                        # The engine withdraws generated text on every
-                        # non-threshold refusal. The record has to say so, or a
-                        # refusal that the visitor watched being taken back
-                        # reads afterwards like one that never printed a word.
-                        saw_retract = True
                     yield _sse(kind, data)
+                    if kind == "retract":
+                        # Set *after* the yield returns: the engine withdraws
+                        # generated text on every non-threshold refusal, but a
+                        # retraction the visitor never received is not one they
+                        # saw (round-2 P2). The record has to say what reached
+                        # them, or a refusal watched being taken back reads
+                        # afterwards like one that never printed a word.
+                        saw_retract = True
                 if "error" in outcome:
                     exc = outcome["error"]
                     if tokens_emitted:
                         # The stream aborted after showing unverified tokens —
                         # the retraction contract must hold for transport
                         # failures too, not only gate refusals (day6 #3).
-                        saw_retract = True
                         yield _sse(
                             "retract",
                             {
@@ -582,24 +651,34 @@ def create_app() -> FastAPI:
                                 "content is unverified and has been retracted",
                             },
                         )
+                        saw_retract = True
                     if type(exc).__name__ in _FAIL_CLOSED:
                         logger.warning("query failed (fail closed): %s", exc, exc_info=exc)
                         message = _sanitize(f"{type(exc).__name__}: {exc}")
                     else:
                         logger.error("unexpected /query failure", exc_info=exc)
                         message = "internal error (fail closed)"
-                    record("error", error_type=type(exc).__name__)
+                    terminal = ("error", {"error_type": type(exc).__name__})
                     yield _sse("error", {"message": message})
                 else:
                     result = outcome["result"]
-                    record("refused" if result.refused else "answered", gate=result.refusal_gate)
+                    terminal = (
+                        "refused" if result.refused else "answered",
+                        {"gate": result.refusal_gate},
+                    )
                     yield _sse("result", _jsonable(result.model_dump()))
                 yield _sse("done", {})
+                # Only now. Writing the outcome before its own SSE frame was
+                # delivered meant a visitor who disconnected during the final
+                # yield left a record saying "answered" for an answer they never
+                # received, and the once-only guard made it uncorrectable
+                # (round-2 P2). Past `done`, the frames are out.
+                record(terminal[0], **terminal[1])
             finally:
                 # A visitor who closes the tab mid-generation takes the
                 # generator down with them: Starlette throws GeneratorExit at
-                # the yield above and nothing after the loop ever runs, while
-                # the worker thread keeps spending its LLM slot. That abandoned
+                # the yield above and nothing after it ever runs, while the
+                # worker thread keeps spending its LLM slot. That abandoned
                 # query is the one that costs money and reaches nobody, so it is
                 # the last one that should go unrecorded. No-op once a terminal
                 # line has been written.

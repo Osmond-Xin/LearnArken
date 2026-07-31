@@ -301,9 +301,17 @@ gcloud compute instances set-service-account learnarken-demo --zone=$ZONE \
 gcloud compute instances start learnarken-demo --zone=$ZONE
 SHA=<the merged commit>
 gcloud compute ssh learnarken-demo --zone=$ZONE --command "
-  sudo -u learnarken git -C /opt/learnarken/LearnArken fetch origin $SHA &&
-  sudo -u learnarken git -C /opt/learnarken/LearnArken checkout --detach $SHA &&
-  sudo bash /opt/learnarken/LearnArken/deploy/vm/install_ops_agent.sh &&
+  set -e
+  REPO=/opt/learnarken/LearnArken
+  sudo -u learnarken git -C \$REPO fetch origin $SHA
+  sudo -u learnarken git -C \$REPO checkout --detach $SHA
+  # Prove the tree is the reviewed commit and nothing else before running any
+  # of it as root, then run from a root-owned copy.
+  test \"\$(sudo -u learnarken git -C \$REPO rev-parse HEAD)\" = '$SHA'
+  test -z \"\$(sudo -u learnarken git -C \$REPO status --porcelain)\"
+  sudo install -o root -g root -m 755 \
+    \$REPO/deploy/vm/install_ops_agent.sh /usr/local/sbin/learnarken-install-ops-agent
+  sudo /usr/local/sbin/learnarken-install-ops-agent
   sudo systemctl restart learnarken-demo"
 ```
 
@@ -314,6 +322,12 @@ VM's actual state rather than assuming it:
   R-11). `sudo git pull` fails twice over — no upstream branch on a detached
   HEAD, and root touching another user's repo trips git's dubious-ownership
   guard. Fetch the SHA as `learnarken`, exactly as `provision.sh` does.
+- **Root must not execute a file out of that checkout on trust.** Anything that
+  compromised the VM as `learnarken` could rewrite `install_ops_agent.sh` and
+  wait for the next operator to `sudo bash` it — a clean privilege escalation
+  handed over by the runbook itself (round-2 red team P2). Hence the two
+  assertions above: HEAD *is* the reviewed SHA and the tree is clean, then run
+  from a root-owned copy.
 - **The agent alone changes nothing.** The lines it ships are written by the new
   backend code, so the VM has to move to the new commit *and* restart
   `learnarken-demo`. Agent first, restart second, so the app's output is
