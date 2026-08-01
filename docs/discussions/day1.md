@@ -10,11 +10,36 @@
   (b) adopt the Superpowers skill library; (c) hand-write minimal templates and
   borrow only the *constitution* concept.
 - **Decision**: (c).
-- **Rationale**: this project's core evidence is that specs and adjudications
-  come from a human; a spec-generating pipeline would erase exactly what the
-  repo is trying to prove. For a 10-day solo project, framework learning curve
-  outweighs template value. The one durable idea — a project-level invariants
-  file — became [docs/constitution.md](constitution.md).
+- **Rationale** — *corrected 2026-08-01 at Yi Xin's direction. The earlier
+  AI-distilled text gave the reason as "a spec-generating pipeline would erase
+  the evidence that specs come from a human". That was not his reason. The
+  superseded wording is recorded here rather than silently overwritten, per the
+  same rule that governs a voided measurement (ADR-0004).*
+
+  A spec framework encodes an assumption about its user: that the designer
+  already holds the domain. Spec Kit is written for that case and is effective
+  in it — this is a **fit** judgement, not a verdict on the tool.
+
+  This project is the opposite case: a learning project in a domain Yi Xin did
+  not yet know (S1000D aviation maintenance publications). Running the pipeline
+  anyway spends its effort elaborating branches the designer is not yet equipped
+  to evaluate, and the token cost lands on minutiae he had no basis to judge.
+
+  The sharper problem is what that does to the model. Designers overestimate
+  their own understanding. Where a spec sounds settled about something its
+  author has not actually understood, the model does not stop and ask — it
+  elaborates in that direction. **Unmarked ignorance is not a gap in the
+  document; to a model it is an instruction.** That is the drift mechanism this
+  decision was avoiding.
+
+  **Honest chronology**: on Day 1 this was an instinct with a token bill behind
+  it, not an argument. It was named explicitly on **Day 4**, when the 研→读→扫
+  learning step and its four-quadrant unknowns scan
+  ([docs/research/](../research/)) entered the daily cycle as the counter-measure.
+
+  Secondary: for a 10-day solo project the framework learning curve outweighs
+  template value. The one durable idea — a project-level invariants file —
+  became [docs/constitution.md](../constitution.md).
 
 ## D2. What does "Day 1 done" mean — governance docs, or running code?
 
